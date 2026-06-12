@@ -1,0 +1,49 @@
+---
+description: Use Stability Studio MCP for local ComfyUI image/video generation
+alwaysApply: true
+---
+
+# Stability Studio MCP
+
+This repo includes an MCP server for **local** image and video generation via Stability Matrix + ComfyUI.
+
+## When MCP is available
+
+If `stability-studio` MCP tools are connected (Cursor Settings → MCP shows `stability-studio` enabled):
+
+1. Call **`get_generation_context`** first — read **`art_food_groups`**, **`gpu_backend_policy`**, **`image_editing_readiness`**, **`face_detail_readiness`**, **`model_families`**, **`style_readiness`**, **`hardware_profile`**, **`generation_limits`**.
+2. **GPU policy:** **`check_gpu_backend`** before **`generate_video`**, **`generate_audio`**, or **`generate_video_hero`**. Offline agents (Jan, LM Studio) rely on this — conflicts return **`gpu_backend_conflict`**.
+3. **Image edits:** **`setup_image_editing()`** once per machine → restart ComfyUI if needed → **`edit_image(image_path, instruction, food_group=...)`**.
+4. **Four food groups:** `anime` (ilustmix), `fantasy` (merged_dreams), `cyberpunk` (n4mik4), `photoreal` (juggernaut / miracle_nsfw). Use `list_art_food_groups()`.
+5. **Photoreal edits:** use `juggernaut` for SDXL IP-Adapter/ControlNet; `miracle_nsfw` is Flux2 (no SDXL ControlNet).
+6. Before **`generate_image`**: check `style_readiness`; Flux2: `download_style_assets(style='miracle_nsfw')`. **`ilustmix`**: `face_detail` on by default — **`setup_face_detail()`** once, restart ComfyUI.
+7. **Draft video:** **`generate_video`** with **`mode=i2v`** + **`image_path`** (default **`i2v_5b_painter`**) or **`mode=t2v`** (`workflow_id=t2v`) or **`mode=v2v`** + **`video_path`**. On 16 GB: walk **`motion_amplitude` 1.15–1.2**; bow **`1.08–1.1`**; **`smooth_motion=false`**.
+8. **Hero video:** stop ComfyUI → **`check_wan2gp_runtime`** → **`generate_video_hero`** (auto-starts Wan2GP MCP on `:7867`). Never run ComfyUI and Wan2GP Gradio UI together.
+9. Wan: **`check_wan_assets(workflow_id="i2v_5b")`** / **`download_wan_assets(..., include_large=true)`**.
+10. Low-level edit tools (`inpaint_advanced`, `generate_image_controlnet`) — prefer **`edit_image`** for agents.
+
+Tool names in Cursor: use the MCP tool list shown in the session.
+
+## Prerequisites (local machine)
+
+- ComfyUI launched from Stability Matrix
+- `stability-studio-mcp/config.yaml` copied from `config.yaml.example` with correct paths
+- **Image editing:** `setup_image_editing()` — IP-Adapter, SDXL + SD1.5 ControlNet, segmentation nodes
+- **Flux2 (`miracle_nsfw`):** qwen_3_8b + Klein VAE + UNet in DiffusionModels — see MODEL-FAMILIES.md
+- **I2V (`i2v_5b`):** wan2.2_ti2v_5B_fp16, wan2.2_vae, umt5_xxl_fp8_e4m3fn_scaled
+- **`VHS_USE_IMAGEIO_FFMPEG=1`** before ComfyUI starts (video MP4)
+
+## Cloud / background agents
+
+Cloud agents **cannot** reach the user's local ComfyUI unless the user runs Cursor locally with this MCP server. For cloud-only sessions: edit code and docs; do not assume `edit_image` or `generate_image` will succeed.
+
+## Code changes
+
+- Edit orchestration: `stability-studio-mcp/studio/edit_pipeline.py`, `engine.py` (`edit_image`)
+- Segmentation: `studio/segmentation.py`
+- Checkpoint sniff: `studio/checkpoint_metadata.py`
+- Image edit assets: `studio/image_editing_assets.py`
+- Video conversion: `studio/workflow_converter.py`
+- Styles / food groups: `catalog.yaml` (+ [IMAGE-EDITING.md](../IMAGE-EDITING.md))
+
+See `CURSOR-INTEGRATION.md` and `OPEN-INTERPRETER-INTEGRATION.md` for full setup.

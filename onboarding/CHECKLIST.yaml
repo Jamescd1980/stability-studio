@@ -1,0 +1,165 @@
+# Machine-readable onboarding for AI agents (Cursor, Open Interpreter).
+# Human playbook: ONBOARDING.md
+
+version: 1
+studio_version: "1.0.0-beta"
+
+disclaimer: |
+  This is NOT a one-click installer. It is an MCP workflow that helps you use
+  ComfyUI and related tools through an AI assistant. Expect large model downloads,
+  an NVIDIA GPU, and restarts along the way.
+
+required_programs:
+  always:
+    - name: NVIDIA GPU driver
+      why: Local image/video generation needs CUDA
+    - name: Python 3.11+
+      why: Runs the stability-studio MCP server
+    - name: Cursor or Open Interpreter
+      why: AI assistant that calls MCP tools
+    - name: Git
+      why: Clone this repository
+  tier1_images:
+    - name: Stability Matrix
+      url: https://github.com/LykosAI/StabilityMatrix
+      why: Manages ComfyUI and model paths
+    - name: ComfyUI (via Stability Matrix)
+      why: Image generation backend
+  tier2_draft_video:
+    - name: Wan video models in ComfyUI
+      why: "check_wan_assets / download_wan_assets for workflow_id i2v_5b or t2v"
+    - name: "Env VHS_USE_IMAGEIO_FFMPEG=1"
+      why: MP4 output from ComfyUI video nodes — set before ComfyUI starts
+  tier3_storyboard:
+    - name: MOSS-TTS (ComfyUI custom node + models)
+      why: Dialogue and SFX — check_moss_assets
+    - name: ffmpeg
+      why: Splice clips; bundled with ComfyUI venv on Windows
+  tier4_hero_optional:
+    - name: Wan2GP (Stability Matrix package)
+      why: "ONLY when ≤16 GB VRAM AND user wants best motion or lip sync"
+      warn: Stop ComfyUI before Wan2GP jobs. Never run both on 16 GB.
+
+vram_routing:
+  gte_24_gb:
+    label: comfortable
+    default_backend: comfyui_only
+    offer_wan2gp: false
+    note: Use ComfyUI for images, draft video, and heavier Wan workflows. Simpler — one GPU app.
+  16_to_23_gb:
+    label: standard
+    default_backend: comfyui
+    offer_wan2gp: ask_if_hero_needed
+    note: ComfyUI for daily work. Offer Wan2GP only if user rejects draft quality and accepts downtime.
+  lte_16_gb:
+    label: tight
+    default_backend: comfyui
+    offer_wan2gp: ask_if_hero_needed
+    note: Draft video in ComfyUI (i2v_5b). Hero motion or lip sync → optional Wan2GP, one job at a time.
+
+discovery_questions:
+  - id: goal
+    prompt: "What do you want to make first?"
+    options:
+      - id: images
+        label: Still images (characters, scenes, edits)
+        tier: 1
+      - id: short_video
+        label: Short video clips from an image
+        tier: 2
+      - id: storyboard
+        label: Multi-beat scene with dialogue (visual novel / trailer)
+        tier: 3
+      - id: reference_only
+        label: Just see a finished example — no GPU setup yet
+        tier: 0
+  - id: experience
+    prompt: "Have you used ComfyUI or Stability Matrix before?"
+    options:
+      - id: none
+        label: No — walk me through everything
+      - id: comfyui
+        label: I already run ComfyUI
+      - id: power_user
+        label: I know models and workflows — skip basics
+
+tiers:
+  "0":
+    name: Browse
+    gpu_required: false
+    steps:
+      - read: onboarding/examples/rin/README.md
+      - say: Explain tiers 1–3; do not install until user picks a goal
+  "1":
+    name: Still images
+    gpu_required: true
+    steps:
+      - tool: get_generation_context
+      - tool: check_backends
+      - file: Copy onboarding/config.yaml.template → stability-studio-mcp/config.yaml and edit paths
+      - tool: check_style_assets
+      - action: First smoke test — generate_image style anime, small prompt
+      - doc: IMAGE-EDITING.md when user wants edits
+  "2":
+    name: Draft video
+    gpu_required: true
+    requires_tier: 1
+    steps:
+      - tool: check_gpu_backend
+      - tool: check_comfyui_dependencies
+        args: { workflow_id: i2v_5b }
+      - tool: check_wan_assets
+        args: { workflow_id: i2v_5b }
+      - tool: download_wan_assets
+        when: missing assets
+      - action: Restart ComfyUI after downloads
+      - tool: generate_video
+        args: { mode: i2v, workflow_id: i2v_5b, num_frames: 17 }
+        note: Start with 17 frames smoke test, not max frames
+  "3":
+    name: Storyboard
+    gpu_required: true
+    requires_tier: 2
+    steps:
+      - read: STORYBOARD-QUICKSTART.md
+      - tool: check_storyboard_readiness
+      - action: Create project from onboarding/PROJECT.template/ — set outputs.delivery
+      - tool: plan_storyboard_scene
+      - action: Run beats sequentially — hero clips, then audio, then ffmpeg splice
+      - doc: onboarding/examples/rin/README.md for finished reference
+  "4":
+    name: Hero motion / lip sync (optional)
+    gpu_required: true
+    requires_tier: 2
+    only_if:
+      - user_explicitly_wants_hero_or_lipsync
+      - vram_routing.offer_wan2gp != false
+    steps:
+      - warn: Stop ComfyUI. Wan2GP uses GPU exclusively on 16 GB.
+      - tool: check_gpu_backend
+      - tool: check_wan2gp_runtime
+      - tool: generate_video_hero
+      - doc: RESTART-GUIDE.md
+
+install_sequence:
+  - id: clone
+    action: git clone repo; open as Cursor workspace (studio-agent folder)
+  - id: mcp_deps
+    action: Run install.ps1 from repo root
+  - id: cursor_mcp
+    action: Confirm .cursor/mcp.json; restart Cursor; enable stability-studio MCP
+  - id: config
+    action: Edit stability-studio-mcp/config.yaml — stability_matrix.root, outputs.delivery
+  - id: comfyui
+    action: Launch ComfyUI from Stability Matrix
+  - id: smoke
+    tool: get_generation_context
+    then: check_backends
+
+first_win:
+  tier1:
+    tool: generate_image
+    example: { style: anime, prompt: "friendly fox girl portrait, soft lighting" }
+  tier2:
+    tool: generate_video
+    example: { mode: t2v, workflow_id: t2v, num_frames: 17, prompt: "ocean waves at sunset" }

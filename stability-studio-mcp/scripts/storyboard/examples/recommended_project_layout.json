@@ -1,0 +1,25 @@
+{
+  "date": "2026-06-12",
+  "purpose": "Standard delivery-project folder layout for Stability Studio storyboards",
+  "config": {
+    "outputs.delivery": "<project_root>",
+    "outputs.layout": "optional overrides — see studio/project_layout.py"
+  },
+  "recommended_structure": {
+    "source/": "Original reference uploads",
+    "images/": "Hero stills and approved image edits",
+    "images/chain/": "I2V handoff frames (*_last_frame.png)",
+    "assets/": "Control maps — canny, lineart, openpose",
+    "clips/": "Approved hero MP4s (one canonical name per beat)",
+    "audio/": "Approved dialogue and SFX MP3",
+    "temp/": "Raw Wan2GP / MOSS until approved",
+    "logs/": "JSON logs + storyboard_manifest.json",
+    "final/": "Spliced or muxed deliverables",
+    "rejected/": "Superseded attempts (optional)"
+  },
+  "storyboard_cli": {
+    "module": "studio/storyboard_cli.py",
+    "script": "scripts/storyboard/generate_storyboard.py",
+    "commands": ["plan", "check", "status", "splice"]
+  }
+}

@@ -1,0 +1,47 @@
+---
+description: Guide new users through Stability Studio setup via onboarding pack
+alwaysApply: true
+---
+
+# Stability Studio — guided onboarding
+
+This MCP is **not** a one-click installer. It helps **less technical users** use ComfyUI through an AI assistant.
+
+## When to run onboarding
+
+- User asks to install, set up, get started, or "how does this work"
+- First session on a fresh clone
+- User seems unsure what they can generate
+
+## Agent steps
+
+1. Call **`get_onboarding_context`** (or read `onboarding/ONBOARDING.md` + `onboarding/CHECKLIST.yaml`).
+2. Ask **2–4 discovery questions** (goal, GPU/VRAM, ComfyUI experience, art style) — see checklist `discovery_questions`.
+3. Pick the **lowest tier** that fits; do not jump to storyboard or Wan2GP early.
+4. State the **disclaimer**: large downloads, NVIDIA GPU, restarts are normal.
+
+## VRAM routing (strict)
+
+| VRAM | Policy |
+|------|--------|
+| **≥ 24 GB** | **ComfyUI only** — do not offer Wan2GP unless user is blocked |
+| **16–23 GB** | ComfyUI default; Wan2GP only if user explicitly wants hero/lip sync |
+| **≤ 16 GB** | ComfyUI images + draft video; Wan2GP = optional Tier 4 |
+
+## Tiers (do not skip gates)
+
+| Tier | Goal |
+|------|------|
+| 0 | Browse `onboarding/examples/rin/` — no GPU |
+| 1 | Still images — Stability Matrix + ComfyUI |
+| 2 | Draft video — `i2v_5b` / `t2v` smoke test |
+| 3 | Storyboard — MOSS + project folders + splice |
+| 4 | Hero / lip sync — Wan2GP opt-in only |
+
+## First win
+
+Always aim for one small success before max quality (one `generate_image` or 17-frame video).
+
+## Failures
+
+See `onboarding/TROUBLESHOOTING.md`. Restart ComfyUI after node installs and large downloads.

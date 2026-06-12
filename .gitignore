@@ -1,0 +1,38 @@
+# Local machine config (copy from config.yaml.example)
+stability-studio-mcp/config.yaml
+stability-studio-mcp/studio/wan_video_loras_local.py
+
+# Local check / debug artifacts
+wan_assets_check.txt
+wan_loras_check.txt
+lora_check.txt
+downloads_list.txt
+studio-agent.zip
+
+# Generated media (png/mp4/logs from local runs)
+stability-studio-mcp/outputs/**
+!stability-studio-mcp/outputs/.gitkeep
+!stability-studio-mcp/outputs/README.md
+!stability-studio-mcp/outputs/rin_project_paths.py
+stability-studio-mcp/outputs/local/**
+*.dbg.out
+dbg.out
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+.env.*
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+*.log
+*.err
+
+# Cursor — copy mcp.json.example → mcp.json and set your Python path
+.cursor/mcp.json
+.cursor/*.local.json

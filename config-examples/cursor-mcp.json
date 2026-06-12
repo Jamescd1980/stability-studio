@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "stability-studio": {
+      "command": "python",
+      "args": ["<PROJECT_ROOT>/stability-studio-mcp/server.py"],
+      "env": {}
+    }
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "manifest_version": 1,
+  "title": "Example three-beat storyboard",
+  "status": "in_progress",
+  "project_root": "<set outputs.delivery or pass --project-dir>",
+  "fps": 16,
+  "success_criteria": {
+    "required_clips": [
+      "clips/beat01_walk.mp4",
+      "clips/beat02_bow.mp4",
+      "clips/beat03_stab_fade.mp4"
+    ],
+    "min_beats_complete": 3,
+    "final_deliverable": "final/storyboard_spliced.mp4"
+  },
+  "splice": {
+    "tail_drop": 1,
+    "skip_head": 1,
+    "clips": [
+      "clips/beat01_walk.mp4",
+      "clips/beat02_bow.mp4",
+      "clips/beat03_stab_fade.mp4"
+    ],
+    "output": "final/storyboard_spliced.mp4"
+  },
+  "beats": [
+    {
+      "index": 0,
+      "id": "walk",
+      "action": "walk toward camera",
+      "dialogue": "Greetings.",
+      "clip": "clips/beat01_walk.mp4",
+      "chain_frame_out": "images/chain/beat0_last_frame.png",
+      "audio": "audio/beat1_dialogue.mp3",
+      "status": "pending",
+      "log": "logs/beat1_walk.json"
+    },
+    {
+      "index": 1,
+      "id": "bow",
+      "action": "polite Japanese bow",
+      "dialogue": "My name is Rin, you killed my father.",
+      "clip": "clips/beat02_bow.mp4",
+      "chain_frame_out": "images/chain/beat1_last_frame.png",
+      "audio": "audio/beat2_dialogue.mp3",
+      "status": "pending",
+      "log": "logs/beat2_bow.json"
+    },
+    {
+      "index": 2,
+      "id": "stab",
+      "action": "lunge toward camera, fade to black",
+      "dialogue": "Now prepare to die.",
+      "clip": "clips/beat03_stab_fade.mp4",
+      "audio": "audio/beat3_dialogue.mp3",
+      "status": "pending",
+      "log": "logs/beat3_stab.json"
+    }
+  ]
+}

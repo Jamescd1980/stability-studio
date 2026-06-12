@@ -1,0 +1,38 @@
+{
+  "id": "moss-sfx-api",
+  "description": "MOSS SoundEffect text-to-SFX. MCP: generate_audio(mode=sound_effect, prompt=...). Requires full MOSS-SoundEffect shards.",
+  "workflow": {
+    "1": {
+      "class_type": "MossTTSModelLoader",
+      "inputs": {
+        "model_variant": "MOSS-SoundEffect",
+        "local_model_path": "",
+        "codec_local_path": ""
+      }
+    },
+    "2": {
+      "class_type": "MossTTSSoundEffect",
+      "inputs": {
+        "moss_pipe": ["1", 0],
+        "ambient_sound": "Heavy rain on a tin roof with distant thunder",
+        "duration_seconds": 5.0,
+        "seed": 0,
+        "temperature": 1.5,
+        "top_p": 0.6,
+        "top_k": 50,
+        "repetition_penalty": 1.2,
+        "max_new_tokens": 4096,
+        "head_handle": 0.0,
+        "tail_handle": 0.0
+      }
+    },
+    "3": {
+      "class_type": "SaveAudioMP3",
+      "inputs": {
+        "audio": ["2", 0],
+        "filename_prefix": "audio/moss_sfx",
+        "quality": "320k"
+      }
+    }
+  }
+}

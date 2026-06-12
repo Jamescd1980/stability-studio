@@ -1,0 +1,58 @@
+# Copy to: stability-studio-mcp/config.yaml
+# Replace ALL <PLACEHOLDER> values before generating.
+
+stability_matrix:
+  root: "<STABILITY_MATRIX_ROOT>"
+  data: "<STABILITY_MATRIX_ROOT>/Data"
+  models: "<STABILITY_MATRIX_ROOT>/Data/Models"
+  workflows: "<STABILITY_MATRIX_ROOT>/Data/Workflows"
+  packages:
+    comfyui: "<STABILITY_MATRIX_ROOT>/Data/Packages/ComfyUI"
+
+wan2gp:
+  root: "<STABILITY_MATRIX_ROOT>/Data/Packages/Wan2GP"
+  python: ""
+  mcp_host: "127.0.0.1"
+  mcp_port: 7867
+  auto_start_mcp: true
+  mcp_wait_seconds: 120
+
+gpu_backend:
+  enforce_exclusive: true
+  comfyui_port: 8188
+  wan2gp_ui_port: 7860
+  wan2gp_mcp_port: 7867
+  min_free_vram_gb_comfyui: 4.0
+  min_free_vram_gb_wan2gp: 10.0
+  block_comfyui_when_wan2gp_ui: true
+  require_comfyui_stopped_for_hero: true
+
+# Your creative project folder (use PROJECT.template layout)
+outputs:
+  delivery: "<YOUR_PROJECT_FOLDER>"
+  layout: {}
+
+extra_lora_paths: []
+
+civitai:
+  api_key: ""
+
+comfyui:
+  url: "http://127.0.0.1:8188"
+  timeout_seconds: 600
+
+invokeai:
+  url: "http://127.0.0.1:9090"
+  timeout_seconds: 600
+  enabled: false
+
+default_backend: auto
+default_content_rating: open
+default_style: juggernaut
+
+hardware:
+  vram_gb: 0
+  gpu_only: true
+  prefer_prompt_quality: true
+
+catalog_file: "catalog.yaml"

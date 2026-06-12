@@ -1,0 +1,51 @@
+# Append to <OI_CONFIG_DIR>/config.toml
+# Replace <PROJECT_ROOT> with your clone path (e.g. D:/studio-agent).
+# Restart Open Interpreter after editing.
+
+[mcp_servers.stability-studio]
+command = "python"
+args = ["<PROJECT_ROOT>/stability-studio-mcp/server.py"]
+enabled = true
+default_tools_approval_mode = "approve"
+startup_timeout_sec = 15
+# I2V at 704×1024+ can take 5–10 min; keep above ComfyUI wait timeout (1200s in engine).
+tool_timeout_sec = 1200
+
+[mcp_servers.stability-studio.tools.get_generation_context]
+approval_mode = "approve"
+
+[mcp_servers.stability-studio.tools.list_styles]
+approval_mode = "approve"
+
+[mcp_servers.stability-studio.tools.list_checkpoints]
+approval_mode = "approve"
+
+[mcp_servers.stability-studio.tools.list_loras]
+approval_mode = "approve"
+
+[mcp_servers.stability-studio.tools.list_video_workflows]
+approval_mode = "approve"
+
+[mcp_servers.stability-studio.tools.check_backends]
+approval_mode = "approve"
+
+[mcp_servers.stability-studio.tools.check_wan_assets]
+approval_mode = "approve"
+
+[mcp_servers.stability-studio.tools.download_wan_assets]
+approval_mode = "prompt"
+
+[mcp_servers.stability-studio.tools.scan_models]
+approval_mode = "approve"
+
+[mcp_servers.stability-studio.tools.check_comfyui_dependencies]
+approval_mode = "approve"
+
+[mcp_servers.stability-studio.tools.install_comfyui_dependencies]
+approval_mode = "prompt"
+
+[mcp_servers.stability-studio.tools.generate_image]
+approval_mode = "prompt"
+
+[mcp_servers.stability-studio.tools.generate_video]
+approval_mode = "prompt"

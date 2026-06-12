@@ -1,0 +1,80 @@
+# Copy to config.yaml and edit paths for your machine:
+#   cp config.yaml.example config.yaml   (Linux/macOS)
+#   copy config.yaml.example config.yaml (Windows)
+
+stability_matrix:
+  root: "<STABILITY_MATRIX_ROOT>"
+  data: "<STABILITY_MATRIX_ROOT>/Data"
+  models: "<STABILITY_MATRIX_ROOT>/Data/Models"
+  workflows: "<STABILITY_MATRIX_ROOT>/Data/Workflows"
+  packages:
+    comfyui: "<STABILITY_MATRIX_ROOT>/Data/Packages/ComfyUI"
+
+# Wan2GP (Stability Matrix package) — hero I2V; optional override
+wan2gp:
+  root: "<STABILITY_MATRIX_ROOT>/Data/Packages/Wan2GP"
+  # Python used for Wan2GP MCP auto-start (leave empty — resolved from Stability Matrix launch)
+  python: ""
+  mcp_host: "127.0.0.1"
+  mcp_port: 7867
+  auto_start_mcp: true
+  mcp_wait_seconds: 120
+  # Subprocess env sets SETUPTOOLS_USE_DISTUTILS=stdlib + FASTMCP_PORT (wgp --mcp-port is ignored)
+
+# Exclusive GPU backend policy — ComfyUI vs Wan2GP on 16 GB (enforced for offline agents too)
+gpu_backend:
+  enforce_exclusive: true
+  comfyui_port: 8188
+  wan2gp_ui_port: 7860
+  wan2gp_mcp_port: 7867
+  min_free_vram_gb_comfyui: 4.0
+  min_free_vram_gb_wan2gp: 10.0
+  block_comfyui_when_wan2gp_ui: true
+  require_comfyui_stopped_for_hero: true
+
+# Delivery project root — use subfolders (auto-created) for handoff:
+#   temp/     raw Wan2GP + MOSS saves (pending approval)
+#   images/   stills + images/chain/ for I2V handoff frames
+#   assets/   control maps (canny, lineart, openpose) — not hero stills
+#   clips/    approved hero MP4s
+#   audio/    approved MP3
+#   logs/     JSON run logs only
+#   final/    assembled deliverables
+#   source/   original reference uploads
+#   rejected/ superseded attempts
+outputs:
+  delivery: ""
+  layout: {}
+
+# Optional extra LoRA folders (list; leave empty if unused)
+extra_lora_paths: []
+
+# Civitai API key — required for download_style_assets on Civitai checkpoints (e.g. ilustmix)
+# Create at https://civitai.com/user/account — or set env CIVITAI_API_TOKEN
+civitai:
+  api_key: ""
+
+comfyui:
+  url: "http://127.0.0.1:8188"
+  timeout_seconds: 600
+
+invokeai:
+  url: "http://127.0.0.1:9090"
+  timeout_seconds: 600
+  enabled: false
+
+# Prefer comfyui | invoke | auto
+default_backend: auto
+
+# open = use prompts as-is; sfw = append safety negatives (optional)
+default_content_rating: open
+
+default_style: juggernaut
+
+# GPU preferences — generation_limits in get_generation_context use these + live ComfyUI stats
+hardware:
+  vram_gb: 0                 # 0 = auto-detect from ComfyUI /system_stats
+  gpu_only: true             # lower res/frames instead of CPU offload
+  prefer_prompt_quality: true  # anatomy/face in prompt, not max pixels
+
+catalog_file: "catalog.yaml"

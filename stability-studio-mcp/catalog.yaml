@@ -1,0 +1,511 @@
+# Style presets — pick by id from list_styles() or natural language (aliases).
+# Pass checkpoint= to override any style.
+#
+# Model families (architecture, workflow, sampler guidance): see model_families below
+# and MODEL-FAMILIES.md. Agents: call get_generation_context → style_readiness.
+
+model_families:
+  sdxl:
+    label: "SDXL checkpoint"
+    workflow: checkpoint_txt2img
+    comfy_nodes:
+      - CheckpointLoaderSimple
+      - CLIPTextEncode
+      - KSampler
+      - VAEDecode
+    prompt_style: "Comma tags and negative prompts work well. Quality tags optional."
+    typical_defaults:
+      steps: 28
+      cfg: 6.0
+      sampler: dpmpp_2m
+      scheduler: karras
+      width: 1024
+      height: 1024
+    requires:
+      - role: checkpoint
+        folder: checkpoints
+        stability_matrix_folder: StableDiffusion
+    common_errors:
+      - "CLIP input invalid → checkpoint is Flux/Wan, not SDXL; switch architecture"
+    vram_hint_gb: "8–12 typical at 1024²"
+
+  sdxl_anime:
+    extends: sdxl
+    label: "SDXL anime / illustration"
+    prompt_style: "masterpiece, best quality prefixes; avoid photorealistic in negatives"
+    typical_defaults:
+      sampler: euler_ancestral
+      scheduler: normal
+      cfg: 6.0
+
+  sd15:
+    label: "Stable Diffusion 1.5 checkpoint"
+    workflow: checkpoint_txt2img
+    comfy_nodes:
+      - CheckpointLoaderSimple
+      - CLIPTextEncode
+      - KSampler
+      - VAEDecode
+    prompt_style: "Comma tags and negative prompts; native res often 512×768."
+    typical_defaults:
+      steps: 30
+      cfg: 5.0
+      sampler: dpmpp_2m_sde
+      scheduler: karras
+      width: 512
+      height: 768
+    requires:
+      - role: checkpoint
+        folder: checkpoints
+        stability_matrix_folder: StableDiffusion
+    common_errors:
+      - "y is None / SDXL ControlNet on SD1.5 → use sd15 controlnets or switch to SDXL style"
+      - "Do not use SDXL IP-Adapter or SDXL ControlNet with sd15 checkpoints"
+    vram_hint_gb: "4–8 at 512×768"
+    note: "SD 1.5 checkpoints removed from catalog — use juggernaut or miracle_nsfw for photoreal"
+
+  pony_sdxl:
+    extends: sdxl
+    label: "Pony SDXL"
+    prompt_style: "score_9, score_8_up, score_7_up prefix; score_6… in negatives (Civitai Pony grammar)"
+    typical_defaults:
+      cfg: 5.5
+      sampler: dpmpp_2m
+      scheduler: karras
+
+  flux2_klein:
+    label: "Flux.2 Klein"
+    workflow: flux2_klein_txt2img
+    comfy_nodes:
+      - UNETLoader
+      - CLIPLoader
+      - VAELoader
+      - CLIPTextEncode
+      - EmptyFlux2LatentImage
+      - Flux2Scheduler
+      - CFGGuider
+      - SamplerCustomAdvanced
+      - VAEDecode
+    prompt_style: "Short natural language (40–120 words). Long SDXL-style negatives mostly ignored."
+    typical_defaults:
+      steps: 20
+      cfg: 3.5
+      sampler: euler
+      scheduler: simple
+      width: 1024
+      height: 1024
+    requires:
+      - role: unet
+        folder: diffusion_models
+        stability_matrix_folder: DiffusionModels
+        note: "Single-file Klein checkpoints in StableDiffusion must also appear in DiffusionModels (copy or hard-link) for UNETLoader"
+      - role: clip
+        folder: text_encoders
+        stability_matrix_folder: TextEncoders
+        default: qwen_3_8b_fp8mixed.safetensors
+        klein_4b_alt: qwen_3_4b.safetensors
+      - role: vae
+        folder: vae
+        stability_matrix_folder: VAE
+        default: full_encoder_small_decoder.safetensors
+        klein_4b_alt: flux2-vae.safetensors
+    common_errors:
+      - "CLIP input invalid → do not use CheckpointLoaderSimple; use flux2_klein workflow"
+      - "UNET not in list → hard-link checkpoint from StableDiffusion to DiffusionModels"
+      - "easy fluxLoader IndexError → Miracle/Klein has no bundled CLIP; use native Flux2 nodes"
+    vram_hint_gb: "12–16 for 9B nvfp4 at 1024²"
+
+  wan_video:
+    label: "Wan video (T2V / I2V)"
+    workflow: ui_json_converted
+    prompt_style: "Natural language; workflow-specific encode nodes (WanVideoTextEncode)"
+    note: "Uses saved workflow JSON in Stability Matrix Data/Workflows. Asset manifest in wan_assets.py / WAN-ASSETS.md"
+    requires:
+      - role: workflow_json
+        folder: workflows
+      - role: diffusion_model
+        folder: diffusion_models
+      - role: text_encoder
+        folder: text_encoders
+      - role: vae
+        folder: vae
+    setup_notes:
+      - "Set VHS_USE_IMAGEIO_FFMPEG=1 before starting ComfyUI for MP4 output"
+      - "Default I2V catalog id i2v_5b — call check_wan_assets before first run"
+      - "Optional LoRAs: check_wan_video_loras / download_wan_video_loras (studio/wan_video_loras.py)"
+      - "PainterI2V motion: workflow_id=i2v_5b_painter or use_painter_i2v=true — install_painter_i2v_dependencies first"
+
+# Four art "food groups" — pass food_group= to edit_image / generate_image
+art_food_groups:
+  anime:
+    label: Anime
+    default_style: ilustmix
+    styles: [anime, ilustmix, animagine_xl, aom2]
+    description: "ilustmix, Illustrious XL, Animagine XL 4.0, AbyssOrangeMix2 (SD 1.5)"
+  fantasy:
+    label: Fantasy art
+    default_style: merged_dreams
+    styles: [merged_dreams, pony]
+    description: "Dreamy stylized portraits — Merged In Dreams, Pony Diffusion V6 XL"
+    prompt_guide: >-
+      Keep merged_dreams; steer with prompt only. Pony score prefix (score_9, score_8_up, score_7_up)
+      then subject → action → environment → lighting → one style phrase.
+      Fantasy tags: high fantasy illustration, ethereal atmosphere, magical glow, ornate armor,
+      enchanted forest, volumetric light, painterly, dreamy. Negate score_6… in negative; avoid
+      photorealistic unless you want a realism bleed. 40–80 words beats keyword dumps on SDXL/Pony.
+  cyberpunk:
+    label: Cyberpunk
+    default_style: n4mik4
+    styles: [n4mik4, juggernaut]
+    description: "n4mik4 hero shots, neon sci-fi via prompt (use cyberpunk in prompt)"
+  photoreal:
+    label: Photorealistic
+    default_style: juggernaut
+    styles: [juggernaut, miracle_nsfw, realisian]
+    description: "Cinematic SDXL (Juggernaut), Flux2 (miracle_nsfw), Realisian SD 1.5 portraits"
+
+styles:
+  anime:
+    architecture: sdxl_anime
+    description: "Anime / illustration — WAI Illustrious XL (your best anime results)"
+    aliases: [illustrious, wai, anime_illustrious, illustration]
+    checkpoint: "waiIllustriousSDXL_v160.safetensors"
+    loras: []
+    prompt_prefix: "masterpiece, best quality, amazing quality, anime style"
+    negative_prompt: "bad quality, worst quality, worst detail, sketch, photorealistic"
+    defaults:
+      width: 1024
+      height: 1024
+      steps: 28
+      cfg: 6.0
+      sampler: "euler_ancestral"
+      scheduler: "normal"
+
+  ilustmix:
+    architecture: sdxl_anime
+    description: "Anime — iLustMix v11.1 (Illustrious; anime food group default)"
+    aliases: [anime_ilustmix, ilustmix_v111, ilustmix_v10]
+    checkpoint: "ilustmix_v111.safetensors"
+    download:
+      source: civitai
+      civitai_model_id: "1110783"
+      civitai_version_id: "2807896"
+      civitai_page: "https://civitai.com/models/1110783?modelVersionId=2807896"
+      size_hint: "~6.6 GB"
+    loras:
+      - name: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.8
+      - name: hinaTuningFaceDetailer_SDXL-v2-rank256-pruned.safetensors
+        weight: 0.35
+    lora_downloads:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        civitai_version_id: "2066663"
+        civitai_page: "https://civitai.com/models/1826240"
+        trigger: "perfect eyes"
+        size_hint: "~218 MB"
+        note: "Include trigger perfect eyes in prompt; weight 0.65-0.85"
+    prompt_prefix: "masterpiece, best quality, amazing quality, very aesthetic, anime illustration, detailed eyes, perfect eyes"
+    negative_prompt: "lowres, bad anatomy, bad hands, bad eyes, asymmetric eyes, text, watermark, blurry, photorealistic"
+    defaults:
+      width: 1024
+      height: 1024
+      steps: 25
+      cfg: 6.0
+      sampler: "euler_ancestral"
+      scheduler: "normal"
+      face_detail: true
+      face_detail_pass:
+        steps: 20
+        denoise: 0.45
+        guide_size: 384
+
+  aom2:
+    architecture: sd15
+    description: "AbyssOrangeMix2 SFW — semi-realistic anime illustration (SD 1.5)"
+    aliases: [abyss_orange, abyssorangemix, aom, orangemix, abyssorangemix2]
+    checkpoint: "abyssorangemix2SFW_abyssorangemix2Sfw.safetensors"
+    download:
+      source: civitai
+      civitai_model_id: "4437"
+      civitai_version_id: "5021"
+      civitai_page: "https://civitai.com/models/4437?modelVersionId=5021"
+      size_hint: "~2 GB"
+    loras: []
+    prompt_prefix: "masterpiece, best quality, anime illustration"
+    negative_prompt: "(worst quality, low quality:1.4), (depth of field, blurry:1.2), text, watermark, signature"
+    defaults:
+      width: 512
+      height: 768
+      steps: 28
+      cfg: 5.5
+      sampler: "dpmpp_2m_sde"
+      scheduler: "karras"
+    note: "Keep prompts simple — AOM2 author warns against over-tagging. orangemix VAE if colours look dull."
+
+  animagine_xl:
+    architecture: sdxl_anime
+    description: "Animagine XL 4.0 Opt — SDXL anime (migrated from Invoke)"
+    aliases: [animagine, animagine_xl_40, animagine_xl]
+    checkpoint: "animagine-xl-4.0-opt.safetensors"
+    loras:
+      - name: NSFWFilterXL_animagine.safetensors
+        weight: 0.45
+    prompt_prefix: "masterpiece, best quality, very aesthetic, anime style"
+    negative_prompt: "lowres, bad anatomy, bad hands, text, watermark, blurry, photorealistic, worst quality"
+    defaults:
+      width: 1024
+      height: 1024
+      steps: 28
+      cfg: 7.0
+      sampler: "euler_ancestral"
+      scheduler: "normal"
+
+  juggernaut:
+    architecture: sdxl
+    description: "General SDXL — cinematic, landscapes, versatile (Juggernaut XL Ragnarok)"
+    aliases: [sdxl, general, cinematic, juggernaut_xl, ragnarok, juggernautxl, default, general_sdxl, realistic, photoreal, photo]
+    checkpoint: "juggernautXL_ragnarokBy.safetensors"
+    loras: []
+    prompt_prefix: "cinematic lighting, highly detailed, sharp focus, professional"
+    negative_prompt: "lowres, bad anatomy, bad hands, text, watermark, blurry, deformed"
+    defaults:
+      width: 1024
+      height: 1024
+      steps: 30
+      cfg: 6.0
+      sampler: "dpmpp_2m"
+      scheduler: "karras"
+
+  pony:
+    architecture: pony_sdxl
+    description: "Pony Diffusion V6 XL — official NSFW/SFW pony SDXL (anime, anthro, natural language + tags)"
+    aliases: [prefect_pony, ponyxl, prefectpony, pony_v6, pony_diffusion, pony_diffusion_v6]
+    checkpoint: "ponyDiffusionV6XL_v6StartWithThisOne.safetensors"
+    download:
+      source: civitai
+      civitai_model_id: "257749"
+      civitai_version_id: "290640"
+      civitai_page: "https://civitai.com/models/257749?modelVersionId=290640"
+      size_hint: "~6.5 GB"
+    loras: []
+    prompt_prefix: "score_9, score_8_up, score_7_up, source_anime, rating_explicit, high quality, detailed"
+    negative_prompt: "score_4, score_5, score_6, lowres, bad anatomy, bad hands, text, watermark, blurry"
+    prompt_examples:
+      anime: "score_9, score_8_up, source_anime, 1girl, detailed eyes, cherry blossom park, soft lighting, anime illustration"
+      explicit: "score_9, score_8_up, source_anime, rating_explicit, (natural language scene description)"
+    defaults:
+      width: 1024
+      height: 1024
+      steps: 28
+      cfg: 5.5
+      sampler: "dpmpp_2m"
+      scheduler: "karras"
+
+  prefect_pony:
+    architecture: pony_sdxl
+    description: "Prefect Pony XL v6 — community merge (legacy; use style pony for official V6 XL)"
+    aliases: [prefectpony_legacy]
+    checkpoint: "prefectPonyXL_v6.safetensors"
+    loras: []
+    prompt_prefix: "score_9, score_8_up, score_7_up, high quality, detailed"
+    negative_prompt: "score_6, score_5, score_4, lowres, bad anatomy, text, watermark, blurry"
+    defaults:
+      width: 1024
+      height: 1024
+      steps: 28
+      cfg: 5.5
+      sampler: "dpmpp_2m"
+      scheduler: "karras"
+
+  merged_dreams:
+    architecture: pony_sdxl
+    description: "Merged In Dreams v2 — Pony merge, dreamy fantasy portraits (fantasy food group default)"
+    aliases: [dreams, merged_in_dreams, elegance, divine, fantasy]
+    checkpoint: "mergedInDreams_mergedInDreams2.safetensors"
+    loras: []
+    prompt_prefix: "score_9, score_8_up, score_7_up, dreamy atmosphere, elegant fantasy, magical atmosphere, highly detailed"
+    negative_prompt: "score_6, score_5, score_4, lowres, bad anatomy, text, watermark, blurry, photorealistic"
+    prompt_examples:
+      portrait: "score_9, score_8_up, elven mage in ornate robes, enchanted library, candlelight, volumetric dust, painterly fantasy illustration"
+      environment: "score_9, score_8_up, ancient ruins at twilight, bioluminescent moss, mist, epic fantasy landscape, cinematic wide shot"
+    defaults:
+      width: 1024
+      height: 1024
+      steps: 28
+      cfg: 7.0
+      sampler: "dpmpp_2m"
+      scheduler: "karras"
+
+  artius_wan:
+    architecture: sdxl
+    image_supported: false
+    description: "Artius WAN — Wan video-tuned checkpoint (NOT SDXL txt2img; no bundled CLIP)"
+    aliases: [artius, wan_uncensored]
+    checkpoint: "artiusWANUncensored_v10.safetensors"
+    loras: []
+    prompt_prefix: "high quality, detailed"
+    negative_prompt: "lowres, bad anatomy, text, watermark, blurry"
+    defaults:
+      width: 1024
+      height: 1024
+      steps: 28
+      cfg: 7.0
+      sampler: "dpmpp_2m"
+      scheduler: "karras"
+
+  miracle_nsfw:
+    description: "Miracle in NSFW Generation (Flux.2 Klein 9B)"
+    aliases: [miracle, flux2]
+    architecture: flux2_klein
+    checkpoint: "miracleinNSFWGeneration_10Nvfp4.safetensors"
+    flux2:
+      clip: "qwen_3_8b_fp8mixed.safetensors"
+      vae: "full_encoder_small_decoder.safetensors"
+    loras: []
+    prompt_prefix: ""
+    negative_prompt: ""
+    defaults:
+      width: 1024
+      height: 1024
+      steps: 20
+      cfg: 3.5
+      sampler: "euler"
+      scheduler: "simple"
+
+  realisian:
+    architecture: sd15
+    description: "Realisian v6 — photorealistic portrait (SD 1.5; low CFG, few steps)"
+    aliases: [realisian_v6, realisian60, realisian_v60]
+    checkpoint: "realisian_v60.safetensors"
+    download:
+      source: civitai
+      civitai_model_id: "47130"
+      civitai_version_id: "325142"
+      civitai_page: "https://civitai.com/models/47130?modelVersionId=325142"
+      size_hint: "~2 GB"
+    loras: []
+    prompt_prefix: "RAW photo, portrait, natural skin texture, soft lighting"
+    negative_prompt: "lowres, bad anatomy, blurry, watermark, cartoon, anime, deformed"
+    defaults:
+      width: 512
+      height: 768
+      steps: 12
+      cfg: 3.0
+      sampler: "dpmpp_2m_sde"
+      scheduler: "karras"
+    note: "Author: DPM++ SDE Karras, CFG 3, 12 steps; hires fix upscales best on A1111. No SDXL IP-Adapter."
+
+  realvis_xl:
+    architecture: sdxl
+    description: "RealVisXL V5 — semi-realistic SDXL portraits, NSFW-capable, baked VAE"
+    aliases: [semireal, semi_real, realistic, realvis, photoreal_xl]
+    checkpoint: "realvisxlV50_v50Bakedvae.safetensors"
+    download:
+      source: civitai
+      civitai_model_id: "139562"
+      civitai_version_id: "789646"
+      civitai_page: "https://civitai.com/models/139562?modelVersionId=789646"
+      size_hint: "~6.5 GB"
+    loras: []
+    prompt_prefix: "RAW photo, realistic, natural skin texture, soft cinematic lighting, highly detailed"
+    negative_prompt: "anime, cartoon, 2d, illustration, painting, lowres, bad anatomy, bad hands, text, watermark, blurry, deformed, oversaturated"
+    defaults:
+      width: 1024
+      height: 1024
+      steps: 30
+      cfg: 5.5
+      sampler: "dpmpp_2m"
+      scheduler: "karras"
+    note: "Semi-real SDXL; use low denoise i2i from anime to preserve likeness."
+
+  dynavision_3d:
+    architecture: sdxl
+    description: "DynaVision XL — stylized 3D CGI (Pixar/Dreamworks), SFW+NSFW, baked VAE"
+    aliases: [3d_cgi, cgi, pixar, stylized_3d, dynavision]
+    checkpoint: "dynavisionXLAllInOneStylized_alpha013BAKEDVAE.safetensors"
+    download:
+      source: civitai
+      civitai_model_id: "122606"
+      civitai_version_id: "133559"
+      civitai_page: "https://civitai.com/models/122606?modelVersionId=133559"
+      size_hint: "~6.5 GB"
+    loras: []
+    prompt_prefix: "breathtaking 3D CGI render, stylized animation, masterpiece, best quality, ultra highres"
+    negative_prompt: "anime, 2d, flat, sketch, cartoon drawing, photo, photorealistic, armor, lowres, bad anatomy, text, watermark, blurry, deformed"
+    defaults:
+      width: 1024
+      height: 1024
+      steps: 30
+      cfg: 7.5
+      sampler: "dpmpp_sde"
+      scheduler: "karras"
+    note: "No SDXL refiner. Neg 'armor' if unwanted gear appears. DPM++ SDE Karras per creator."
+
+  n4mik4:
+    architecture: sdxl
+    description: "n4mik4 IL — polished SDXL hero shots (paladin / templar keeper)"
+    aliases: [cyber, neon_dystopia, sci_fi, cyberpunk]
+    checkpoint: "n4mik4ILSFWNSFW_v10.safetensors"
+    loras: []
+    prompt_prefix: "masterpiece, best quality"
+    negative_prompt: "lowres, bad anatomy, text, watermark, blurry"
+    defaults:
+      width: 1024
+      height: 1024
+      steps: 28
+      cfg: 7.0
+      sampler: "dpmpp_2m"
+      scheduler: "karras"
+
+video_workflows:
+  t2v:
+    description: "Wan 2.1 text-to-video"
+    file: "workflow-wan21-text-to-video-hkvLF9FdWk1Ups8aa9gL-shark_prime_11-openart.ai.json"
+    prompt_nodes:
+      - type: "WanVideoTextEncode"
+        positive_index: 0
+        negative_index: 1
+
+  t2v_wan22:
+    description: "Wan 2.2 text-to-video"
+    file: "workflow-nsfw-wan22-t2v-DKEqozpjUUW21Jp6XPLH-civet_flawless_61-openart.ai.json"
+    prompt_nodes:
+      - type: "WanVideoTextEncode"
+        positive_index: 0
+        negative_index: 1
+
+  i2v_5b:
+    description: "Wan 2.2 TI2V-5B image-to-video (native ComfyUI, light VRAM)"
+    file: "workflow-wan22-ti2v-5b-i2v-comfyui-native.json"
+
+  i2v_5b_painter:
+    description: "Wan 2.2 TI2V-5B + PainterI2V motion_amplitude (install ComfyUI-PainterI2V)"
+    file: "workflow-wan22-ti2v-5b-i2v-comfyui-native.json"
+    painter_i2v: true
+
+  v2v_5b:
+    description: "Wan 2.2 TI2V-5B video-to-video extend (last-frame continuation + optional concat)"
+    file: "workflow-wan22-ti2v-5b-v2v-comfyui-native.json"
+    mode: v2v
+
+  v2v_5b_painter:
+    description: "V2V extend + PainterI2V motion (default for mode=v2v)"
+    file: "workflow-wan22-ti2v-5b-v2v-comfyui-native.json"
+    mode: v2v
+    painter_i2v: true
+
+  i2v:
+    description: "Wan 2.2 image-to-video"
+    file: "workflow-wan22-image-2-video-nsfw-axtxs1ISH3F3mrVSCSyt-civet_flawless_61-openart.ai.json"
+    prompt_nodes:
+      - type: "WanVideoTextEncode"
+        positive_index: 0
+        negative_index: 1
+
+  i2v_wan21:
+    description: "Wan 2.1 I2V / VACE low VRAM"
+    file: "workflow-wan-21-self-forcing-w-lora-t2v-and-vace-i2vlow-vram-LfPn6JX0swVB9LMatGFA-thelocallab-openart.ai.json"
+    prompt_nodes:
+      - type: "WanVideoTextEncode"
+        positive_index: 0
+        negative_index: 1

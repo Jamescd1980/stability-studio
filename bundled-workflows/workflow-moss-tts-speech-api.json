@@ -1,0 +1,40 @@
+{
+  "id": "moss-tts-speech-api",
+  "description": "MOSS Local 1.7B text-to-speech. MCP: generate_audio(mode=speech, text=...). Edit node 2 text before queue in ComfyUI.",
+  "workflow": {
+    "1": {
+      "class_type": "MossTTSModelLoader",
+      "inputs": {
+        "model_variant": "MOSS-TTS (Local 1.7B)",
+        "local_model_path": "",
+        "codec_local_path": ""
+      }
+    },
+    "2": {
+      "class_type": "MossTTSGenerate",
+      "inputs": {
+        "moss_pipe": ["1", 0],
+        "language": "en",
+        "text": "Hello, this is a test of MOSS text to speech.",
+        "seed": 0,
+        "temperature": 1.0,
+        "top_p": 0.95,
+        "top_k": 50,
+        "repetition_penalty": 1.1,
+        "max_new_tokens": 4096,
+        "enable_duration_control": false,
+        "duration_tokens": 325,
+        "head_handle": 0.0,
+        "tail_handle": 0.0
+      }
+    },
+    "3": {
+      "class_type": "SaveAudioMP3",
+      "inputs": {
+        "audio": ["2", 0],
+        "filename_prefix": "audio/moss_tts",
+        "quality": "320k"
+      }
+    }
+  }
+}

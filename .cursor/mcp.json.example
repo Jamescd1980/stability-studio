@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "stability-studio": {
+      "command": "python",
+      "args": ["${workspaceFolder}/stability-studio-mcp/server.py"],
+      "env": {
+        "PYTHONUNBUFFERED": "1"
+      }
+    }
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "id": "moss-voice-design-api",
+  "description": "MOSS VoiceGenerator — voice from text description, no recording. MCP: generate_audio(mode=voice_design, text=..., instruction=...).",
+  "workflow": {
+    "1": {
+      "class_type": "MossTTSModelLoader",
+      "inputs": {
+        "model_variant": "MOSS-VoiceGenerator",
+        "local_model_path": "",
+        "codec_local_path": ""
+      }
+    },
+    "2": {
+      "class_type": "MossTTSVoiceDesign",
+      "inputs": {
+        "moss_pipe": ["1", 0],
+        "language": "en",
+        "text": "Welcome back. Let me walk you through today's scene.",
+        "instruction": "Warm female narrator, mid-30s, calm and confident",
+        "seed": 0,
+        "temperature": 1.5,
+        "top_p": 0.6,
+        "top_k": 50,
+        "repetition_penalty": 1.1,
+        "max_new_tokens": 4096,
+        "head_handle": 0.0,
+        "tail_handle": 0.0
+      }
+    },
+    "3": {
+      "class_type": "SaveAudioMP3",
+      "inputs": {
+        "audio": ["2", 0],
+        "filename_prefix": "audio/moss_voice",
+        "quality": "320k"
+      }
+    }
+  }
+}
