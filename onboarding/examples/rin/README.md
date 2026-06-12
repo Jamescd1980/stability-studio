@@ -4,23 +4,19 @@ You do **not** need a GPU to **view** this example. Use it to see what a full st
 
 ## What it is
 
-A three-beat anime scene: walk → bow → lunge, with MOSS dialogue and SFX. Final deliverable is a **frame-spliced** hero clip (no lip sync in the final — full motion preserved).
+A three-beat anime scene: walk → bow → lunge, with MOSS dialogue and SFX. The **final** deliverable here is a frame-spliced hero clip (`final/Rin_storyboard_spliced.mp4`). Individual hero beats are included as separate clips.
 
-## Where to find it
+## Watch in this repo
 
-If you have the project zip:
+| Item | Path |
+|------|------|
+| **Final splice (start here)** | [`final/Rin_storyboard_spliced.mp4`](final/Rin_storyboard_spliced.mp4) |
+| Hero still (approved) | [`images/Rin_kitsune_approved.png`](images/Rin_kitsune_approved.png) |
+| Hero still (blossom variant) | [`images/Kitsune_blossom_hero.png`](images/Kitsune_blossom_hero.png) |
+| Clip — walk (hero I2V) | [`clips/Rin_clip1_walk_hero.mp4`](clips/Rin_clip1_walk_hero.mp4) |
+| Clip — bow with petals | [`clips/Rin_clip2_bow_petals.mp4`](clips/Rin_clip2_bow_petals.mp4) |
 
-`Desktop/New Images/Rin_Storyboard_Project_Bata.zip`
-
-After extract:
-
-| Item | Path inside project |
-|------|---------------------|
-| **Watch this** | `final/Rin_storyboard_spliced.mp4` |
-| Hero clips | `clips/Rin_clip1_walk.mp4`, `Rin_clip2_bow.mp4`, `clips/Rin_clip3_stab_fade.mp4` |
-| Hero still | `images/Rin_kitsune_approved.png` |
-| Beat manifest | `logs/storyboard_manifest.json` |
-| Full handoff | `logs/rin_session_handoff.json` |
+Open the `.mp4` / `.png` files directly in GitHub (preview) or clone the repo and play locally.
 
 ## Folder layout (model for your projects)
 
@@ -29,20 +25,20 @@ source/   images/   images/chain/   assets/
 clips/    audio/    temp/           logs/    final/
 ```
 
-See `logs/recommended_project_layout.json` inside the project.
+See `stability-studio-mcp/scripts/storyboard/examples/recommended_project_layout.json`.
 
 ## Reproduce it (Tier 3 — needs GPU + time)
 
-1. `STORYBOARD-QUICKSTART.md` in the repo root  
+1. [STORYBOARD-QUICKSTART.md](../../../STORYBOARD-QUICKSTART.md) in the repo root  
 2. `plan_storyboard_scene` with a script like:
    ```
    walk toward camera | Greetings.
    polite bow | My name is Rin, you killed my father.
    lunge toward camera | Now prepare to die.
    ```
-3. On **24 GB+**: use ComfyUI `generate_video` / hero workflows only — skip Wan2GP unless needed.  
+3. On **24 GB+**: ComfyUI `generate_video` / hero workflows — skip Wan2GP unless needed.  
 4. On **16 GB**: draft in ComfyUI; optional Wan2GP for hero beats.
 
 ## Agent note
 
-If the user only wants inspiration, stop at Tier 0 — show the zip paths above. Do not start model downloads unless they ask to build their own.
+If the user only wants inspiration, stop at Tier 0 — point to `final/Rin_storyboard_spliced.mp4` above. Do not start model downloads unless they ask to build their own.
