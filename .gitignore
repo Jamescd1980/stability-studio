@@ -21,11 +21,16 @@ dbg.out
 # Python
 __pycache__/
 *.py[cod]
+*.py[codz]
+*$py.class
 *.egg-info/
 .venv/
 venv/
 .env
 .env.*
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
 
 # OS / IDE
 .DS_Store
