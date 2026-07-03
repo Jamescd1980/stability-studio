@@ -133,6 +133,16 @@ class StyleCatalog:
             if key in aliases:
                 return sid
 
+        # Agents often pass checkpoint stems/filenames instead of catalog style ids.
+        stem = key.replace(".safetensors", "").replace(".ckpt", "")
+        for sid, style in self.styles.items():
+            ckpt = style.get("checkpoint", "")
+            if not ckpt:
+                continue
+            ckpt_key = self._normalize_style_key(Path(ckpt).stem)
+            if key == self._normalize_style_key(ckpt) or stem == ckpt_key:
+                return sid
+
         partial = [
             sid
             for sid in self.styles

@@ -114,8 +114,6 @@ def suggest_styles_from_models(checkpoints: list[dict[str, Any]]) -> dict[str, s
         if "photorealistic" in tags or "cyberrealistic" in fname:
             suggestions.setdefault("juggernaut", ckpt["file"])
         if "prefectpony" in fname.replace("_", ""):
-            suggestions.setdefault("prefect_pony", ckpt["file"])
-        if "ponydiffusionv6" in fname.replace("_", ""):
             suggestions.setdefault("pony", ckpt["file"])
         if "divineelegance" in fname.replace(" ", "").lower():
             suggestions.setdefault("merged_dreams", ckpt["file"])

@@ -206,10 +206,78 @@ def build_hardware_profile(cfg: dict[str, Any], comfy: ComfyUIClient | None) -> 
     }
 
 
-def _round_dim(value: int, multiple: int = 8) -> int:
+def _round_dim(value: int, multiple: int = 8, minimum: int = 16) -> int:
     if value <= 0:
-        return value
-    return max(multiple, (value // multiple) * multiple)
+        return minimum
+    rounded = max(multiple, (value // multiple) * multiple)
+    return max(minimum, rounded)
+
+
+# Common portrait sizes agents mention (width → height).
+_PORTRAIT_HEIGHT_BY_WIDTH: dict[int, int] = {
+    512: 768,
+    768: 1152,
+    832: 1216,
+    896: 1152,
+    1024: 1536,
+}
+
+
+def sanitize_image_dims(
+    width: int | None,
+    height: int | None,
+    defaults: dict[str, Any],
+    limits: dict[str, Any],
+) -> tuple[int, int, dict[str, Any]]:
+    """
+    Normalize agent-supplied width/height before clamping.
+
+    Fixes missing/zero dims and absurd values (e.g. 8320000000000000 from "8k" glued to 832).
+    """
+    caps = limits.get("image", {})
+    max_w = int(caps.get("max_width", 2048))
+    max_h = int(caps.get("max_height", 2048))
+    def_w = int(defaults.get("width", 1024))
+    def_h = int(defaults.get("height", 1024))
+    hard_max = max(max_w, max_h, 2048)
+
+    applied: dict[str, Any] = {}
+
+    def _coerce_dim(raw: int | None, default: int, label: str) -> int:
+        if raw is None or raw <= 0:
+            if raw == 0:
+                applied[label] = {"received": 0, "used": default, "reason": "zero_means_default"}
+            return default
+        if raw > hard_max:
+            # Agent bug: "832" + "8k resolution" → 8320000000000000
+            s = str(raw)
+            for candidate in sorted(_PORTRAIT_HEIGHT_BY_WIDTH.keys(), reverse=True):
+                if s.startswith(str(candidate)):
+                    applied[label] = {
+                        "received": raw,
+                        "used": candidate,
+                        "reason": "recovered_width_prefix",
+                    }
+                    return candidate
+            applied[label] = {"received": raw, "used": default, "reason": "out_of_range"}
+            return default
+        return raw
+
+    w = _coerce_dim(width, def_w, "width")
+    h = _coerce_dim(height, def_h, "height")
+
+    if height is None or height <= 0:
+        preset_h = _PORTRAIT_HEIGHT_BY_WIDTH.get(w)
+        if preset_h:
+            h = preset_h
+            applied["height"] = {"inferred": h, "reason": "portrait_preset", "width": w}
+        elif width and width > 0:
+            h = _round_dim(int(w * 1.5))
+            applied["height"] = {"inferred": h, "reason": "aspect_ratio_2_3", "width": w}
+
+    w = _round_dim(w)
+    h = _round_dim(h)
+    return w, h, applied
 
 
 def clamp_image_params(
@@ -231,6 +299,9 @@ def clamp_image_params(
         w = _round_dim(int(w * scale))
         h = _round_dim(int(h * scale))
     st = min(steps, max_steps)
+
+    w = _round_dim(w)
+    h = _round_dim(h)
 
     applied = {}
     if (w, h, st) != (width, height, steps):

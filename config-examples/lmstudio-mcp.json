@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "stability-studio": {
+      "command": "C:\\Users\\You\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+      "args": ["<PROJECT_ROOT>/stability-studio-mcp/server.py"],
+      "env": {
+        "PYTHONUNBUFFERED": "1"
+      }
+    }
+  }
+}

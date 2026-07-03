@@ -1,0 +1,5 @@
+scene_id,chapter,sequence,type,location,characters,action,dialogue,speaker,image_asset,video_asset,audio_asset,style,prompt_positive,prompt_negative,status,notes
+ch01_001_narration,1,1,narration,,"narrator",Opening — establish world and tone.,"The fallen do not rest; they burn.",narrator,,,audio/ch01_001_narration_narrator.mp3,,,,"planned","Fill after chapter read-through"
+ch01_002_still,1,2,still,cherry blossom park,Rin,Wide establishing shot — fox girl on path under pink trees.,,,images/ch01_002_still.png,,,ilustmix,,,"planned","Hero reference: images/Rin_kitsune_approved.png"
+ch01_003_dialogue,1,3,dialogue,cherry blossom park,Rin,Medium shot — Rin faces camera; polite expression.,Greetings.,Rin,images/ch01_003_dialogue.png,,audio/ch01_003_dialogue_rin.mp3,ilustmix,,,"planned","Match Rin voice from MOSS tests"
+ch01_004_video,1,4,video,cherry blossom park,Rin,Karate kick toward camera — hero motion clip.,,,,clips/ch01_004_video.mp4,,ilustmix,,"planned","Use generate_video_hero when still approved"

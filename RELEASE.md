@@ -50,6 +50,10 @@ python stability-studio-mcp/scripts/build_handoff_zip.py
 # -> studio-agent.zip at repo root
 ```
 
+Includes `scripts/remote-laptop/`, `handoff/remote-laptop/`, `packaging/laptop-remote/`. Excludes `config.yaml`, secrets, and local artifacts.
+
+See [REMOTE-LAPTOP-SETUP.md](REMOTE-LAPTOP-SETUP.md) and [handoff/remote-laptop/GITHUB-HANDOFF.md](handoff/remote-laptop/GITHUB-HANDOFF.md).
+
 ## Requirements
 
 - NVIDIA GPU (16 GB validated for draft + hero with exclusive backend policy)

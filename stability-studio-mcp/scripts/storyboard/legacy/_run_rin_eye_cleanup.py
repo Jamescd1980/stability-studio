@@ -109,7 +109,7 @@ def main() -> int:
         payload = {
             "status": "success",
             "style": STYLE,
-            "checkpoint": "ponyDiffusionV6XL_v6StartWithThisOne.safetensors",
+            "checkpoint": "prefectPonyXL_v6.safetensors",
             "source": str(SOURCE),
             "seed": SEED,
             "size": [WIDTH, HEIGHT],

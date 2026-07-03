@@ -20,6 +20,12 @@ _PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
         "video/audio jobs on 16 GB, then retry.",
     ),
     (
+        re.compile(r"hostbuf_file_reader_read failed|cast_to_gathered", re.I),
+        "gpu_oom",
+        "GPU VRAM pressure during sampling (hostbuf read failed). On 16 GB: unload Jan's model from VRAM "
+        "before generate, use face_detail=false, lower resolution (832x1216 max), restart ComfyUI, then retry.",
+    ),
+    (
         re.compile(r"out of memory|CUDA out of memory|OOM", re.I),
         "gpu_oom",
         "GPU ran out of VRAM. Lower num_frames, disable smooth_motion and Wan video LoRAs, "

@@ -48,6 +48,26 @@ from studio.storyboard import (
     check_storyboard_readiness as _check_storyboard_readiness,
     plan_storyboard_scene as _plan_storyboard_scene,
 )
+from studio.storyboard_sheet import (
+    export_renpy_skeleton as _export_renpy_skeleton,
+    init_chapter_sheet as _init_chapter_sheet,
+    load_sheet as _load_storyboard_sheet,
+    rows_needing_generation as _rows_needing_generation,
+    sheet_path as _storyboard_sheet_path,
+    validate_sheet as _validate_storyboard_sheet,
+)
+from studio.project_context import (
+    append_backlog as _append_project_log,
+    build_agent_briefing as _build_agent_briefing,
+    init_context as _init_project_context,
+    update_context as _update_project_context,
+)
+from studio.prompt_log import (
+    log_prompt_only as _log_prompt_only,
+    log_from_generation_result as _log_from_generation_result,
+    prompt_log_path as _prompt_log_path,
+    read_prompt_log as _read_prompt_log,
+)
 from studio.version_info import build_info
 from studio.error_messages import humanize_error
 from studio.gpu_backend import (
@@ -127,6 +147,39 @@ _engine = GenerationEngine(_cfg, _catalog)
 
 def _comfy_url() -> str:
     return _cfg.get("comfyui", {}).get("url", "http://127.0.0.1:8188")
+
+
+def _parse_lora_ids_arg(value: Any = None) -> list[str] | None:
+    """Accept comma-separated string or JSON/list — small VLMs often pass arrays."""
+    if value is None or value == "":
+        return None
+    if isinstance(value, list):
+        ids = [str(item).strip() for item in value if str(item).strip()]
+        return ids or None
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        if text.startswith("["):
+            try:
+                parsed = json.loads(text)
+            except json.JSONDecodeError:
+                parsed = None
+            if isinstance(parsed, list):
+                return _parse_lora_ids_arg(parsed)
+        return [part.strip() for part in text.split(",") if part.strip()] or None
+    return [str(value).strip()] if str(value).strip() else None
+
+
+def _delivery_project_root(project_dir: str = "") -> Path | None:
+    from studio.storyboard_cli import resolve_project_dir
+
+    if project_dir:
+        return resolve_project_dir(project_dir)
+    raw = (_cfg.get("outputs") or {}).get("delivery")
+    if not raw:
+        return None
+    return Path(raw).expanduser().resolve()
 
 
 def _load_ui_workflow(workflow_id: str = "", mode: str = "t2v") -> dict:
@@ -247,20 +300,20 @@ def download_wan_assets(
 
 
 @mcp.tool()
-def check_wan_video_loras(lora_ids: str = "") -> str:
+def check_wan_video_loras(lora_ids: str | list[str] = "") -> str:
     """
     Check optional Wan 2.2 video LoRAs (motion, face, lighting, camera).
 
     Args:
-        lora_ids: Comma-separated catalog ids (face_naturalizer, light_volumetric, …). Empty = all.
+        lora_ids: Catalog id(s): comma-separated string or list (e.g. face_naturalizer). Empty = all.
     """
-    ids = [s.strip() for s in lora_ids.split(",") if s.strip()] or None
+    ids = _parse_lora_ids_arg(lora_ids)
     return json.dumps(_check_wan_video_loras_status(_cfg, ids), indent=2)
 
 
 @mcp.tool()
 def download_wan_video_loras(
-    lora_ids: str = "",
+    lora_ids: str | list[str] = "",
     bundle: str = "",
     force: bool = False,
 ) -> str:
@@ -268,11 +321,11 @@ def download_wan_video_loras(
     Download optional Wan video LoRAs from Hugging Face into Stability Matrix Lora/.
 
     Args:
-        lora_ids: Comma-separated ids. Empty = all catalog LoRAs (or bundle only if set).
+        lora_ids: Catalog id(s): comma-separated string or list. Empty = all (or bundle only if set).
         bundle: smooth_character | walk_cycle | cinematic_church | motion_boost (merges with lora_ids).
         force: Re-download even when present.
     """
-    ids = [s.strip() for s in lora_ids.split(",") if s.strip()] or None
+    ids = _parse_lora_ids_arg(lora_ids)
     results = _fetch_wan_video_loras(_cfg, lora_ids=ids, bundle=bundle, force=force)
     summary = _check_wan_video_loras_status(_cfg, ids)
     return json.dumps({"downloads": results, "status": summary}, indent=2)
@@ -562,11 +615,11 @@ def generate_image(
 
     Args:
         prompt: What to generate.
-        style: Style id (anime, juggernaut, photorealistic, ilustmix, pony, etc.). Empty = default.
+        style: Catalog style id (ilustmix, pony, juggernaut, miracle_nsfw, …). Not checkpoint filenames — use pony not prefectPonyXL_v6. Empty = default.
         negative_prompt: Override default negative prompt.
         checkpoint: Override checkpoint filename.
         loras: Optional list of LoRAs, e.g. [{"file": "Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors", "weight": 0.85}].
-        width, height, steps, cfg, seed: Optional overrides (0 or -1 = use style defaults).
+        width, height, steps, cfg, seed: Optional overrides. Use plain integers only (e.g. width=832, height=1216). Never embed "8k" in width/height. 0 = use style default.
         sampler, scheduler: Optional overrides (empty = style/family defaults, e.g. ilustmix: euler_ancestral + normal).
         face_detail: Optional FaceDetailer second pass (ADetailer-style). None = style default (ilustmix: true).
         backend: auto, comfyui, or invoke.
@@ -589,6 +642,11 @@ def generate_image(
         backend=None if backend == "auto" else backend,
         content_rating=content_rating or "open",
     )
+    root = _delivery_project_root()
+    if root:
+        logged = _log_from_generation_result(root, agent="mcp", kind="image", result=result)
+        if logged:
+            result["prompt_log"] = logged
     return json.dumps(result, indent=2)
 
 
@@ -1178,7 +1236,7 @@ def generate_video(
     concat_source: bool = True,
     num_frames: int = 0,
     frame_rate: float = 0,
-    lora_ids: str = "",
+    lora_ids: str | list[str] = "",
     lora_bundle: str = "",
     use_painter_i2v: bool = False,
     motion_amplitude: float = 1.15,
@@ -1199,13 +1257,13 @@ def generate_video(
         concat_source: For v2v — append continuation to source clip (default true).
         num_frames: Optional frame count override (e.g. 65 for ~4s at 16fps).
         frame_rate: Optional output fps override (e.g. 16).
-        lora_ids: Comma-separated Wan video LoRA ids (face_naturalizer, light_volumetric, …).
+        lora_ids: Wan video LoRA id(s): comma-separated string or list (face_naturalizer, …).
         lora_bundle: smooth_character | walk_cycle | cinematic_church | motion_boost — merged with lora_ids.
         use_painter_i2v: Inject PainterI2V node for motion_amplitude (or use workflow_id=i2v_5b_painter).
         motion_amplitude: PainterI2V strength 1.0–1.5 (default 1.15). Lower = subtler gait.
         smooth_motion: For i2v/v2v — gentler preset (lower amplitude, 12fps). On 16 GB prefer false + motion_amplitude 1.15–1.2.
     """
-    ids = [s.strip() for s in lora_ids.split(",") if s.strip()] or None
+    ids = _parse_lora_ids_arg(lora_ids)
     try:
         result = _engine.generate_video(
             prompt=prompt,
@@ -1284,6 +1342,242 @@ def check_storyboard_readiness() -> str:
     Call before plan_storyboard_scene execute or Rin-style pipelines on 16 GB.
     """
     return json.dumps(_check_storyboard_readiness(_cfg), indent=2)
+
+
+@mcp.tool()
+def get_project_context(project_dir: str = "", backlog_limit: int = 20) -> str:
+    """
+    Cross-agent project briefing — read at session start (Cursor, OI, Jan).
+
+    Returns current phase, active chapter, blockers, next actions, and recent agent_backlog.
+    Truth for scenes stays in storyboard CSV; this file coordinates who did what.
+    """
+    from studio.storyboard_cli import resolve_project_dir
+
+    root = resolve_project_dir(project_dir or None)
+    try:
+        payload = _build_agent_briefing(root, backlog_limit=backlog_limit)
+    except FileNotFoundError:
+        return json.dumps(
+            {
+                "status": "not_initialized",
+                "project_root": str(root),
+                "hint": "Call init_project_context(project_dir=...) once per project.",
+            },
+            indent=2,
+        )
+    return json.dumps(payload, indent=2)
+
+
+@mcp.tool()
+def init_project_context(
+    project_dir: str = "",
+    project_name: str = "",
+    book_title: str = "",
+    active_chapter: int = 1,
+) -> str:
+    """Create logs/project_context.json + empty agent_backlog.jsonl for a delivery project."""
+    from studio.storyboard_cli import resolve_project_dir
+
+    root = resolve_project_dir(project_dir or None)
+    data = _init_project_context(
+        root,
+        project_name=project_name,
+        book_title=book_title,
+        active_chapter=active_chapter,
+    )
+    return json.dumps({"project_root": str(root), "context": data}, indent=2)
+
+
+@mcp.tool()
+def update_project_context(
+    project_dir: str = "",
+    agent: str = "cursor",
+    phase: str = "",
+    active_chapter: int = 0,
+    summary: str = "",
+    next_actions: list[str] | None = None,
+    blockers: list[str] | None = None,
+) -> str:
+    """Update project snapshot after a session — phase, chapter, next steps, blockers."""
+    from studio.storyboard_cli import resolve_project_dir
+
+    root = resolve_project_dir(project_dir or None)
+    data = _update_project_context(
+        root,
+        agent=agent,
+        phase=phase or None,
+        active_chapter=active_chapter or None,
+        next_actions=next_actions,
+        blockers=blockers,
+        summary=summary,
+    )
+    return json.dumps({"project_root": str(root), "context": data}, indent=2)
+
+
+@mcp.tool()
+def append_project_log(
+    project_dir: str = "",
+    agent: str = "cursor",
+    action: str = "",
+    summary: str = "",
+    chapter: int = 0,
+    scene_id: str = "",
+    artifacts: list[str] | None = None,
+) -> str:
+    """Append one line to logs/agent_backlog.jsonl (what this agent just did)."""
+    from studio.storyboard_cli import resolve_project_dir
+
+    root = resolve_project_dir(project_dir or None)
+    entry = _append_project_log(
+        root,
+        agent=agent,
+        action=action or "note",
+        summary=summary,
+        chapter=chapter or None,
+        scene_id=scene_id,
+        artifacts=artifacts,
+    )
+    return json.dumps(entry, indent=2)
+
+
+@mcp.tool()
+def log_image_prompt(
+    prompt_positive: str,
+    prompt_negative: str = "",
+    platform: str = "",
+    style: str = "",
+    scene_id: str = "",
+    chapter: int = 0,
+    source_image: str = "",
+    notes: str = "",
+    agent: str = "jan",
+    project_dir: str = "",
+) -> str:
+    """
+    Append a prompt-only or brainstorm entry to logs/prompt_log.jsonl.
+
+    Jan Prompt Lab: call after every Platform/Positive/Negative reply (no GPU).
+    Links to storyboard scene_id when known.
+    """
+    from studio.storyboard_cli import resolve_project_dir
+
+    root = resolve_project_dir(project_dir or None) if project_dir else _delivery_project_root()
+    if root is None:
+        raise ValueError("No project_dir and outputs.delivery not set in config.yaml")
+    row = _log_prompt_only(
+        root,
+        agent=agent,
+        scene_id=scene_id,
+        platform=platform,
+        style=style,
+        prompt_positive=prompt_positive,
+        prompt_negative=prompt_negative,
+        source_image=source_image,
+        notes=notes,
+        chapter=chapter or None,
+    )
+    _append_project_log(
+        root,
+        agent=agent,
+        action="log_image_prompt",
+        summary=f"Prompt logged ({platform or style or 'text'})",
+        chapter=chapter or None,
+        scene_id=scene_id,
+        artifacts=[str(_prompt_log_path(root))],
+    )
+    plog = _prompt_log_path(root)
+    return json.dumps({"project_root": str(root), "prompt_log": str(plog), "entry": row}, indent=2)
+
+
+@mcp.tool()
+def list_image_prompt_log(
+    project_dir: str = "",
+    limit: int = 30,
+    scene_id: str = "",
+    style: str = "",
+    kind: str = "",
+) -> str:
+    """Read recent image/video prompts from logs/prompt_log.jsonl."""
+    from studio.storyboard_cli import resolve_project_dir
+
+    root = resolve_project_dir(project_dir or None) if project_dir else _delivery_project_root()
+    if root is None:
+        raise ValueError("No project_dir and outputs.delivery not set in config.yaml")
+    rows = _read_prompt_log(root, limit=limit, scene_id=scene_id, style=style, kind=kind)
+    return json.dumps(
+        {
+            "project_root": str(root),
+            "log": str(root / "logs" / "prompt_log.jsonl"),
+            "count": len(rows),
+            "entries": rows,
+        },
+        indent=2,
+    )
+
+
+@mcp.tool()
+def init_storyboard_sheet(chapter: int = 1, title: str = "", project_dir: str = "") -> str:
+    """
+    Create storyboard/chXX_storyboard.csv for a VN chapter (Excel-friendly).
+
+    One row per scene: still, dialogue, video, narration, etc. Asset paths are pre-filled
+    from scene_id so generated files land in predictable locations.
+    """
+    from studio.storyboard_cli import resolve_project_dir
+
+    root = resolve_project_dir(project_dir or None)
+    path = _init_chapter_sheet(root, chapter=chapter, title=title)
+    return json.dumps({"project_root": str(root), "sheet": str(path), "chapter": chapter}, indent=2)
+
+
+@mcp.tool()
+def check_storyboard_sheet(chapter: int = 1, project_dir: str = "", strict: bool = False) -> str:
+    """Validate chapter CSV — duplicate ids, missing approved assets, row warnings."""
+    from studio.storyboard_cli import resolve_project_dir
+
+    root = resolve_project_dir(project_dir or None)
+    path = _storyboard_sheet_path(root, chapter)
+    return json.dumps(_validate_storyboard_sheet(root, path, strict=strict), indent=2)
+
+
+@mcp.tool()
+def list_storyboard_generation_queue(chapter: int = 1, project_dir: str = "") -> str:
+    """
+    Rows with prompts/actions ready for MCP generate_image / generate_video_hero / generate_audio.
+
+    Agent: fill prompt_positive in the sheet first, set status=prompt_ready, then work the queue.
+    """
+    from studio.storyboard_cli import resolve_project_dir
+
+    root = resolve_project_dir(project_dir or None)
+    path = _storyboard_sheet_path(root, chapter)
+    rows, meta = _load_storyboard_sheet(path)
+    return json.dumps(
+        {
+            "sheet": str(path),
+            "meta": meta,
+            "queue": _rows_needing_generation(rows),
+        },
+        indent=2,
+    )
+
+
+@mcp.tool()
+def export_renpy_skeleton(chapter: int = 1, project_dir: str = "", game_name: str = "vn_game") -> str:
+    """
+    Export Ren'Py label + image definition skeleton from the chapter storyboard CSV.
+
+    Writes renpy/generated/chXX_script.rpy — review before shipping.
+    """
+    from studio.storyboard_cli import resolve_project_dir
+
+    root = resolve_project_dir(project_dir or None)
+    path = _storyboard_sheet_path(root, chapter)
+    return json.dumps(
+        _export_renpy_skeleton(root, path, chapter=chapter, game_name=game_name),
+        indent=2,
+    )
 
 
 @mcp.tool()

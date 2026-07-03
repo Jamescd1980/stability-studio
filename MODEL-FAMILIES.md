@@ -112,7 +112,7 @@ Same single-checkpoint requirement as SDXL.
 
 ### Pony SDXL (`architecture: pony_sdxl`)
 
-**Examples:** `pony`
+**Examples:** `pony` — checkpoint **`prefectPonyXL_v6.safetensors`** (Prefect Pony XL v6; official Pony V6 XL removed from this machine 2026-06-13)
 
 | Item | Value |
 |------|--------|
@@ -184,7 +184,7 @@ Optional I2V: `workflow_id=i2v_5b_painter`, `lora_bundle=walk_cycle|cinematic_ch
 |-----------|----------------|
 | `anime`, `ilustmix`, `ilustmix_v10` | `sdxl_anime` |
 | `juggernaut`, `merged_dreams`, `artius_wan`, `n4mik4` | `sdxl` |
-| `pony`, `prefect_pony` | `pony_sdxl` |
+| `pony` (Prefect Pony XL v6) | `pony_sdxl` |
 | `anime`, `ilustmix`, `animagine_xl` | `sdxl_anime` |
 | `miracle_nsfw` | `flux2_klein` |
 

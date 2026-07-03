@@ -16,6 +16,7 @@ from studio.hardware_profile import (
     clamp_image_params,
     clamp_video_params,
     fit_i2v_dimensions,
+    sanitize_image_dims,
 )
 from studio.error_messages import humanize_error
 from studio.video_utils import concat_videos, extract_last_frame
@@ -147,6 +148,27 @@ class GenerationEngine:
     def hardware_context(self) -> dict[str, Any]:
         return build_hardware_profile(self.cfg, self.comfy)
 
+    def _vram_face_detail_policy(self, use_face_detail: bool) -> tuple[bool, dict[str, Any] | None]:
+        """Disable FaceDetailer/SAM on tight VRAM (common when Jan + ComfyUI share 16 GB)."""
+        if not use_face_detail:
+            return False, None
+        stats = self.comfy.get_system_stats()
+        if not stats:
+            return use_face_detail, None
+        dev = (stats.get("devices") or [{}])[0]
+        free_gb = float(dev.get("vram_free", 0)) / (1024**3)
+        total_gb = float(dev.get("vram_total", 0)) / (1024**3)
+        # Jan 4B VLM + ilustmix + SAM/Impact needs headroom; hostbuf fails when starved.
+        if total_gb <= 18 and free_gb < 10:
+            return False, {
+                "requested": True,
+                "applied": False,
+                "reason": "low_vram",
+                "vram_free_gb": round(free_gb, 2),
+                "hint": "Unload Jan model from VRAM before generate, or pass face_detail=false.",
+            }
+        return use_face_detail, None
+
     def backend_status(self) -> dict[str, bool]:
         return {
             "comfyui": self.comfy.is_running(),
@@ -250,13 +272,19 @@ class GenerationEngine:
         h = height or defaults.get("height", 1024)
         st = steps or defaults.get("steps", 28)
         limits = self.hardware_context().get("generation_limits", {})
+        w, h, sanitized = sanitize_image_dims(width, height, defaults, limits)
         w, h, st, clamped = clamp_image_params(w, h, st, limits)
+        if sanitized:
+            clamped = {**(clamped or {}), "sanitized_dims": sanitized}
         cfg_scale = cfg if cfg is not None else defaults.get("cfg", 7.0)
         sampler_name = sampler or defaults.get("sampler", "dpmpp_2m")
         scheduler_name = scheduler or defaults.get("scheduler", "karras")
         use_face_detail = (
             face_detail if face_detail is not None else bool(defaults.get("face_detail", False))
         )
+        use_face_detail, face_detail_vram = self._vram_face_detail_policy(use_face_detail)
+        if face_detail_vram:
+            clamped = {**(clamped or {}), "face_detail_vram": face_detail_vram}
 
         chosen = self.pick_backend(backend)
 
@@ -742,7 +770,10 @@ class GenerationEngine:
         h = height or defaults.get("height", 1024)
         st = steps or defaults.get("steps", 28)
         limits = self.hardware_context().get("generation_limits", {})
+        w, h, sanitized = sanitize_image_dims(width, height, defaults, limits)
         w, h, st, clamped = clamp_image_params(w, h, st, limits)
+        if sanitized:
+            clamped = {**(clamped or {}), "sanitized_dims": sanitized}
         cfg_scale = cfg if cfg is not None else defaults.get("cfg", 5.5)
         sampler_name = sampler or defaults.get("sampler", "euler_ancestral")
         scheduler_name = scheduler or defaults.get("scheduler", "normal")
@@ -1025,7 +1056,10 @@ class GenerationEngine:
         h = height or defaults.get("height", 1024)
         st = steps or defaults.get("steps", 28)
         limits = self.hardware_context().get("generation_limits", {})
+        w, h, sanitized = sanitize_image_dims(width, height, defaults, limits)
         w, h, st, clamped = clamp_image_params(w, h, st, limits)
+        if sanitized:
+            clamped = {**(clamped or {}), "sanitized_dims": sanitized}
         cfg_scale = cfg if cfg is not None else defaults.get("cfg", 7.0)
         sampler_name = sampler or defaults.get("sampler", "euler_ancestral")
         scheduler_name = scheduler or defaults.get("scheduler", "normal")
@@ -1138,7 +1172,10 @@ class GenerationEngine:
         h = height or defaults.get("height", 1024)
         st = steps or defaults.get("steps", 25)
         limits = self.hardware_context().get("generation_limits", {})
+        w, h, sanitized = sanitize_image_dims(width, height, defaults, limits)
         w, h, st, clamped = clamp_image_params(w, h, st, limits)
+        if sanitized:
+            clamped = {**(clamped or {}), "sanitized_dims": sanitized}
         cfg_scale = cfg if cfg is not None else defaults.get("cfg", 5.0)
         denoise = float(denoising_strength)
 
@@ -1239,7 +1276,10 @@ class GenerationEngine:
         h = height or defaults.get("height", 1024)
         st = steps or defaults.get("steps", 28)
         limits = self.hardware_context().get("generation_limits", {})
+        w, h, sanitized = sanitize_image_dims(width, height, defaults, limits)
         w, h, st, clamped = clamp_image_params(w, h, st, limits)
+        if sanitized:
+            clamped = {**(clamped or {}), "sanitized_dims": sanitized}
         cfg_scale = cfg if cfg is not None else defaults.get("cfg", 5.0)
 
         src = Path(image_path)

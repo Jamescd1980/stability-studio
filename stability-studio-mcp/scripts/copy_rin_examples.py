@@ -1,10 +1,20 @@
-"""Copy Example Images into onboarding/examples/rin/."""
+"""Copy Example Images into onboarding/examples/rin/.
+
+Set RIN_EXAMPLE_SRC to a folder containing the source PNG/MP4 files.
+"""
 from __future__ import annotations
 
+import os
 import shutil
+import sys
 from pathlib import Path
 
-SRC = Path(r"C:\Users\Creel\Desktop\New Images\Example Images")
+_src = os.environ.get("RIN_EXAMPLE_SRC", "").strip()
+if not _src:
+    sys.exit("Set RIN_EXAMPLE_SRC to the folder with Rin example images/clips.")
+SRC = Path(_src)
+if not SRC.is_dir():
+    sys.exit(f"RIN_EXAMPLE_SRC is not a directory: {SRC}")
 DST = Path(__file__).resolve().parents[2] / "onboarding" / "examples" / "rin"
 
 COPIES: list[tuple[str, Path]] = [

@@ -76,7 +76,10 @@ Generation tools **only work when**:
 | `plan_storyboard_scene` | **Hero** storyboard plan (Wan2GP + MOSS + splice) — see STORYBOARD-QUICKSTART.md |
 | `check_storyboard_readiness` | MOSS + Wan2GP hero + GPU + `outputs.delivery` layout |
 | **Storyboard module** | `studio/storyboard_cli.py` — reusable plan/check/splice |
+| **Storyboard spreadsheet (VN)** | `studio/storyboard_sheet.py` — CSV per chapter, Ren'Py export — [STORYBOARD-SHEET.md](STORYBOARD-SHEET.md) |
+| **Remote laptop (Jan → desktop GPU)** | [REMOTE-LAPTOP-SETUP.md](REMOTE-LAPTOP-SETUP.md) — `scripts/remote-laptop/` |
 | **Storyboard CLI** | `scripts/storyboard/generate_storyboard.py` — `plan` / `check` / `splice` |
+| **Sheet CLI** | `scripts/storyboard/manage_sheet.py` — `init` / `check` / `queue` / `export-renpy` |
 | **Rin example** | [STORYBOARD-QUICKSTART.md](STORYBOARD-QUICKSTART.md) — Wan2GP hero + MOSS + manifest |
 | `plan_scene_sequence` / `generate_scene_sequence` | Draft ComfyUI multi-beat; `execute=true` runs I2V/V2V chain |
 | **GPU policy** | **`check_gpu_backend`** before GPU tools; **`release_gpu_lock`** if stale |

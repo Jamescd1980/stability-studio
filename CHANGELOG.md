@@ -11,6 +11,14 @@
 - Jan MCP: `toolCallTimeoutSeconds: 600`; map `Z:` by **LAN IP** (hostname UNC often fails)
 - Do **not** use SM Extra Launch Arguments for `--listen` (typo `-- listen` breaks ComfyUI)
 
+### Storyboard spreadsheet + Jan project tools (2026-06)
+
+- **`studio/storyboard_sheet.py`** — CSV per chapter, generation queue, Ren'Py skeleton export
+- **`scripts/storyboard/manage_sheet.py`** — `init` / `check` / `queue` / `export-renpy`
+- **`studio/prompt_log.py`** — `log_image_prompt`, `list_image_prompt_log` → `logs/prompt_log.jsonl`
+- **`studio/project_context.py`** — `get_project_context`, session backlog for multi-agent VN work
+- [STORYBOARD-SHEET.md](STORYBOARD-SHEET.md), Jan config examples under `config-examples/`
+
 ### Jan Studio Copilot (2026-06-13)
 
 - Hardened prompt-only vs generate rules; fixed hallucinated "I generated" responses.
