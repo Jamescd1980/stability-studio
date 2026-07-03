@@ -16,13 +16,19 @@ SKIP_DIRS = {
     "venv",
     "node_modules",
     ".cursor/projects",
+    "unsloth_compiled_cache",
+    ".handoff-extract",
 }
 SKIP_PREFIXES = (
     "stability-studio-mcp/scripts/dev/",
     "stability-studio-mcp/scripts/storyboard/legacy/",
 )
+SKIP_REL_FILES = {
+    "stability-studio-mcp/scripts/copy_rin_examples.py",
+}
 SKIP_FILES = {
     "config.yaml",
+    "config.generated.yaml",
     "studio-agent.zip",
     "wan_video_loras_local.py",
     "mcp.json",
@@ -53,6 +59,8 @@ OUTPUTS_ALLOW = {".gitkeep", "README.md"}
 
 def should_skip(path: Path) -> bool:
     rel_posix = path.relative_to(REPO).as_posix()
+    if rel_posix in SKIP_REL_FILES:
+        return True
     if any(rel_posix.startswith(p) for p in SKIP_PREFIXES):
         return True
     if path.name in SKIP_FILES:

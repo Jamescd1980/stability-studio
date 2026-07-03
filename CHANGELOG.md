@@ -1,5 +1,26 @@
 # Changelog
 
+## [Unreleased]
+
+### Remote laptop generation (2026-07)
+
+- **Jan on laptop → desktop ComfyUI** over LAN; SMB share `StudioBata` for image delivery
+- `scripts/remote-laptop/` — `studio_launch.py` SM shim, SMB setup, `map_studio_share.ps1`
+- `packaging/laptop-remote/INSTALL.ps1` — one-click laptop installer
+- `handoff/remote-laptop/` — `LESSONS-LEARNED.md`, `GITHUB-HANDOFF.md`, `REMOTE-STATUS.md`
+- Jan MCP: `toolCallTimeoutSeconds: 600`; map `Z:` by **LAN IP** (hostname UNC often fails)
+- Do **not** use SM Extra Launch Arguments for `--listen` (typo `-- listen` breaks ComfyUI)
+
+### Jan Studio Copilot (2026-06-13)
+
+- Hardened prompt-only vs generate rules; fixed hallucinated "I generated" responses.
+- MCP: checkpoint filenames now resolve to catalog style ids (`prefectPonyXL_v6` → `pony`).
+- Smoke-test troubleshooting: `vlm-prompt-training/logs/2026-06-13-smoke-test-issues.md`
+
+- **Pony:** default style `pony` now uses **Prefect Pony XL v6** (`prefectPonyXL_v6.safetensors`) — validated on this machine.
+- **Removed:** official `ponyDiffusionV6XL_v6StartWithThisOne.safetensors` (poor results vs Prefect).
+- **Removed:** duplicate catalog style `prefect_pony` — alias `prefect_pony` → `pony`.
+
 ## [1.0.0-beta] — 2026-06-12
 
 ### Storyboard (hero sequences)

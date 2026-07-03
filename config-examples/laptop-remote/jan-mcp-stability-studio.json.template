@@ -1,0 +1,14 @@
+# Laptop MCP config — copy values into Jan mcp_config.json
+# stability-studio entry:
+
+{
+  "active": true,
+  "command": "<PYTHON_EXE>",
+  "args": [
+    "<PROJECT_ROOT>/stability-studio-mcp/server.py"
+  ],
+  "env": {
+    "PYTHONUNBUFFERED": "1"
+  },
+  "type": "stdio"
+}

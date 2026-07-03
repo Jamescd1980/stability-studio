@@ -9,7 +9,7 @@ Checklist when packaging this repo for public release or sharing a zip.
 3. **`.cursor/mcp.json`** — gitignored; ship `.cursor/mcp.json.example` and `config-examples/cursor-mcp.json`. Recipients copy and set their Python executable if `python` is not on PATH.
 4. **`studio-agent.zip`** — gitignored; built by `build_handoff_zip.py` (not committed). No `studio-agent-setup.zip` in the repo.
 5. **`wan_video_loras_local.py`** — gitignored; ship `wan_video_loras_local.example.py` only.
-6. **Absolute paths** — grep for `C:\Users\`, `D:/StabilityMatrix`, your desktop paths in tracked files. Dev scripts live under `scripts/dev/` (excluded from zip).
+6. **Absolute paths** — grep for `C:\Users\`, LAN IPs, hostnames, `D:/StabilityMatrix` in tracked files. Dev scripts live under `scripts/dev/` (excluded from zip). See `handoff/remote-laptop/GITHUB-HANDOFF.md` for remote-laptop scrub.
 7. **Workflow JSON** — copy bundled graphs into Stability Matrix `Data/Workflows/` (see `stability-studio-mcp/workflows/README.md` and `bundled-workflows/`).
 8. **Clone URL** — [https://github.com/Jamescd1980/stability-studio](https://github.com/Jamescd1980/stability-studio) (see root `README.md`).
 
@@ -43,7 +43,8 @@ Recipient steps: `install.ps1` → copy `config.yaml.example` → edit paths →
 | `config.yaml.example`, `catalog.yaml` | `stability-studio-mcp/outputs/*` except placeholders |
 | Docs, `config-examples/`, `.cursor/rules/` | `outputs/local/`, `__pycache__/`, media files |
 | `stability-studio-mcp/workflows/*.json` | `.cursor/mcp.json` (use `.example`) |
-| `scripts/download_wan_assets.py`, storyboard CLI | `scripts/dev/`, `scripts/storyboard/legacy/` |
+| `scripts/remote-laptop/`, `handoff/remote-laptop/` | `config.generated.yaml`, `.handoff-extract/` |
+| `packaging/laptop-remote/INSTALL.ps1` | Personal `jan-config/` with absolute paths |
 | | `wan_video_loras_local.py`, `studio-agent.zip` |
 
 ## Scripts layout

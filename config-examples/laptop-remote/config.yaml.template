@@ -1,0 +1,35 @@
+# Laptop config — copy to stability-studio-mcp/config.yaml on the LAPTOP
+# After mapping Z: to the desktop share (map_studio_share.ps1)
+
+stability_matrix:
+  # Placeholders — asset checks fail on laptop; models live on desktop
+  root: "<STABILITY_MATRIX_ROOT>"
+  data: "<STABILITY_MATRIX_ROOT>/Data"
+  models: "<STABILITY_MATRIX_ROOT>/Data/Models"
+  workflows: "<STABILITY_MATRIX_ROOT>/Data/Workflows"
+  packages:
+    comfyui: "<STABILITY_MATRIX_ROOT>/Data/Packages/ComfyUI"
+
+outputs:
+  delivery: "Z:/"
+
+comfyui:
+  url: "http://<DESKTOP_LAN_IP>:8188"
+  timeout_seconds: 600
+
+invokeai:
+  enabled: false
+
+default_backend: comfyui
+default_content_rating: open
+default_style: juggernaut
+
+hardware:
+  vram_gb: 0
+  gpu_only: true
+  prefer_prompt_quality: true
+
+catalog_file: "catalog.yaml"
+
+gpu_backend:
+  enforce_exclusive: false
