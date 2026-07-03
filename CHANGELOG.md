@@ -11,6 +11,11 @@
 - Jan MCP: `toolCallTimeoutSeconds: 600`; map `Z:` by **LAN IP** (hostname UNC often fails)
 - Do **not** use SM Extra Launch Arguments for `--listen` (typo `-- listen` breaks ComfyUI)
 
+### Prompt style lookup (2026-07)
+
+- **`get_prompt_style(style=...)`** or **`get_prompt_style(platform=illustrious|pony|flux|wan_image)`** — compact prompt grammar before writing prompts
+- Prefer over full `get_generation_context` for Jan Prompt Lab; pair with `log_image_prompt`
+
 ### Storyboard spreadsheet + Jan project tools (2026-06)
 
 - **`studio/storyboard_sheet.py`** — CSV per chapter, generation queue, Ren'Py skeleton export

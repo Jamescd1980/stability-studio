@@ -9,7 +9,8 @@ This document explains **what each model architecture needs**, how ComfyUI workf
 1. Copy `config.yaml.example` → `config.yaml` and set Stability Matrix paths.
 2. Start ComfyUI from Stability Matrix.
 3. Call **`get_generation_context`** — read `style_readiness.summary` and `model_families`.
-4. For **Flux2** (`miracle_nsfw`): **`check_style_assets(style="miracle_nsfw")`** → if missing, **`download_style_assets(style="miracle_nsfw", link_unet=true)`**.
+4. Before writing prompts (Jan Prompt Lab): **`get_prompt_style(style=ilustmix)`** or **`get_prompt_style(platform=pony)`** — compact grammar vs full context.
+5. For **Flux2** (`miracle_nsfw`): **`check_style_assets(style="miracle_nsfw")`** → if missing, **`download_style_assets(style="miracle_nsfw", link_unet=true)`**.
 5. For **Wan video**: **`check_wan_assets(workflow_id="i2v_5b")`** → **`download_wan_assets(..., include_large=true)`** if needed.
 6. **Image edits:** **`setup_image_editing()`** → **`edit_image(..., food_group=...)`** — see [IMAGE-EDITING.md](IMAGE-EDITING.md).
 7. Generate with **`generate_image(style=...)`** or **`generate_video(...)`** using catalog style/workflow ids only.

@@ -818,6 +818,38 @@ def list_art_food_groups() -> str:
 
 
 @mcp.tool()
+def get_prompt_style(
+    style: str = "",
+    platform: str = "",
+    food_group: str = "",
+) -> str:
+    """
+    Compact prompt grammar for one catalog style or platform — call before writing prompts.
+
+    Args:
+        style: Catalog style id (ilustmix, pony, juggernaut, miracle_nsfw, …).
+        platform: Studio platform id (illustrious, pony, flux, sdxl, wan_image, qwen_edit).
+        food_group: anime | fantasy | cyberpunk | photoreal (uses group default_style).
+        Empty args: index of platforms and food groups.
+
+    Returns prompt_style, prefix/negative hints, length caps, and generate_image style id.
+    Prefer this over parsing full get_generation_context when writing Platform/Positive/Negative.
+    """
+    from studio.prompt_style import build_prompt_style_guide
+
+    try:
+        guide = build_prompt_style_guide(
+            _catalog,
+            style=style.strip(),
+            platform=platform.strip(),
+            food_group=food_group.strip(),
+        )
+    except ValueError as exc:
+        return json.dumps({"error": str(exc), "hint": "get_prompt_style() with no args lists platforms"}, indent=2)
+    return json.dumps(guide, indent=2)
+
+
+@mcp.tool()
 def plan_image_edit(
     instruction: str,
     food_group: str = "",

@@ -59,6 +59,7 @@ Generation tools **only work when**:
 | `setup_image_editing` | One-shot edit stack install (~12 GB models) |
 | `check_image_editing_readiness` | IP-Adapter, ControlNet, segmentation status |
 | `list_art_food_groups` | Four food groups + default styles |
+| **`get_prompt_style`** | **Prompt grammar** for one style/platform — call before Prompt Lab replies |
 | `generate_image` | T2I from scratch (`face_detail` optional; default on `ilustmix`) |
 | `generate_image_i2i` | Mood/lighting tweak (not for adding objects); `face_detail` optional |
 | `setup_face_detail` / `check_face_detail_dependencies` | Impact Pack FaceDetailer + YOLO/SAM models (ADetailer-style pass) |
