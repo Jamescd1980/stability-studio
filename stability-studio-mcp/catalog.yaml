@@ -140,13 +140,13 @@ art_food_groups:
   anime:
     label: Anime
     default_style: ilustmix
-    styles: [anime, ilustmix, animagine_xl, aom2]
-    description: "ilustmix, Illustrious XL, Animagine XL 4.0, AbyssOrangeMix2 (SD 1.5)"
+    styles: [anime, ilustmix, animagine_xl, aom2, waijfu, homochi, perfection_25d, noobai_vpred, anime_v160]
+    description: "ilustmix default; WAI Illustrious v17, Animagine, AOM2, Homochi, Perfection 2.5D, NoobAI v-pred"
   fantasy:
     label: Fantasy art
     default_style: merged_dreams
-    styles: [merged_dreams, pony]
-    description: "Dreamy stylized portraits — Merged In Dreams, Prefect Pony XL v6"
+    styles: [merged_dreams, pony, fantasy_prime, dynavision_3d]
+    description: "Merged In Dreams, Prefect Pony, FantasyPrime 2.5D, DynaVision 3D CGI"
     prompt_guide: >-
       Keep merged_dreams; steer with prompt only. Pony score prefix (score_9, score_8_up, score_7_up)
       then subject → action → environment → lighting → one style phrase.
@@ -156,19 +156,36 @@ art_food_groups:
   cyberpunk:
     label: Cyberpunk
     default_style: n4mik4
-    styles: [n4mik4, juggernaut]
-    description: "n4mik4 hero shots, neon sci-fi via prompt (use cyberpunk in prompt)"
+    styles: [n4mik4, n4mik4_v10, juggernaut]
+    description: "n4mik4 v20 hero shots (v10 legacy), neon sci-fi via prompt"
   photoreal:
     label: Photorealistic
     default_style: juggernaut
-    styles: [juggernaut, miracle_nsfw, realisian]
-    description: "Cinematic SDXL (Juggernaut), Flux2 (miracle_nsfw), Realisian SD 1.5 portraits"
+    styles: [juggernaut, miracle_nsfw, realisian, realvis_xl, perfection_25d]
+    description: "Juggernaut, Flux2 miracle_nsfw, Realisian, RealVis XL, Perfection 2.5D hybrid"
 
 styles:
   anime:
     architecture: sdxl_anime
-    description: "Anime / illustration — WAI Illustrious XL (your best anime results)"
-    aliases: [illustrious, wai, anime_illustrious, illustration]
+    description: "Anime / illustration — WAI Illustrious XL v17 (remote primary)"
+    aliases: [illustrious, wai, anime_illustrious, illustration, wai_v170, illustrious_v170]
+    checkpoint: "waiIllustriousSDXL_v170.safetensors"
+    loras: []
+    prompt_prefix: "masterpiece, best quality, amazing quality, anime style"
+    negative_prompt: "bad quality, worst quality, worst detail, sketch, photorealistic"
+    defaults:
+      width: 1024
+      height: 1024
+      steps: 28
+      cfg: 6.0
+      sampler: "euler_ancestral"
+      scheduler: "normal"
+    note: "v17 primary on the generation host. Use anime_v160 if an older LoRA misbehaves."
+
+  anime_v160:
+    architecture: sdxl_anime
+    description: "WAI Illustrious XL v16 — legacy (older LoRAs / ACTION-COMBAT pin)"
+    aliases: [wai_v16, illustrious_v16, anime_v16]
     checkpoint: "waiIllustriousSDXL_v160.safetensors"
     loras: []
     prompt_prefix: "masterpiece, best quality, amazing quality, anime style"
@@ -424,8 +441,24 @@ styles:
 
   n4mik4:
     architecture: sdxl
-    description: "n4mik4 IL — polished SDXL hero shots (paladin / templar keeper)"
-    aliases: [cyber, neon_dystopia, sci_fi, cyberpunk]
+    description: "n4mik4 IL v2.0 — polished SDXL hero shots (paladin / templar keeper)"
+    aliases: [cyber, neon_dystopia, sci_fi, cyberpunk, n4mik4_v20]
+    checkpoint: "n4mik4ILSFWNSFW_v20.safetensors"
+    loras: []
+    prompt_prefix: "masterpiece, best quality"
+    negative_prompt: "lowres, bad anatomy, text, watermark, blurry"
+    defaults:
+      width: 1024
+      height: 1024
+      steps: 28
+      cfg: 7.0
+      sampler: "dpmpp_2m"
+      scheduler: "karras"
+
+  n4mik4_v10:
+    architecture: sdxl
+    description: "n4mik4 IL v1.0 — legacy cyberpunk hero checkpoint"
+    aliases: [n4mik4_v1]
     checkpoint: "n4mik4ILSFWNSFW_v10.safetensors"
     loras: []
     prompt_prefix: "masterpiece, best quality"
@@ -437,6 +470,107 @@ styles:
       cfg: 7.0
       sampler: "dpmpp_2m"
       scheduler: "karras"
+
+  waijfu:
+    architecture: sdxl_anime
+    description: "WAI JFU Alpha — Illustrious-family anime merge"
+    aliases: [wai_jfu, waijfu_alpha, wai_alpha]
+    checkpoint: "waijfu_alpha.safetensors"
+    loras: []
+    prompt_prefix: "masterpiece, best quality, amazing quality, anime illustration"
+    negative_prompt: "bad quality, worst quality, worst detail, sketch, photorealistic"
+    defaults:
+      width: 1024
+      height: 1024
+      steps: 28
+      cfg: 6.0
+      sampler: "euler_ancestral"
+      scheduler: "normal"
+
+  perfection_25d:
+    architecture: sdxl_anime
+    description: "Perfection 2.5D ILXL v3.3 — anime/photoreal hybrid"
+    aliases: [perfection, perfection25d, ilxl_25d, semi_anime]
+    checkpoint: "perfection25DILXLIllustrious_33.safetensors"
+    loras: []
+    prompt_prefix: "masterpiece, best quality, detailed, cinematic lighting"
+    negative_prompt: "lowres, bad anatomy, bad hands, text, watermark, blurry, flat shading"
+    defaults:
+      width: 1024
+      height: 1024
+      steps: 30
+      cfg: 4.0
+      sampler: "dpmpp_sde"
+      scheduler: "karras"
+    note: "Strong character-lock / i2i base used in Exiled pipelines."
+
+  fantasy_prime:
+    architecture: sdxl
+    description: "FantasyPrime 2.5D — dark fantasy SDXL hybrid"
+    aliases: [fantasyprime, fantasy_prime_25d, dark_fantasy_25d]
+    checkpoint: "fantasyprime_25D.safetensors"
+    loras: []
+    prompt_prefix: "high fantasy illustration, dark fantasy, cinematic lighting, detailed environment, volumetric light"
+    negative_prompt: "lowres, bad anatomy, text, watermark, blurry, photorealistic, flat, oversaturated"
+    defaults:
+      width: 1024
+      height: 1024
+      steps: 28
+      cfg: 6.5
+      sampler: "dpmpp_2m_sde"
+      scheduler: "karras"
+    note: "Optional LoRA: New_Fantasy_CoreV5_-_ILL.safetensors weight 0.5–0.7"
+
+  homochi:
+    architecture: sdxl_anime
+    description: "Homochi XL v2 — male-focused anime"
+    aliases: [homochi_xl, male_anime, bara]
+    checkpoint: "homochiXLMaleFocused_20.safetensors"
+    loras: []
+    prompt_prefix: "masterpiece, best quality, ultra-detailed, absurdres, highly detailed"
+    negative_prompt: "lowres, bad anatomy, bad hands, 1girl, feminine, text, watermark, blurry"
+    defaults:
+      width: 832
+      height: 1216
+      steps: 28
+      cfg: 6.0
+      sampler: "euler_ancestral"
+      scheduler: "normal"
+
+  noobai_vpred:
+    architecture: sdxl_anime
+    description: "NoobAI-XL V-Pred v1.0 — Danbooru-tagged SDXL (v-prediction; prefer Euler)"
+    aliases: [noobai, nai_xl, noobai_xl, vpred]
+    checkpoint: "NoobAI-XL-Vpred-v1.0.safetensors"
+    loras: []
+    prompt_prefix: "masterpiece, best quality, newest, absurdres, highres"
+    negative_prompt: "worst quality, old, early, low quality, lowres, signature, username, logo, bad hands, mutated hands"
+    defaults:
+      width: 832
+      height: 1216
+      steps: 28
+      cfg: 5.0
+      sampler: "euler"
+      scheduler: "normal"
+    note: "v-prediction — avoid karras/dpmpp_2m unless you know the graph supports it."
+
+  wan_onthefly_vace:
+    architecture: sdxl
+    image_supported: false
+    description: "On-the-fly Wan 2.1 VACE video checkpoint — NOT for generate_image"
+    aliases: [onthefly_wan, wan_vace, causvid_14b]
+    checkpoint: "onTHEFLYWanAIWan21VideoModel_causvid14bVACE.safetensors"
+    loras: []
+    prompt_prefix: "high quality, detailed"
+    negative_prompt: "lowres, bad anatomy, text, watermark, blurry"
+    defaults:
+      width: 832
+      height: 480
+      steps: 28
+      cfg: 7.0
+      sampler: "dpmpp_2m"
+      scheduler: "karras"
+    note: "Video-only. Use generate_video workflows (i2v_wan21), not generate_image."
 
 video_workflows:
   t2v:
@@ -490,3 +624,9 @@ video_workflows:
       - type: "WanVideoTextEncode"
         positive_index: 0
         negative_index: 1
+
+  v2v_upscale:
+    description: "Wan 2.1 V2V upscale + RIFE frame interpolation (requires RealESRGAN + rife models)"
+    file: "workflow-wan21-v2v-upscale-rife.json"
+    mode: v2v
+    note: "ComfyUI-Frame-Interpolation (RIFE VFI) may be missing on the generation host — install if needed."

@@ -262,6 +262,7 @@ class StyleCatalog:
         raise ValueError(f"No {mode} workflow configured in catalog.yaml")
 
     def get_generation_context(self) -> dict[str, Any]:
+        from studio.comfy_remote_models import file_has_payload, remote_model_inventory
         from studio.style_assets import check_all_style_assets
 
         sm = self.cfg.get("stability_matrix", {})
@@ -269,8 +270,50 @@ class StyleCatalog:
         workflows_dir = Path(sm.get("workflows", ""))
 
         checkpoints = scan_checkpoints(models_dir)
+        # Drop zeroed NTFS shells so Jan does not think broken local files are installed
+        checkpoints = [
+            c
+            for c in checkpoints
+            if file_has_payload(Path(c.get("path") or models_dir / "StableDiffusion" / c["file"]))
+        ]
+        remote = remote_model_inventory(self.cfg)
+        if remote.get("reachable"):
+            local_names = {c["file"] for c in checkpoints}
+            for name in remote.get("checkpoints") or []:
+                base = Path(name).name
+                if base not in local_names:
+                    checkpoints.append(
+                        {
+                            "file": base,
+                            "path": f"comfyui://{name}",
+                            "name": Path(base).stem,
+                            "tags": [],
+                            "source": "comfyui",
+                        }
+                    )
+                    local_names.add(base)
         loras = scan_loras(models_dir, self.cfg.get("extra_lora_paths"))
+        if remote.get("reachable"):
+            seen_lora = {x["file"] for x in loras}
+            for name in remote.get("loras") or []:
+                base = Path(name).name
+                if base not in seen_lora:
+                    loras.append(
+                        {
+                            "file": base,
+                            "path": f"comfyui://{name}",
+                            "name": Path(base).stem,
+                            "tags": [],
+                            "source": "comfyui",
+                        }
+                    )
+                    seen_lora.add(base)
         video_files = scan_video_workflows(workflows_dir)
+        video_files = [
+            v
+            for v in video_files
+            if file_has_payload(Path(v["path"]))
+        ]
         text_encoders_dir = models_dir / "TextEncoders"
         text_encoders = (
             sorted(p.name for p in text_encoders_dir.glob("*.safetensors"))
@@ -329,21 +372,35 @@ class StyleCatalog:
             "video_workflow_ids": list(self.video_workflows.keys()),
             "video_workflow_files": video_files,
             "comfyui_url": self.cfg.get("comfyui", {}).get("url"),
+            "comfyui_remote_models": remote,
             "invokeai_url": self.cfg.get("invokeai", {}).get("url"),
             "text_encoders": text_encoders,
-            "wan_umt5_ready": wan_umt5_ready,
+            "wan_umt5_ready": wan_umt5_ready
+            or any("umt5" in n.lower() for n in (remote.get("clips") or [])),
             "wan_umt5_download": (
                 "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/umt5-xxl-enc-bf16.safetensors"
-                if not wan_umt5_ready
+                if not (
+                    wan_umt5_ready
+                    or any("umt5" in n.lower() for n in (remote.get("clips") or []))
+                )
                 else None
             ),
             "note": (
                 "Call get_generation_context first. Check style_readiness.summary before generate_image. "
+                "When comfyui.url is remote, style_readiness uses live ComfyUI model lists — "
+                "local Windows NTFS may show zeroed shells even though the remote ComfyUI host can load the files. "
+                "Always call check_gpu_backend before generate_video / generate_audio / generate_video_hero. "
                 "Image edits: setup_image_editing then edit_image (food_group: anime|fantasy|cyberpunk|photoreal). "
                 "Flux2 styles: check_style_assets / download_style_assets. "
-                "Wan video: check_wan_assets / download_wan_assets. "
+                "Wan video: check_wan_assets / download_wan_assets. Default draft I2V: workflow_id=i2v_5b. "
                 "Use style ids from styles[] (architecture field selects workflow builder)."
             ),
+            "jan_quickstart": {
+                "before_any_gpu": "check_gpu_backend",
+                "before_image": "get_generation_context -> pick style id -> generate_image",
+                "before_draft_video": "check_gpu_backend(intent=comfyui) -> generate_video(mode=i2v, workflow_id=i2v_5b)",
+                "comfyui_url": self.cfg.get("comfyui", {}).get("url"),
+            },
         }
 
     def refresh_scan_hints(self) -> dict[str, str]:

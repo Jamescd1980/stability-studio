@@ -5,6 +5,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from studio.comfy_remote_models import (
+    checkpoint_available,
+    companion_available,
+    file_has_payload,
+    unet_available,
+)
 from studio.wan_assets import _find_file, download_asset, hf_download_url, model_dirs
 
 CHECKPOINTS_FOLDER = "StableDiffusion"
@@ -48,10 +54,10 @@ def _checkpoint_path(cfg: dict[str, Any], filename: str) -> Path | None:
     if not ckpt_dir.is_dir():
         return None
     direct = ckpt_dir / filename
-    if direct.is_file():
+    if file_has_payload(direct):
         return direct
     for hit in ckpt_dir.rglob(filename):
-        if hit.is_file():
+        if file_has_payload(hit):
             return hit
     return None
 
@@ -60,11 +66,14 @@ def _unet_path(cfg: dict[str, Any], filename: str) -> tuple[Path | None, str | N
     """Return (path, location) where location is diffusion_models or checkpoints."""
     dirs = model_dirs(cfg)
     found = _find_file(filename, dirs, "diffusion_models")
-    if found:
+    if found and file_has_payload(found):
         return found, "diffusion_models"
     ckpt = _checkpoint_path(cfg, filename)
     if ckpt:
         return ckpt, "checkpoints_only"
+    ok, source = unet_available(cfg, filename)
+    if ok and source == "comfyui":
+        return Path(f"comfyui://{filename}"), "comfyui_remote"
     return None, None
 
 
@@ -115,6 +124,15 @@ def check_style_assets(
         unet_path, location = _unet_path(cfg, ckpt)
         if unet_path and location == "diffusion_models":
             installed.append({"role": "unet", "filename": ckpt, "path": str(unet_path)})
+        elif unet_path and location == "comfyui_remote":
+            installed.append(
+                {
+                    "role": "unet",
+                    "filename": ckpt,
+                    "path": str(unet_path),
+                    "source": "comfyui",
+                }
+            )
         elif unet_path and location == "checkpoints_only":
             installed.append(
                 {
@@ -139,17 +157,28 @@ def check_style_assets(
             folder_key = req.get("folder", "text_encoders" if role == "clip" else "vae")
             dirs = model_dirs(cfg)
             found = _find_file(fname, dirs, folder_key)
-            if found:
+            if found and file_has_payload(found):
                 installed.append({"role": role, "filename": fname, "path": str(found)})
             else:
-                item: dict[str, Any] = {"role": role, "filename": fname, "folder": folder_key}
-                dl = FLUX2_COMPANION_DOWNLOADS.get(fname)
-                if dl:
-                    item.update(dl)
-                    item["download_url"] = hf_download_url(dl["repo"], dl["path"])
-                missing.append(item)
+                ok_r, src = companion_available(cfg, fname, role=role)
+                if ok_r:
+                    installed.append(
+                        {
+                            "role": role,
+                            "filename": fname,
+                            "path": f"comfyui://{fname}",
+                            "source": src,
+                        }
+                    )
+                else:
+                    item: dict[str, Any] = {"role": role, "filename": fname, "folder": folder_key}
+                    dl = FLUX2_COMPANION_DOWNLOADS.get(fname)
+                    if dl:
+                        item.update(dl)
+                        item["download_url"] = hf_download_url(dl["repo"], dl["path"])
+                    missing.append(item)
     else:
-        # SDXL / Pony — single checkpoint in StableDiffusion
+        # SDXL / Pony — single checkpoint (local disk or live ComfyUI)
         if not ckpt:
             missing.append({"role": "checkpoint", "filename": "(none configured)"})
         else:
@@ -157,25 +186,36 @@ def check_style_assets(
             if found:
                 installed.append({"role": "checkpoint", "filename": ckpt, "path": str(found)})
             else:
-                item: dict[str, Any] = {
-                    "role": "checkpoint",
-                    "filename": ckpt,
-                    "folder": CHECKPOINTS_FOLDER,
-                }
-                dl_meta = style.get("download") or {}
-                if dl_meta.get("source") == "civitai":
-                    item.update(
+                ok_r, src = checkpoint_available(cfg, ckpt)
+                if ok_r:
+                    installed.append(
                         {
-                            "source": "civitai",
-                            "civitai_version_id": dl_meta.get("civitai_version_id"),
-                            "civitai_page": dl_meta.get("civitai_page"),
-                            "size_hint": dl_meta.get("size_hint"),
-                            "download_hint": (
-                                "Set civitai.api_key in config.yaml then call download_style_assets"
-                            ),
+                            "role": "checkpoint",
+                            "filename": ckpt,
+                            "path": f"comfyui://{ckpt}",
+                            "source": src,
                         }
                     )
-                missing.append(item)
+                else:
+                    item: dict[str, Any] = {
+                        "role": "checkpoint",
+                        "filename": ckpt,
+                        "folder": CHECKPOINTS_FOLDER,
+                    }
+                    dl_meta = style.get("download") or {}
+                    if dl_meta.get("source") == "civitai":
+                        item.update(
+                            {
+                                "source": "civitai",
+                                "civitai_version_id": dl_meta.get("civitai_version_id"),
+                                "civitai_page": dl_meta.get("civitai_page"),
+                                "size_hint": dl_meta.get("size_hint"),
+                                "download_hint": (
+                                    "Set civitai.api_key in config.yaml then call download_style_assets"
+                                ),
+                            }
+                        )
+                    missing.append(item)
 
     ready = len(missing) == 0 and not any(i.get("warning") for i in installed)
 

@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### MCP tools restored (2026-07-17)
+
+- Restored full MCP surface (**77 → 91 tools**): Kokoro, Forge, NSFW LoRAs, action combat, `interpolate_video`, `compile_image_prompt`
+- Docs: `AUDIO-KOKORO.md`, `COMFYBOX-FORGE.md`, `ACTION-COMBAT.md`, `IMAGE-LORAS.md` (placeholders only — no LAN IPs)
+
+### Remote ComfyUI readiness (2026-07-17)
+
+- `studio/comfy_remote_models.py` — style readiness can trust live ComfyUI model lists when the client filesystem view is incomplete
+- Catalog styles added/bumped: `anime`→v170, `n4mik4`→v20, `waijfu`, `perfection_25d`, `fantasy_prime`, `homochi`, `noobai_vpred`, legacy `anime_v160` / `n4mik4_v10`
+- Restored Wan I2V workflow JSON for `i2v_5b`
+- Verify: `python stability-studio-mcp/scripts/dev/verify_comfybox_ready.py`
+
 ### Remote laptop generation (2026-07)
 
 - **Jan on laptop → desktop ComfyUI** over LAN; SMB share `StudioBata` for image delivery

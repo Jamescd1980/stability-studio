@@ -34,6 +34,14 @@ from studio.wan_video_loras import (
     check_wan_video_loras as _check_wan_video_loras_status,
     download_wan_video_loras as _fetch_wan_video_loras,
 )
+from studio.nsfw_image_loras import (
+    NSFW_IMAGE_LORA_BUNDLES,
+    NSFW_IMAGE_LORAS,
+    check_nsfw_image_loras as _check_nsfw_image_loras_status,
+    download_nsfw_image_loras as _fetch_nsfw_image_loras,
+    list_nsfw_image_loras_for_style,
+    resolve_nsfw_lora_list,
+)
 from studio.style_assets import (
     check_all_style_assets,
     check_style_assets as _check_style_assets_impl,
@@ -75,6 +83,18 @@ from studio.gpu_backend import (
     inspect_gpu_backend,
     release_gpu_lock as _release_gpu_lock,
 )
+from studio.forge_backend import (
+    generate_image_forge as _generate_image_forge,
+    inspect_forge_backend,
+    refine_image_forge as _refine_image_forge,
+    switch_stills_backend as _switch_stills_backend,
+)
+from studio.kokoro_client import (
+    inspect_kokoro_backend,
+    list_kokoro_voices as _list_kokoro_voices,
+    synthesize_kokoro,
+)
+from studio.video_post import interpolate_video as _interpolate_video
 from studio.wan2gp_runner import check_wan2gp_runtime as _check_wan2gp_runtime
 from studio.wan2gp_settings import plan_wan2gp_job as _plan_wan2gp_job
 from studio.face_detail_assets import (
@@ -110,19 +130,20 @@ mcp = FastMCP(
     "stability-studio",
     instructions=(
         "Local image and video generation for Stability Matrix. "
-        "Call get_generation_context first — it includes hardware_profile and generation_limits "
+        "Call get_generation_context first (brief=true by default) — hardware_profile and generation_limits. "
+        "Use brief=false only for full setup audits (slow). "
         "(GPU VRAM caps). Stay within generation_limits unless the user explicitly asks for more. "
         "New users: call get_onboarding_context first — guided tiers, VRAM routing, install checklist (onboarding/). "
         "Not a one-click installer; AI-assisted ComfyUI workflow. "
         "≥24 GB VRAM: ComfyUI only, do not offer Wan2GP. ≤16 GB: Wan2GP only if user explicitly wants hero/lip sync. "
         "Prefer prompt quality (face, hands, anatomy) over max resolution. "
-        "Use style ids from the catalog (anime, ilustmix, divine_elegance, cyberpunk, photorealistic_pony, …). "
+        "Use style ids from the catalog (anime, ilustmix, fantasy_prime, homochi, n4mik4, juggernaut, pony, …). "
         "Four art food groups: anime, fantasy, cyberpunk, photoreal — pass food_group= to edit_image. "
         "Each style has an architecture (sd15, sdxl, pony_sdxl, flux2_klein) — see get_generation_context. "
         "Image edits: setup_image_editing() then edit_image(image_path, instruction, food_group=...). "
         "Before first image on a new PC: check style_readiness in get_generation_context; "
         "Flux2: check_style_assets / download_style_assets(style='miracle_nsfw'). "
-        "Aliases work: 'illustrious'→anime, 'ragnarok'→juggernaut, 'realistic'→photorealistic. "
+        "Aliases work: 'illustrious'→anime, 'fantasyprime'→fantasy_prime, 'ragnarok'→juggernaut. "
         "Pass checkpoint= to override. For video: call check_comfyui_dependencies(workflow_id) first; "
         "if missing nodes, call install_comfyui_dependencies then restart ComfyUI from Stability Matrix. "
         "Use generate_video(mode=t2v|i2v|v2v, workflow_id=t2v|i2v_5b|i2v_5b_painter|v2v_5b|v2v_5b_painter|i2v|i2v_gpu) — short ids only. "
@@ -130,10 +151,14 @@ mcp = FastMCP(
         "Optional Wan video LoRAs: check_wan_video_loras / download_wan_video_loras(bundle=smooth_character|walk_cycle|cinematic_church). "
         "Pass lora_ids or lora_bundle to generate_video. Call check_wan_assets / download_wan_assets for base models. "
         "Audio (MOSS-TTS): check_moss_assets → download_moss_assets → generate_audio(mode=speech|sound_effect|voice_design). "
-        "GPU policy (16 GB): call check_gpu_backend before generate_video / generate_audio / generate_video_hero. "
+        "Kokoro book TTS (CPU :8090): check_kokoro_backend → generate_speech_kokoro — no GPU lock (AUDIO-KOKORO.md). "
+        "Post-clip: interpolate_video(video_path, target_fps=24) via ffmpeg minterpolate. "
+        "GPU policy: call check_gpu_backend before generate_video / generate_audio / generate_video_hero. "
+        "Comfybox Forge (:7860) exclusive with ComfyUI — switch_stills_backend then refine_image_forge / generate_image_forge (COMFYBOX-FORGE.md). "
         "Draft I2V: generate_video(mode=i2v, workflow_id=i2v_5b). Hero I2V: stop ComfyUI → check_gpu_backend → "
         "generate_video_hero (auto-starts Wan2GP MCP on :7867). Never run ComfyUI and Wan2GP UI together. "
-        "Offline agents (Jan, LM Studio): check_gpu_backend is mandatory — conflicts return gpu_backend_conflict. "
+        "Offline agents (Jan, Pi, LM Studio): check_gpu_backend is mandatory — conflicts return gpu_backend_conflict. "
+        "Never use web search for image generation — call generate_image. "
         "Media output paths: get_generation_context.media_paths. "
         "For inpaint_advanced (flags, reference objects): setup_ip_adapter or "
         "install_ip_adapter_dependencies + download_ip_adapter_assets — then restart ComfyUI."
@@ -143,6 +168,12 @@ mcp = FastMCP(
 _cfg = load_config()
 _catalog = StyleCatalog(catalog_path(_cfg), _cfg)
 _engine = GenerationEngine(_cfg, _catalog)
+print(
+    f"[stability-studio] ComfyUI {_cfg.get('comfyui', {}).get('url')} "
+    f"reachable={_engine.comfy.is_running()}",
+    file=sys.stderr,
+    flush=True,
+)
 
 
 def _comfy_url() -> str:
@@ -188,31 +219,91 @@ def _load_ui_workflow(workflow_id: str = "", mode: str = "t2v") -> dict:
 
 
 @mcp.tool()
-def get_generation_context() -> str:
-    """Return installed models, styles, LoRAs, video workflows, GPU profile, and generation limits."""
-    ctx = _catalog.get_generation_context()
+def get_generation_context(brief: bool = True) -> str:
+    """
+    Return styles, GPU limits, and backend status for generation.
+
+    Args:
+        brief: True (default) — fast essentials for Jan/Cursor (~1–3s). False — full
+            asset scans + ComfyUI node readiness (slow; use for setup audits only).
+
+    Brief mode is enough before generate_image. Call check_style_assets(style=...)
+    when you need one style's file manifest.
+    """
+    from studio.comfy_deps import clear_installed_node_types_cache
+
+    comfy_url = _comfy_url()
+    ctx: dict[str, Any] = (
+        _catalog.get_generation_context_brief()
+        if brief
+        else _catalog.get_generation_context()
+    )
+    if brief:
+        ctx["mode"] = "brief"
     ctx["backend_status"] = _engine.backend_status()
     ctx.update(_engine.hardware_context())
-    ctx["wan_video_assets"] = check_all_video_assets(_cfg)
-    ctx["wan_video_loras"] = _check_wan_video_loras_status(_cfg)
-    ctx["style_readiness"] = check_all_style_assets(_cfg, _catalog)
-    ctx["ip_adapter_readiness"] = _check_ip_adapter_assets(_cfg, include_optional=False)
-    comfy_url = _comfy_url()
-    ctx["ip_adapter_dependencies"] = _check_ip_adapter_dependencies(
-        _cfg, comfy_url, include_depth=False
-    )
-    ctx["image_editing_readiness"] = _check_image_editing_readiness(_cfg, comfy_url)
-    ctx["face_detail_readiness"] = _check_face_detail_dependencies(_cfg, comfy_url)
     ctx["art_food_groups"] = _catalog.art_food_groups or ART_FOOD_GROUPS
-    ctx["moss_audio"] = _check_moss_assets_status(_cfg)
-    ctx["wan2gp_assets"] = _check_wan2gp_assets_status(_cfg)
     ctx["gpu_backend_policy"] = gpu_backend_policy_for_context(_cfg)
+    ctx["forge"] = inspect_forge_backend(_cfg)
+    ctx["kokoro"] = inspect_kokoro_backend(_cfg)
+    ctx["stills_backends"] = {
+        "mcp_generate_image": "comfyui",
+        "adetailer_hires_stills": "forge",
+        "workflow": (
+            "generate_image (Comfy) → switch_stills_backend(forge) → "
+            "refine_image_forge → switch_stills_backend(comfy) → generate_video(i2v_5b)"
+        ),
+        "note": (
+            "ComfyUI: generate_image / edit_image / generate_video. "
+            "Forge: switch_stills_backend + refine_image_forge / generate_image_forge "
+            "(ADetailer/hires). Exclusive GPU. Default clip: i2v_5b; Wan 14B (i2v/i2v_gpu) "
+            "optional only on 20GB. See COMFYBOX-FORGE.md."
+        ),
+        "tools": [
+            "check_forge_backend",
+            "switch_stills_backend",
+            "generate_image_forge",
+            "refine_image_forge",
+        ],
+        "exiled_styles": ["fantasy_prime", "homochi", "anime", "ilustmix", "n4mik4", "juggernaut", "pony"],
+    }
+    ctx["offline_agents"] = {
+        "jan": {
+            "assistant": "Studio Copilot",
+            "mcp_server": "stability-studio",
+            "forbid": ["web_search_for_generation"],
+            "before_generate": ["get_generation_context", "check_gpu_backend (video/audio/hero)"],
+            "styles": "Use catalog ids: fantasy_prime, homochi, ilustmix, anime, juggernaut, pony, n4mik4 — not raw filenames.",
+        },
+        "pi_studio_edge": {
+            "personas": {"myra": "room (Ollama)", "jan": "studio via Windows Jan MCP or direct ComfyUI"},
+            "generation_route": "comfyui preferred for voice reliability; jan_mcp for orchestration",
+            "comfyui_url": (_cfg.get("comfyui") or {}).get("url"),
+            "default_styles": ["anime", "fantasy_prime", "homochi", "ilustmix"],
+        },
+    }
     ctx["media_paths"] = media_paths(_cfg)
     ver = build_info()
     ver["mcp_tool_count"] = MCP_TOOL_COUNT
     ctx["studio_version"] = ver
-    ctx["pose_control_readiness"] = _check_pose_control_readiness(_cfg, comfy_url)
     ctx["restart_guide"] = "RESTART-GUIDE.md — ComfyUI vs MCP vs parallel GPU jobs"
+    ctx["nsfw_image_loras"] = _check_nsfw_image_loras_status(_cfg, comfy_url=comfy_url)
+
+    if not brief:
+        clear_installed_node_types_cache(comfy_url)
+        ctx["wan_video_assets"] = check_all_video_assets(_cfg)
+        ctx["wan_video_loras"] = _check_wan_video_loras_status(_cfg)
+        ctx["ip_adapter_readiness"] = _check_ip_adapter_assets(_cfg, include_optional=False)
+        ctx["ip_adapter_dependencies"] = _check_ip_adapter_dependencies(
+            _cfg, comfy_url, include_depth=False
+        )
+        ctx["image_editing_readiness"] = _check_image_editing_readiness(_cfg, comfy_url)
+        ctx["face_detail_readiness"] = _check_face_detail_dependencies(_cfg, comfy_url)
+        ctx["moss_audio"] = _check_moss_assets_status(_cfg)
+        ctx["wan2gp_assets"] = _check_wan2gp_assets_status(_cfg)
+        ctx["pose_control_readiness"] = _check_pose_control_readiness(_cfg, comfy_url)
+        ctx["mode"] = "full"
+
     return json.dumps(ctx, indent=2)
 
 
@@ -329,6 +420,75 @@ def download_wan_video_loras(
     results = _fetch_wan_video_loras(_cfg, lora_ids=ids, bundle=bundle, force=force)
     summary = _check_wan_video_loras_status(_cfg, ids)
     return json.dumps({"downloads": results, "status": summary}, indent=2)
+
+
+@mcp.tool()
+def check_nsfw_image_loras(lora_ids: str | list[str] = "") -> str:
+    """
+    Check curated NSFW still-image LoRAs (Illustrious / Pony intimacy lanes).
+
+    Verifies local Stability Matrix Lora/ and remote ComfyUI when configured.
+    Use bundle ids with resolve via list_nsfw_image_loras or download_nsfw_image_loras.
+
+    Args:
+        lora_ids: manga_nsfw_style, ntr_mix_style, pov_holding_pony, hentai_manga_pony. Empty = all.
+    """
+    ids = _parse_lora_ids_arg(lora_ids)
+    return json.dumps(_check_nsfw_image_loras_status(_cfg, ids, comfy_url=_comfy_url()), indent=2)
+
+
+@mcp.tool()
+def list_nsfw_image_loras(style: str = "") -> str:
+    """
+    List NSFW scene LoRAs for a style lane (ilustmix, pony, merged_dreams, anime).
+
+    Pass style= to filter. Returns ids, weights, triggers, and bundle names for generate_image(loras=…).
+    """
+    if style:
+        items = list_nsfw_image_loras_for_style(_catalog._find_style_key(style))
+    else:
+        items = []
+        for lid, entry in NSFW_IMAGE_LORAS.items():
+            row = {k: v for k, v in entry.items() if k != "id"}
+            row["id"] = lid
+            row["bundles"] = [b for b, ids in NSFW_IMAGE_LORA_BUNDLES.items() if lid in ids]
+            items.append(row)
+    return json.dumps({"style": style or None, "loras": items, "bundles": NSFW_IMAGE_LORA_BUNDLES}, indent=2)
+
+
+@mcp.tool()
+def download_nsfw_image_loras(
+    lora_ids: str | list[str] = "",
+    bundle: str = "",
+    force: bool = False,
+) -> str:
+    """
+    Download NSFW still-image LoRAs from Civitai into Stability Matrix Lora/.
+
+    Bundles: illustrious_intimacy | illustrious_romance | pony_explicit | fantasy_romance.
+    On remote ComfyUI setups, copy files to the GPU box Lora/ folder if download path is local-only.
+    """
+    ids = _parse_lora_ids_arg(lora_ids)
+    results = _fetch_nsfw_image_loras(_cfg, lora_ids=ids, bundle=bundle, force=force)
+    summary = _check_nsfw_image_loras_status(_cfg, ids, comfy_url=_comfy_url())
+    return json.dumps({"downloads": results, "status": summary}, indent=2)
+
+
+@mcp.tool()
+def resolve_nsfw_scene_loras(
+    bundle: str = "",
+    style: str = "",
+    lora_ids: str | list[str] = "",
+) -> str:
+    """
+    Build a loras=[{file, weight}, …] list for generate_image on explicit/intimacy beats.
+
+    Example: resolve_nsfw_scene_loras(bundle=fantasy_romance, style=merged_dreams)
+    → pass the loras field into generate_image unchanged.
+    """
+    ids = _parse_lora_ids_arg(lora_ids)
+    resolved = resolve_nsfw_lora_list(lora_ids=ids, bundle=bundle, style=style)
+    return json.dumps({"loras": resolved}, indent=2)
 
 
 @mcp.tool()
@@ -828,7 +988,7 @@ def get_prompt_style(
 
     Args:
         style: Catalog style id (ilustmix, pony, juggernaut, miracle_nsfw, …).
-        platform: Studio platform id (illustrious, pony, flux, sdxl, wan_image, qwen_edit).
+        platform: Studio platform id (illustrious, pony, flux, sdxl, wan_image, qwen_edit, action_combat).
         food_group: anime | fantasy | cyberpunk | photoreal (uses group default_style).
         Empty args: index of platforms and food groups.
 
@@ -847,6 +1007,62 @@ def get_prompt_style(
     except ValueError as exc:
         return json.dumps({"error": str(exc), "hint": "get_prompt_style() with no args lists platforms"}, indent=2)
     return json.dumps(guide, indent=2)
+
+
+@mcp.tool()
+def compile_image_prompt(
+    prompt: str,
+    style: str = "",
+    content_rating: str = "open",
+) -> str:
+    """
+    Dedupe redundant action phrases and normalize NSFW euphemisms before ComfyUI.
+
+    Use before generate_image when Jan wrote a verbose or clinical prompt.
+    generate_image also auto-compiles; this tool previews changes without GPU.
+
+    Args:
+        prompt: Raw positive prompt from the agent or user.
+        style: Optional catalog style (architecture hint only).
+        content_rating: open (default) | sfw — sfw skips NSFW euphemism pass.
+    """
+    from studio.prompt_compile import compile_image_prompt as compile_prompt
+
+    arch = ""
+    if style.strip():
+        try:
+            arch = _catalog.resolve_architecture(_catalog._find_style_key(style.strip()))
+        except (KeyError, ValueError):
+            arch = ""
+    compiled, report = compile_prompt(
+        prompt,
+        content_rating=content_rating.strip() or "open",
+        architecture=arch,
+    )
+    return json.dumps({"compiled_prompt": compiled, **report}, indent=2)
+
+
+@mcp.tool()
+def get_action_combat_playbook(
+    style: str = "anime",
+    look: str = "",
+) -> str:
+    """
+    Pose-first pipeline for fight / stab / gore stills — call before combat storyboard rows.
+
+    Args:
+        style: Catalog style for the keyframe (anime/WAI default, pony, juggernaut). Default anime.
+        look: Alias for style (photoreal → juggernaut, wai → anime).
+
+    Returns workflow steps, OpenPose editor URLs, prompt templates, firearm negatives,
+    and generate_image_pose_guided defaults. Never use one-shot generate_image for these beats.
+    """
+    from studio.action_combat import build_action_combat_playbook
+
+    return json.dumps(
+        build_action_combat_playbook(style=style.strip(), look=look.strip()),
+        indent=2,
+    )
 
 
 @mcp.tool()
@@ -1718,13 +1934,115 @@ def download_moss_assets(
 @mcp.tool()
 def check_gpu_backend() -> str:
     """
-    Snapshot GPU backend policy: ComfyUI vs Wan2GP ports, MCP lock, VRAM, allowed backends.
+    Snapshot GPU backend policy: ComfyUI vs Wan2GP vs Forge, MCP lock, VRAM, allowed backends.
 
     Call before generate_video, generate_audio, or generate_video_hero — especially for
     offline agents (Jan, LM Studio) that cannot rely on Cursor-side enforcement alone.
+    If forge.running is true, switch the generation host back to ComfyUI before MCP image/video.
     """
     status = inspect_gpu_backend(_cfg, comfyui_running=_engine.comfy.is_running())
     return json.dumps(status, indent=2)
+
+
+@mcp.tool()
+def check_forge_backend() -> str:
+    """
+    Check whether Forge (A1111 API) is up on the generation host for ADetailer/hires stills.
+
+    If running=true, ComfyUI is usually stopped. Use switch_stills_backend to flip.
+    """
+    return json.dumps(inspect_forge_backend(_cfg), indent=2)
+
+
+@mcp.tool()
+def switch_stills_backend(backend: str = "status", wait: bool = True) -> str:
+    """
+    Exclusive GPU switch on the generation host between ComfyUI and Forge (SSH + gpu_backend.sh).
+
+    Args:
+        backend: comfy | forge | status | stop-all
+        wait: Wait until the target API is reachable (default true)
+
+    Workflow for Jan: generate_image (Comfy) -> switch_stills_backend(forge) ->
+    refine_image_forge -> switch_stills_backend(comfy) -> generate_video.
+    """
+    return json.dumps(_switch_stills_backend(_cfg, backend, wait=wait), indent=2)
+
+
+@mcp.tool()
+def generate_image_forge(
+    prompt: str,
+    negative_prompt: str = "",
+    checkpoint: str = "",
+    width: int = 1024,
+    height: int = 1024,
+    steps: int = 30,
+    cfg: float = 6.0,
+    seed: int = -1,
+    adetailer: bool = True,
+    ad_prompt: str = "",
+) -> str:
+    """
+    txt2img on Forge (ADetailer on by default). Forge must be running.
+
+    Prefer refine_image_forge after a Comfy still. Checkpoint examples:
+    fantasyprime_25D.safetensors, homochiXLMaleFocused_20.safetensors.
+    """
+    try:
+        result = _generate_image_forge(
+            _cfg,
+            prompt=prompt,
+            negative_prompt=negative_prompt,
+            checkpoint=checkpoint,
+            width=width,
+            height=height,
+            steps=steps,
+            cfg_scale=cfg,
+            seed=seed,
+            adetailer=adetailer,
+            ad_prompt=ad_prompt,
+        )
+    except Exception as exc:
+        return json.dumps({"ok": False, "error": humanize_error(exc)}, indent=2)
+    return json.dumps(result, indent=2)
+
+
+@mcp.tool()
+def refine_image_forge(
+    image_path: str,
+    prompt: str,
+    negative_prompt: str = "",
+    checkpoint: str = "",
+    denoising_strength: float = 0.35,
+    steps: int = 28,
+    cfg: float = 5.5,
+    seed: int = -1,
+    adetailer: bool = True,
+    ad_prompt: str = "",
+) -> str:
+    """
+    img2img refine on Forge with optional ADetailer. Forge must be running.
+
+    Typical denoise 0.28–0.45 after a Comfy still. Then switch_stills_backend(comfy)
+    before generate_video.
+    """
+    try:
+        result = _refine_image_forge(
+            _cfg,
+            image_path=image_path,
+            prompt=prompt,
+            negative_prompt=negative_prompt,
+            checkpoint=checkpoint,
+            denoising_strength=denoising_strength,
+            steps=steps,
+            cfg_scale=cfg,
+            seed=seed,
+            adetailer=adetailer,
+            ad_prompt=ad_prompt,
+        )
+    except Exception as exc:
+        return json.dumps({"ok": False, "error": humanize_error(exc)}, indent=2)
+    return json.dumps(result, indent=2)
 
 
 @mcp.tool()
@@ -1832,6 +2150,87 @@ def download_wan2gp_assets(force: bool = False) -> str:
 def list_media_paths() -> str:
     """Return canonical local folders for MCP, ComfyUI, Wan2GP image/audio/video outputs."""
     return json.dumps(media_paths(_cfg), indent=2)
+
+
+@mcp.tool()
+def interpolate_video(
+    video_path: str,
+    target_fps: float = 24.0,
+    method: str = "minterpolate",
+    crf: int = 18,
+) -> str:
+    """
+    Upsample clip frame rate with ffmpeg minterpolate (smoother delivery without a bigger Wan model).
+
+    Args:
+        video_path: Source MP4/WebM path.
+        target_fps: Output fps (default 24).
+        method: minterpolate only for now (ffmpeg mi_mode=mci).
+        crf: libx264 quality (lower = larger/better; default 18).
+    """
+    try:
+        result = _interpolate_video(
+            _cfg,
+            video_path,
+            target_fps=target_fps,
+            method=method,
+            output_dir=Path(_cfg.get("_root", ROOT)) / "outputs",
+            crf=crf,
+        )
+        return json.dumps(result, indent=2)
+    except Exception as exc:
+        err = humanize_error(exc, context="interpolate_video")
+        err["ok"] = False
+        return json.dumps(err, indent=2)
+
+
+@mcp.tool()
+def check_kokoro_backend() -> str:
+    """Kokoro narrate TTS on generation host :8090 — CPU service; no GPU lock."""
+    return json.dumps(inspect_kokoro_backend(_cfg), indent=2)
+
+
+@mcp.tool()
+def list_kokoro_voices() -> str:
+    """List voices from Kokoro GET /v1/voices."""
+    try:
+        return json.dumps(_list_kokoro_voices(_cfg), indent=2)
+    except Exception as exc:
+        err = humanize_error(exc, context="list_kokoro_voices")
+        err["ok"] = False
+        return json.dumps(err, indent=2)
+
+
+@mcp.tool()
+def generate_speech_kokoro(
+    text: str,
+    voice: str = "",
+    speed: float = 0.0,
+    filename: str = "",
+) -> str:
+    """
+    Synthesize speech via Kokoro narrate HTTP API (WAV). Does not take the GPU lock.
+
+    Args:
+        text: Words to speak.
+        voice: Voice id (empty = config default, often am_michael).
+        speed: 0 = use config default; typical 0.8–1.0.
+        filename: Optional output stem (saved under MCP outputs/ + delivery audio/).
+    """
+    try:
+        result = synthesize_kokoro(
+            _cfg,
+            text,
+            voice=voice,
+            speed=None if speed <= 0 else speed,
+            output_dir=Path(_cfg.get("_root", ROOT)) / "outputs",
+            filename=filename,
+        )
+        return json.dumps(result, indent=2)
+    except Exception as exc:
+        err = humanize_error(exc, context="generate_speech_kokoro")
+        err["ok"] = False
+        return json.dumps(err, indent=2)
 
 
 @mcp.tool()
