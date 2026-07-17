@@ -5,7 +5,7 @@ Two hubs — do not mix them:
 | Repo | Role |
 |------|------|
 | [stability-studio](https://github.com/Jamescd1980/stability-studio) | **Public / shareable MCP** — scrubbed. No LAN IPs, hostnames, home paths, or personal ops notes. |
-| [Private-Studio](https://github.com/Jamescd1980/Private-Studio) | **Private ops** — comfybox/LAN wiring, edge devices, book paths, machine inventory. Branch `stability-studio` holds the full desktop+generation-host snapshot. |
+| [Private-Studio](https://github.com/Jamescd1980/Private-Studio) | **Private ops** — generation-host/LAN wiring, edge devices, book paths, machine inventory. Branch `stability-studio` holds the full desktop+generation-host snapshot. |
 
 ## Architecture split (in progress)
 

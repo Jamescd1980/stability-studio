@@ -12,7 +12,7 @@
 - `studio/comfy_remote_models.py` — style readiness can trust live ComfyUI model lists when the client filesystem view is incomplete
 - Catalog styles added/bumped: `anime`→v170, `n4mik4`→v20, `waijfu`, `perfection_25d`, `fantasy_prime`, `homochi`, `noobai_vpred`, legacy `anime_v160` / `n4mik4_v10`
 - Restored Wan I2V workflow JSON for `i2v_5b`
-- Verify: `python stability-studio-mcp/scripts/dev/verify_comfybox_ready.py`
+- Verify: `python stability-studio-mcp/scripts/dev/verify_remote_comfy_ready.py`
 
 ### Remote laptop generation (2026-07)
 
