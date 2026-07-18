@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP, Image
 
 from studio.catalog import StyleCatalog
 from studio.comfy_deps import (
@@ -42,12 +42,33 @@ from studio.nsfw_image_loras import (
     list_nsfw_image_loras_for_style,
     resolve_nsfw_lora_list,
 )
+from studio.character_loras import (
+    check_character_loras_on_disk as _check_character_loras_on_disk,
+    list_character_loras as _list_character_loras,
+    resolve_character_loras as _resolve_character_loras,
+)
 from studio.style_assets import (
     check_all_style_assets,
     check_style_assets as _check_style_assets_impl,
     download_style_assets as fetch_style_assets,
 )
-from studio.moss_assets import MOSS_NODES, check_moss_assets as _check_moss_assets_status, download_moss_models, media_paths
+from studio.moss_assets import (
+    MOSS_NODES,
+    check_moss_assets as _check_moss_assets_status,
+    download_moss_models,
+    list_source_images as _list_source_images,
+    media_paths,
+)
+from studio.delivery_media import (
+    copy_delivery_media as _copy_delivery_media,
+    list_delivery_media as _list_delivery_media,
+    media_root_info as _media_root_info,
+    move_delivery_media as _move_delivery_media,
+    open_delivery_in_explorer as _open_delivery_in_explorer,
+    rename_delivery_media as _rename_delivery_media,
+    view_delivery_image_payload as _view_delivery_image_payload,
+    view_delivery_video_frame_payload as _view_delivery_video_frame_payload,
+)
 from studio.wan2gp_assets import check_wan2gp_assets as _check_wan2gp_assets_status, download_wan2gp_lightning
 from studio.edit_pipeline import ART_FOOD_GROUPS, plan_edit
 from studio.scene_sequence import plan_scene_sequence
@@ -94,7 +115,20 @@ from studio.kokoro_client import (
     list_kokoro_voices as _list_kokoro_voices,
     synthesize_kokoro,
 )
-from studio.video_post import interpolate_video as _interpolate_video
+from studio.video_post import (
+    interpolate_video as _interpolate_video,
+    polish_wan_video as _polish_wan_video,
+)
+from studio.video_upscale import (
+    check_local_post as _check_local_post,
+    upscale_video_local as _upscale_video_local,
+)
+from studio.video_splice import (
+    concat_video_clips as _concat_video_clips,
+    splice_crossfade_loop as _splice_crossfade_loop,
+    splice_pingpong as _splice_pingpong,
+    splice_pose_matched_loop as _splice_pose_matched_loop,
+)
 from studio.wan2gp_runner import check_wan2gp_runtime as _check_wan2gp_runtime
 from studio.wan2gp_settings import plan_wan2gp_job as _plan_wan2gp_job
 from studio.face_detail_assets import (
@@ -145,21 +179,38 @@ mcp = FastMCP(
         "Flux2: check_style_assets / download_style_assets(style='miracle_nsfw'). "
         "Aliases work: 'illustrious'→anime, 'fantasyprime'→fantasy_prime, 'ragnarok'→juggernaut. "
         "Pass checkpoint= to override. For video: call check_comfyui_dependencies(workflow_id) first; "
-        "if missing nodes, call install_comfyui_dependencies then restart ComfyUI from Stability Matrix. "
+        "if missing nodes, call install_comfyui_dependencies then restart ComfyUI on the generation host. "
         "Use generate_video(mode=t2v|i2v|v2v, workflow_id=t2v|i2v_5b|i2v_5b_painter|v2v_5b|v2v_5b_painter|i2v|i2v_gpu) — short ids only. "
-        "Default I2V: i2v_5b (Wan 2.2 TI2V-5B). workflow_id=i2v_5b_painter or use_painter_i2v=true for PainterI2V motion. Optional LoRAs: lora_ids / lora_bundle. "
+        "Default I2V: i2v_5b (Wan 2.2 TI2V-5B). User asks for 14B → generate_video(mode=i2v, workflow_id=i2v) on ComfyUI — NOT generate_video_hero. "
+        "Never map '14B' to Wan2GP / generate_video_hero. "
+        "I2V identity: short motion-only prompts; do not re-describe the still. "
+        "No i2v_5b_painter / PainterI2V when the user needs face/body lock (BJ, portraits) — use workflow_id=i2v. "
+        "Wan NSFW: never prompt full penis exit; partial withdraw only; negate deflating/disappearing shaft. "
+        "If ok=false do not claim success; after success, verify identity vs source still. "
+        "workflow_id=i2v_5b_painter or use_painter_i2v=true for PainterI2V motion. Optional LoRAs: lora_ids / lora_bundle. "
         "Optional Wan video LoRAs: check_wan_video_loras / download_wan_video_loras(bundle=smooth_character|walk_cycle|cinematic_church). "
         "Pass lora_ids or lora_bundle to generate_video. Call check_wan_assets / download_wan_assets for base models. "
         "Audio (MOSS-TTS): check_moss_assets → download_moss_assets → generate_audio(mode=speech|sound_effect|voice_design). "
         "Kokoro book TTS (CPU :8090): check_kokoro_backend → generate_speech_kokoro — no GPU lock (AUDIO-KOKORO.md). "
-        "Post-clip: interpolate_video(video_path, target_fps=24) via ffmpeg minterpolate. "
+        "Post-clip (main rig 5060 Ti / 7900X, not Jan): check_local_post → "
+        "interpolate_video → upscale_video_local / polish_wan_video; "
+        "splice via concat_video_clips / splice_pingpong / splice_pose_matched_loop / "
+        "splice_crossfade_loop. Generate Wan on comfybox; polish locally. "
         "GPU policy: call check_gpu_backend before generate_video / generate_audio / generate_video_hero. "
         "Comfybox Forge (:7860) exclusive with ComfyUI — switch_stills_backend then refine_image_forge / generate_image_forge (COMFYBOX-FORGE.md). "
-        "Draft I2V: generate_video(mode=i2v, workflow_id=i2v_5b). Hero I2V: stop ComfyUI → check_gpu_backend → "
-        "generate_video_hero (auto-starts Wan2GP MCP on :7867). Never run ComfyUI and Wan2GP UI together. "
-        "Offline agents (Jan, Pi, LM Studio): check_gpu_backend is mandatory — conflicts return gpu_backend_conflict. "
+        "Draft I2V: generate_video(mode=i2v, workflow_id=i2v_5b). "
+        "Wan2GP hero (generate_video_hero) ONLY if user explicitly says hero / Wan2GP / lip-sync — then stop remote ComfyUI via ssh gpu_backend.sh, not Windows Stability Matrix. "
+        "Never run ComfyUI video and Wan2GP UI together. "
+        "Offline agents (Jan, Pi, LM Studio / Myra): check_gpu_backend is mandatory — conflicts return gpu_backend_conflict. "
+        "Source stills: call list_source_images(query=...) before inventing image_path. "
+        "Never rewrite C:\\Users\\... to D:\\Users\\.... Never guess delivery/Video or delivery/Images as inputs. "
+        "Common drops: Desktop\\New Images and delivery\\User Import. Pass the exact path returned. "
+        "To SEE pixels: list_delivery_media then view_delivery_image / view_delivery_video_frame "
+        "(generate_* returns paths only — viewing is separate). "
+        "Video outputs: generate_video downloads from comfybox (SSH fallback if /view 404) into "
+        "delivery Video/ — trust saved_files paths; never invent success when ok=false. "
         "Never use web search for image generation — call generate_image. "
-        "Media output paths: get_generation_context.media_paths. "
+        "Media output paths: get_generation_context.media_paths or list_media_paths. "
         "For inpaint_advanced (flags, reference objects): setup_ip_adapter or "
         "install_ip_adapter_dependencies + download_ip_adapter_assets — then restart ComfyUI."
     ),
@@ -640,6 +691,31 @@ def list_loras() -> str:
     """List LoRA files from Stability Matrix and extra folders."""
     models_dir = Path(_cfg["stability_matrix"]["models"])
     return json.dumps(scan_loras(models_dir, _cfg.get("extra_lora_paths")), indent=2)
+
+
+@mcp.tool()
+def list_character_loras() -> str:
+    """List trained character LoRAs (Frieren cast + Solo Leveling) and install status."""
+    models_dir = Path(_cfg["stability_matrix"]["models"])
+    return json.dumps(
+        _check_character_loras_on_disk(_catalog._data, models_dir),
+        indent=2,
+    )
+
+
+@mcp.tool()
+def resolve_character_loras(character: str, include_eye_lora: bool = True) -> str:
+    """Build generate_image(loras=…) for a trained cast member.
+
+    character: fern | frieren | ubel | flamme | cha_hae_in | jinah_sung | akari_shimizu |
+    esil_radiru | gina | han_semi | han_song_yi | joo_hee | kanae_tawata | lee_bora |
+    park_heejin (or triggers nb_fern, nb_jinah_sung, …).
+    Puts trigger + preferred_style=waijfu in the result — include the trigger in the prompt.
+    """
+    resolved = _resolve_character_loras(
+        _catalog._data, character, include_eye_lora=include_eye_lora
+    )
+    return json.dumps(resolved, indent=2)
 
 
 @mcp.tool()
@@ -1491,16 +1567,19 @@ def generate_video(
     smooth_motion: bool = False,
 ) -> str:
     """
-    Generate video via ComfyUI using saved Stability Matrix workflows.
+    Generate video via ComfyUI (remote comfybox when configured).
+
+    Routing: user asks for 14B → workflow_id=i2v (keep ComfyUI running).
+    Do NOT call generate_video_hero for 14B. Hero/Wan2GP is a separate tool.
 
     Args:
         prompt: Scene description.
         mode: t2v, i2v, or v2v (video extend from last frame).
         style: Optional image style for prompt prefix/negative defaults.
         negative_prompt: Override negative prompt for Wan text encode nodes.
-        workflow_id: Short catalog id: t2v, i2v_5b, i2v_5b_painter, v2v_5b, v2v_5b_painter, i2v, i2v_wan21, i2v_gpu. Empty = auto. Do NOT pass the .json filename.
+        workflow_id: Short catalog id: t2v, i2v_5b, i2v_5b_painter, v2v_5b, v2v_5b_painter, i2v, i2v_wan21, i2v_gpu. Empty = auto. Do NOT pass the .json filename. For Wan 14B use i2v (not i2v_5b_painter).
         content_rating: open (default) or sfw for optional safety negatives.
-        image_path: Required for i2v — local path to the source image.
+        image_path: Required for i2v — exact local path from list_source_images (never invent D:\\Users\\...).
         video_path: Required for v2v — local path to source clip to extend.
         concat_source: For v2v — append continuation to source clip (default true).
         num_frames: Optional frame count override (e.g. 65 for ~4s at 16fps).
@@ -1939,6 +2018,10 @@ def check_gpu_backend() -> str:
     Call before generate_video, generate_audio, or generate_video_hero — especially for
     offline agents (Jan, LM Studio) that cannot rely on Cursor-side enforcement alone.
     If forge.running is true, switch the generation host back to ComfyUI before MCP image/video.
+
+    Routing: user asks for 14B → generate_video(workflow_id=i2v) on ComfyUI (keep it running).
+    generate_video_hero is Wan2GP only — not the 14B path. Do not tell the user to stop
+    Windows Stability Matrix when ComfyUI is on remote comfybox.
     """
     status = inspect_gpu_backend(_cfg, comfyui_running=_engine.comfy.is_running())
     return json.dumps(status, indent=2)
@@ -2101,14 +2184,18 @@ def generate_video_hero(
     motion_amplitude: float = 1.05,
 ) -> str:
     """
-    Hero-quality I2V via Wan2GP Enhanced Lightning v2 (outside ComfyUI).
+    Wan2GP Enhanced Lightning hero I2V — ONLY when the user explicitly says hero / Wan2GP / lip-sync.
 
-    Requires: ComfyUI stopped, Wan2GP Gradio UI stopped, Lightning v2 weights installed.
-    Auto-starts Wan2GP MCP on gpu_backend.wan2gp_mcp_port (default 7867) when configured.
+    NOT the 14B path. User said 14B → use generate_video(mode=i2v, workflow_id=i2v) on ComfyUI instead.
+    If ComfyUI is up you will get gpu_backend_conflict; do not tell them to stop Windows Stability Matrix
+    for remote comfybox — keep ComfyUI and switch to generate_video.
+
+    Requires: ComfyUI stopped (remote: ssh comfybox '~/bin/gpu_backend.sh stop'), Wan2GP Gradio UI stopped,
+    Lightning v2 weights installed. Auto-starts Wan2GP MCP on gpu_backend.wan2gp_mcp_port when configured.
 
     Args:
         prompt: Motion/scene description (e.g. Japanese bow, subtle forward lean).
-        image_path: Local path to source still (kitsune portrait, etc.).
+        image_path: Exact local path from list_source_images.
         negative_prompt: Optional negatives.
         video_length: Frame count (default 49 ≈ 3s at 16fps).
         resolution: e.g. 832x480.
@@ -2148,8 +2235,119 @@ def download_wan2gp_assets(force: bool = False) -> str:
 
 @mcp.tool()
 def list_media_paths() -> str:
-    """Return canonical local folders for MCP, ComfyUI, Wan2GP image/audio/video outputs."""
+    """Return canonical local folders for MCP, ComfyUI, Wan2GP outputs + source_image_dirs notes."""
     return json.dumps(media_paths(_cfg), indent=2)
+
+
+@mcp.tool()
+def list_source_images(query: str = "", max_files: int = 40) -> str:
+    """
+    Find local stills for I2V / edits. Call this instead of guessing image_path.
+
+    Scans Desktop\\New Images and delivery\\User Import (and related). Pass files[].path exactly.
+    """
+    return json.dumps(
+        _list_source_images(_cfg, query=query, max_files=max_files),
+        indent=2,
+    )
+
+
+@mcp.tool()
+def delivery_media_root() -> str:
+    """Show D:\\ComfyBox Images and Videos root + top-level folders."""
+    return json.dumps(_media_root_info(_cfg), indent=2)
+
+
+@mcp.tool()
+def list_delivery_media(
+    subdir: str = "",
+    query: str = "",
+    kind: str = "all",
+    max_files: int = 60,
+    recursive: bool = True,
+) -> str:
+    """
+    List images/videos under the ComfyBox delivery folder.
+
+    Args:
+        subdir: e.g. User Import, Images, Video, clips. Empty = whole delivery root.
+        query: Filename substring filter.
+        kind: all | image | video
+    """
+    return json.dumps(
+        _list_delivery_media(
+            _cfg,
+            subdir=subdir,
+            query=query,
+            kind=kind,
+            max_files=max_files,
+            recursive=recursive,
+        ),
+        indent=2,
+    )
+
+
+@mcp.tool()
+def view_delivery_image(path: str, max_edge: int = 1280) -> list:
+    """
+    Load an image so you can SEE it (preview bytes + path). Use after generate_* to review.
+
+    Args:
+        path: Absolute path, or path relative to delivery root.
+        max_edge: Max preview size for vision context.
+    """
+    meta, preview = _view_delivery_image_payload(_cfg, path, max_edge=max_edge)
+    if preview is None:
+        return [json.dumps(meta, indent=2)]
+    return [json.dumps(meta, indent=2), Image(data=preview, format="jpeg")]
+
+
+@mcp.tool()
+def view_delivery_video_frame(
+    path: str,
+    time_seconds: float = 0.5,
+    max_edge: int = 1280,
+) -> list:
+    """Extract one video frame so you can SEE the clip (ffmpeg preview + path)."""
+    meta, preview = _view_delivery_video_frame_payload(
+        _cfg, path, time_seconds=time_seconds, max_edge=max_edge
+    )
+    if preview is None:
+        return [json.dumps(meta, indent=2)]
+    return [json.dumps(meta, indent=2), Image(data=preview, format="jpeg")]
+
+
+@mcp.tool()
+def copy_delivery_media(src: str, dest_relative: str, overwrite: bool = False) -> str:
+    """Copy a file inside the ComfyBox delivery folder sandbox."""
+    return json.dumps(
+        _copy_delivery_media(_cfg, src, dest_relative, overwrite=overwrite),
+        indent=2,
+    )
+
+
+@mcp.tool()
+def move_delivery_media(src: str, dest_relative: str, overwrite: bool = False) -> str:
+    """Move a file inside the ComfyBox delivery folder sandbox."""
+    return json.dumps(
+        _move_delivery_media(_cfg, src, dest_relative, overwrite=overwrite),
+        indent=2,
+    )
+
+
+@mcp.tool()
+def rename_delivery_media(src: str, new_name: str, overwrite: bool = False) -> str:
+    """Rename a delivery file in place (filename only)."""
+    return json.dumps(
+        _rename_delivery_media(_cfg, src, new_name, overwrite=overwrite),
+        indent=2,
+    )
+
+
+@mcp.tool()
+def open_delivery_in_explorer(path: str = "") -> str:
+    """Reveal a delivery file/folder in Windows Explorer."""
+    return json.dumps(_open_delivery_in_explorer(_cfg, path), indent=2)
 
 
 @mcp.tool()
@@ -2161,6 +2359,7 @@ def interpolate_video(
 ) -> str:
     """
     Upsample clip frame rate with ffmpeg minterpolate (smoother delivery without a bigger Wan model).
+    Runs on the main rig CPU (7900X) — not comfybox.
 
     Args:
         video_path: Source MP4/WebM path.
@@ -2174,12 +2373,195 @@ def interpolate_video(
             video_path,
             target_fps=target_fps,
             method=method,
-            output_dir=Path(_cfg.get("_root", ROOT)) / "outputs",
+            output_dir=Path(video_path).expanduser().resolve().parent,
             crf=crf,
         )
         return json.dumps(result, indent=2)
     except Exception as exc:
         err = humanize_error(exc, context="interpolate_video")
+        err["ok"] = False
+        return json.dumps(err, indent=2)
+
+
+@mcp.tool()
+def check_local_post() -> str:
+    """
+    Check main-rig Wan polish stack: CUDA .venv-post, 5060 Ti, RealESRGAN/AnimeSharp weights.
+    Generation stays on comfybox; use this before upscale_video_local / polish_wan_video.
+    """
+    return json.dumps(_check_local_post(_cfg), indent=2)
+
+
+@mcp.tool()
+def upscale_video_local(
+    video_path: str,
+    model: str = "anime_sharp_2x",
+    crf: int = 17,
+) -> str:
+    """
+    CUDA upscale a Wan MP4 on the main rig (RTX 5060 Ti via .venv-post + spandrel).
+
+    Args:
+        video_path: Source clip (usually after interpolate, or raw 16fps master).
+        model: anime_sharp_2x (default, clean anime) or realesrgan_anime_4x.
+        crf: libx264 quality for re-encode (default 17).
+    """
+    try:
+        result = _upscale_video_local(
+            _cfg,
+            video_path,
+            model=model,
+            output_dir=Path(video_path).expanduser().resolve().parent,
+            crf=crf,
+        )
+        return json.dumps(result, indent=2)
+    except Exception as exc:
+        err = humanize_error(exc, context="upscale_video_local")
+        err["ok"] = False
+        return json.dumps(err, indent=2)
+
+
+@mcp.tool()
+def polish_wan_video(
+    video_path: str,
+    target_fps: float = 24.0,
+    upscale_model: str = "anime_sharp_2x",
+    skip_interpolate: bool = False,
+    skip_upscale: bool = False,
+    crf: int = 17,
+) -> str:
+    """
+    Full main-rig polish: interpolate (16→24) then CUDA upscale. Use on a locked master cut.
+
+    Args:
+        video_path: Final spliced Wan MP4.
+        target_fps: Interpolation target (default 24).
+        upscale_model: anime_sharp_2x or realesrgan_anime_4x.
+        skip_interpolate / skip_upscale: run only one stage if needed.
+        crf: encode quality.
+    """
+    try:
+        result = _polish_wan_video(
+            _cfg,
+            video_path,
+            target_fps=target_fps,
+            upscale_model=upscale_model,
+            skip_interpolate=skip_interpolate,
+            skip_upscale=skip_upscale,
+            crf=crf,
+        )
+        return json.dumps(result, indent=2)
+    except Exception as exc:
+        err = humanize_error(exc, context="polish_wan_video")
+        err["ok"] = False
+        return json.dumps(err, indent=2)
+
+
+@mcp.tool()
+def concat_video_clips(paths_json: str, output_path: str = "") -> str:
+    """
+    Lossless-concat MP4s (same codec/fps). paths_json = JSON list of absolute paths.
+
+    Args:
+        paths_json: e.g. '["D:/.../a.mp4","D:/.../b.mp4"]'
+        output_path: optional dest; default first_stem_concat.mp4 beside first clip.
+    """
+    try:
+        paths = json.loads(paths_json)
+        if not isinstance(paths, list):
+            raise ValueError("paths_json must be a JSON list of strings")
+        return json.dumps(
+            _concat_video_clips(_cfg, [str(p) for p in paths], output_path=output_path),
+            indent=2,
+        )
+    except Exception as exc:
+        err = humanize_error(exc, context="concat_video_clips")
+        err["ok"] = False
+        return json.dumps(err, indent=2)
+
+
+@mcp.tool()
+def splice_pingpong(
+    video_path: str,
+    then_forward: bool = True,
+    output_path: str = "",
+) -> str:
+    """
+    D-style lengthen: forward + reverse (+ optional forward again). Good for bobbing loops.
+
+    Args:
+        video_path: Source segment (often first half of a clip).
+        then_forward: if true, append forward once more (~D_pingpong_then_half).
+        output_path: optional dest path.
+    """
+    try:
+        return json.dumps(
+            _splice_pingpong(
+                _cfg,
+                video_path,
+                output_path=output_path,
+                then_forward=then_forward,
+            ),
+            indent=2,
+        )
+    except Exception as exc:
+        err = humanize_error(exc, context="splice_pingpong")
+        err["ok"] = False
+        return json.dumps(err, indent=2)
+
+
+@mcp.tool()
+def splice_crossfade_loop(
+    video_path: str,
+    fade_sec: float = 0.25,
+    output_path: str = "",
+) -> str:
+    """E-style soft loop: two copies joined with ffmpeg xfade."""
+    try:
+        return json.dumps(
+            _splice_crossfade_loop(
+                _cfg,
+                video_path,
+                fade_sec=fade_sec,
+                output_path=output_path,
+            ),
+            indent=2,
+        )
+    except Exception as exc:
+        err = humanize_error(exc, context="splice_crossfade_loop")
+        err["ok"] = False
+        return json.dumps(err, indent=2)
+
+
+@mcp.tool()
+def splice_pose_matched_loop(
+    video_path: str,
+    target_sec: float = 19.0,
+    rewind_max: int = 12,
+    output_path: str = "",
+) -> str:
+    """
+    Pose-matched D-style loop: search ±rewind_max frames for best join (quieter drool/pose pops).
+
+    Args:
+        video_path: Source master (e.g. 12s chain before climax).
+        target_sec: Desired bobbing length before climax.
+        rewind_max: Max frames to search back from nominal half (default 12).
+        output_path: optional dest.
+    """
+    try:
+        return json.dumps(
+            _splice_pose_matched_loop(
+                _cfg,
+                video_path,
+                target_sec=target_sec,
+                rewind_max=rewind_max,
+                output_path=output_path,
+            ),
+            indent=2,
+        )
+    except Exception as exc:
+        err = humanize_error(exc, context="splice_pose_matched_loop")
         err["ok"] = False
         return json.dumps(err, indent=2)
 

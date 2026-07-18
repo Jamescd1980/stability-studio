@@ -1,0 +1,13 @@
+# Main-rig Wan polish venv (.venv-post) — RTX 5060 Ti / CUDA 12.8
+# py -3.10 -m venv .venv-post
+# .venv-post\Scripts\pip install -r requirements-post.txt
+# Then install torch from the cu128 index (see comment below).
+
+# torch / torchvision: install separately —
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+spandrel>=0.4.0
+opencv-python-headless>=4.8
+numpy>=1.26
+Pillow>=10.0
+safetensors>=0.4
+einops>=0.7

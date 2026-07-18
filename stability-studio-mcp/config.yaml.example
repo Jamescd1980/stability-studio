@@ -77,4 +77,16 @@ hardware:
   gpu_only: true             # lower res/frames instead of CPU offload
   prefer_prompt_quality: true  # anatomy/face in prompt, not max pixels
 
+# Main-rig Wan polish (CUDA upscale + splice). Generation stays on comfybox.
+# py -3.10 -m venv .venv-post
+# .venv-post\Scripts\pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+# .venv-post\Scripts\pip install spandrel opencv-python-headless numpy Pillow
+# Models: Data/Models/RealESRGAN/{2x-AnimeSharpV4_RCAN.safetensors,RealESRGAN_x4plus_anime_6B.pth}
+local_post:
+  enabled: false
+  python: ""                 # path to .venv-post/Scripts/python.exe
+  models_dir: ""             # .../Data/Models/RealESRGAN
+  default_upscale_model: "anime_sharp_2x"  # or realesrgan_anime_4x
+  role: "interpolate + upscale + splice"
+
 catalog_file: "catalog.yaml"

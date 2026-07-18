@@ -398,6 +398,7 @@ def inject_i2v_ui_workflow(
             "WanVaceToVideo",
             "WanVideoEmptyEmbeds",
             "Wan22ImageToVideoLatent",
+            "WanImageToVideo",
             "PainterI2V",
         }:
             if isinstance(widgets, list) and len(widgets) > 2:

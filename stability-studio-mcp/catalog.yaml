@@ -164,6 +164,170 @@ art_food_groups:
     styles: [juggernaut, miracle_nsfw, realisian, realvis_xl, perfection_25d]
     description: "Juggernaut, Flux2 miracle_nsfw, Realisian, RealVis XL, Perfection 2.5D hybrid"
 
+# Trained cast LoRAs (Illustrious / waijfu). Pass via generate_image(loras=…).
+# Prefer resolve_character_loras(character=…) so triggers + eye LoRA are included.
+# Epoch: final (e008) unsuffixed .safetensors for all Solo Leveling entries below.
+character_loras:
+  fern:
+    file: Fern/Fern.safetensors
+    weight: 0.8
+    trigger: nb_fern
+    preferred_style: waijfu
+    aliases: [nb_fern]
+    pair_with:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.8
+  frieren:
+    file: Frieren/Frieren.safetensors
+    weight: 0.8
+    trigger: nb_frieren
+    preferred_style: waijfu
+    aliases: [nb_frieren]
+    pair_with:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.8
+  ubel:
+    file: Ubel/Ubel.safetensors
+    weight: 0.8
+    trigger: nb_ubel
+    preferred_style: waijfu
+    aliases: [nb_ubel, übel]
+    pair_with:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.8
+  flamme:
+    file: Flamme/Flamme.safetensors
+    weight: 0.8
+    trigger: nb_flamme
+    preferred_style: waijfu
+    aliases: [nb_flamme]
+    pair_with:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.8
+
+  # --- Solo Leveling (trained 2026-07-17/18 on ComfyBox; epoch 8) ---
+  cha_hae_in:
+    file: Cha Hae In.safetensors
+    weight: 0.8
+    trigger: nb_cha_hae_in
+    preferred_style: waijfu
+    series: solo_leveling
+    aliases: [nb_cha_hae_in, cha, cha_hae, chahaein]
+    caption_helpers: "1girl, blonde hair, short hair, bangs, yellow eyes"
+    pair_with:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.8
+  jinah_sung:
+    file: Jinah Sung.safetensors
+    weight: 0.8
+    trigger: nb_jinah_sung
+    preferred_style: waijfu
+    series: solo_leveling
+    aliases: [nb_jinah_sung, jinah, sung_jinah]
+    caption_helpers: "1girl, purple hair, medium hair, purple eyes"
+    pair_with:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.8
+  akari_shimizu:
+    file: Akari Shimizu.safetensors
+    weight: 0.8
+    trigger: nb_akari_shimizu
+    preferred_style: waijfu
+    series: solo_leveling
+    aliases: [nb_akari_shimizu, akari]
+    caption_helpers: "1girl, black hair, long hair, brown eyes"
+    pair_with:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.8
+  esil_radiru:
+    file: Esil Radiru.safetensors
+    weight: 0.8
+    trigger: nb_esil_radiru
+    preferred_style: waijfu
+    series: solo_leveling
+    aliases: [nb_esil_radiru, esil]
+    caption_helpers: "1girl, demon girl, horns, blonde hair, red eyes"
+    pair_with:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.8
+  gina:
+    file: Gina.safetensors
+    weight: 0.8
+    trigger: nb_gina
+    preferred_style: waijfu
+    series: solo_leveling
+    aliases: [nb_gina]
+    caption_helpers: "1girl, blonde hair, long hair"
+    pair_with:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.8
+  han_semi:
+    file: Han Semi.safetensors
+    weight: 0.8
+    trigger: nb_han_semi
+    preferred_style: waijfu
+    series: solo_leveling
+    aliases: [nb_han_semi, semi]
+    caption_helpers: "1girl, black hair, long hair"
+    pair_with:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.8
+  han_song_yi:
+    file: Han Song Yi.safetensors
+    weight: 0.8
+    trigger: nb_han_song_yi
+    preferred_style: waijfu
+    series: solo_leveling
+    aliases: [nb_han_song_yi, song_yi, hansongyi]
+    caption_helpers: "1girl, black hair, long hair, brown eyes"
+    pair_with:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.8
+  joo_hee:
+    file: Joo Hee.safetensors
+    weight: 0.8
+    trigger: nb_joo_hee
+    preferred_style: waijfu
+    series: solo_leveling
+    aliases: [nb_joo_hee, joohee]
+    caption_helpers: "1girl, brown hair, glasses"
+    pair_with:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.8
+  kanae_tawata:
+    file: Kanae Tawata.safetensors
+    weight: 0.8
+    trigger: nb_kanae_tawata
+    preferred_style: waijfu
+    series: solo_leveling
+    aliases: [nb_kanae_tawata, kanae]
+    caption_helpers: "1girl, black hair, long hair"
+    pair_with:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.8
+  lee_bora:
+    file: Lee Bora.safetensors
+    weight: 0.8
+    trigger: nb_lee_bora
+    preferred_style: waijfu
+    series: solo_leveling
+    aliases: [nb_lee_bora, bora]
+    caption_helpers: "1girl, purple hair, long hair"
+    pair_with:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.8
+  park_heejin:
+    file: Park Heejin.safetensors
+    weight: 0.8
+    trigger: nb_park_heejin
+    preferred_style: waijfu
+    series: solo_leveling
+    aliases: [nb_park_heejin, heejin, park_hee_jin]
+    caption_helpers: "1girl, blonde hair, long hair"
+    pair_with:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.8
+
 styles:
   anime:
     architecture: sdxl_anime
@@ -610,7 +774,17 @@ video_workflows:
     painter_i2v: true
 
   i2v:
-    description: "Wan 2.2 image-to-video"
+    description: "Wan 2.1 14B I2V (native ComfyUI — identity-critical; no Painter/5B)"
+    file: "workflow-wan21-i2v-14b-comfyui-native.json"
+    prompt_nodes:
+      - type: "CLIPTextEncode"
+        role: positive
+      - type: "CLIPTextEncode"
+        role: negative
+    note: "Requires wan2.1_i2v_480p_14B + wan_2.1_vae + umt5 on the generation host. Legacy WanVideoWrapper OpenArt graph kept as i2v_wrapper."
+
+  i2v_wrapper:
+    description: "Legacy WanVideoWrapper 14B graph (needs Easy-Use + WanVideoWrapper custom nodes)"
     file: "workflow-wan22-image-2-video-nsfw-axtxs1ISH3F3mrVSCSyt-civet_flawless_61-openart.ai.json"
     prompt_nodes:
       - type: "WanVideoTextEncode"

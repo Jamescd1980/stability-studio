@@ -1,4 +1,4 @@
-"""Post-process video helpers (frame interpolation, etc.)."""
+"""Post-process video helpers (frame interpolation, local CUDA polish, etc.)."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from studio.output_paths import deliver_files
+from studio.video_upscale import upscale_video_local
 from studio.video_utils import probe_video
 
 
@@ -97,4 +98,59 @@ def interpolate_video(
         "saved_files": saved,
         "delivered_files": delivered,
         "probe": out_info,
+    }
+
+
+def polish_wan_video(
+    cfg: dict[str, Any],
+    video_path: str | Path,
+    *,
+    target_fps: float = 24.0,
+    upscale_model: str = "anime_sharp_2x",
+    skip_interpolate: bool = False,
+    skip_upscale: bool = False,
+    crf: int = 17,
+) -> dict[str, Any]:
+    """
+    Main-rig delivery polish: interpolate (CPU) then CUDA upscale (5060 Ti).
+
+    Generate/splice on comfybox first; run this on the locked master MP4.
+    """
+    src = Path(video_path).expanduser().resolve()
+    if not src.is_file():
+        raise FileNotFoundError(f"Video not found: {src}")
+
+    steps: list[dict[str, Any]] = []
+    current = src
+
+    if not skip_interpolate:
+        interp = interpolate_video(
+            cfg,
+            current,
+            target_fps=target_fps,
+            output_dir=current.parent,
+            crf=crf,
+        )
+        steps.append({"step": "interpolate", **interp})
+        current = Path(interp["saved_files"][0])
+
+    if not skip_upscale:
+        up = upscale_video_local(
+            cfg,
+            current,
+            model=upscale_model,
+            output_dir=current.parent,
+            crf=crf,
+        )
+        steps.append({"step": "upscale", **up})
+        current = Path(up["saved_files"][0])
+
+    return {
+        "ok": True,
+        "source": str(src),
+        "final": str(current),
+        "saved_files": [str(current)],
+        "probe": probe_video(current),
+        "steps": steps,
+        "note": "Interp on 7900X CPU, upscale on 5060 Ti via .venv-post",
     }

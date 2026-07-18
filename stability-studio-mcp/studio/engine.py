@@ -130,9 +130,31 @@ class GenerationEngine:
     ) -> list[str]:
         saved: list[str] = []
         for file_info in outputs:
-            if file_info.get("filename", "").lower().endswith(extensions):
-                saved.append(str(self.comfy.download_file(file_info, self.output_dir)))
-        return saved
+            name = str(file_info.get("filename") or "").lower()
+            if not name.endswith(extensions):
+                continue
+            path = self.comfy.download_file(file_info, self.output_dir, cfg=self.cfg)
+            saved.append(str(path))
+        # Mirror into Windows delivery (Images/ / Video/) when configured.
+        # Prefer delivery paths in the return value so Jan/Myra report the right folder.
+        image_ext = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"}
+        video_ext = {".mp4", ".webm", ".mkv", ".avi", ".mov"}
+        images = [p for p in saved if Path(p).suffix.lower() in image_ext]
+        videos = [p for p in saved if Path(p).suffix.lower() in video_ext]
+        handed: list[str] = []
+        if images:
+            _, delivered = deliver_files(self.cfg, images, bucket="images")
+            handed.extend(delivered or images)
+        if videos:
+            _, delivered = deliver_files(self.cfg, videos, bucket="clips")
+            handed.extend(delivered or videos)
+        other = [
+            p
+            for p in saved
+            if Path(p).suffix.lower() not in image_ext | video_ext
+        ]
+        handed.extend(other)
+        return handed or saved
 
     def _queue_workflow_and_save(
         self,

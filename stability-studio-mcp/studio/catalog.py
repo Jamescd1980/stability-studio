@@ -58,6 +58,10 @@ class StyleCatalog:
     def art_food_groups(self) -> dict[str, Any]:
         return self._data.get("art_food_groups", {})
 
+    @property
+    def character_loras(self) -> dict[str, Any]:
+        return self._data.get("character_loras", {})
+
     def resolve_family(self, family_id: str) -> dict[str, Any]:
         """Return merged family metadata (handles extends)."""
         families = self.model_families
@@ -359,6 +363,13 @@ class StyleCatalog:
             "model_families_doc": "See MODEL-FAMILIES.md in repo root for full agent guide",
             "art_food_groups": self.art_food_groups or {},
             "art_food_groups_doc": "Pass food_group=anime|fantasy|cyberpunk|photoreal to edit_image. See IMAGE-EDITING.md.",
+            "character_loras": self.character_loras or {},
+            "character_loras_doc": (
+                "Trained cast LoRAs: Frieren (fern|frieren|ubel|flamme) + Solo Leveling "
+                "(cha_hae_in|jinah_sung|akari_shimizu|esil_radiru|gina|han_semi|han_song_yi|"
+                "joo_hee|kanae_tawata|lee_bora|park_heejin). "
+                "Call resolve_character_loras(character=...) then generate_image(style=waijfu, loras=..., prompt with trigger)."
+            ),
             "checkpoint_architecture_checks": arch_checks,
             "checkpoint_architecture_mismatches": arch_mismatches,
             "styles": self.list_styles(),
@@ -398,6 +409,10 @@ class StyleCatalog:
             "jan_quickstart": {
                 "before_any_gpu": "check_gpu_backend",
                 "before_image": "get_generation_context -> pick style id -> generate_image",
+                "character_still": (
+                    "resolve_character_loras(character=fern|jinah_sung|cha_hae_in|…) -> "
+                    "generate_image(style=waijfu, loras=<result.loras>, prompt includes trigger)"
+                ),
                 "before_draft_video": "check_gpu_backend(intent=comfyui) -> generate_video(mode=i2v, workflow_id=i2v_5b)",
                 "comfyui_url": self.cfg.get("comfyui", {}).get("url"),
             },

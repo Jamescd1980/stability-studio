@@ -288,7 +288,7 @@ def generate_video_hero(
             if not files and not result.get("success", True):
                 errors = result.get("errors") or snap.get("errors") or []
                 raise RuntimeError(f"Wan2GP generation failed: {json.dumps(errors)[:1500]}")
-            saved, delivered = deliver_files(cfg, files)
+            saved, delivered = deliver_files(cfg, files, bucket="clips")
             return {
                 "backend": "wan2gp",
                 "mode": "hero_i2v",
@@ -308,7 +308,9 @@ def generate_video_hero(
         payload = _run_subprocess_api(cfg, settings, python, wan2gp_root(cfg))
         if not payload.get("success"):
             raise RuntimeError(json.dumps(payload.get("errors") or payload, indent=2))
-        saved, delivered = deliver_files(cfg, payload.get("generated_files") or [])
+        saved, delivered = deliver_files(
+            cfg, payload.get("generated_files") or [], bucket="clips"
+        )
         return {
             "backend": "wan2gp",
             "mode": "hero_i2v",
