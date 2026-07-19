@@ -47,6 +47,8 @@ from studio.character_loras import (
     list_character_loras as _list_character_loras,
     resolve_character_loras as _resolve_character_loras,
 )
+from studio.style_lanes import resolve_style_lane as _resolve_style_lane
+from studio.chapter_phonetic import rewrite_chapter_phonetic as _rewrite_chapter_phonetic
 from studio.style_assets import (
     check_all_style_assets,
     check_style_assets as _check_style_assets_impl,
@@ -214,8 +216,9 @@ mcp = FastMCP(
         "Common drops: Desktop\\New Images and delivery\\User Import. Pass the exact path returned. "
         "To SEE pixels: list_delivery_media then view_delivery_image / view_delivery_video_frame "
         "(generate_* returns paths only — viewing is separate). "
-        "Video outputs: generate_video downloads from comfybox (SSH fallback if /view 404) into "
-        "delivery Video/ — trust saved_files paths; never invent success when ok=false. "
+        "Video outputs: generate_video lands under delivery Video/; character projects promote into "
+        "Video/<Character>/ only (e.g. Video/Frieren/). No nested quarantine/review trees — fails go to Recycle Bin. "
+        "Trust saved_files paths; never invent success when ok=false. "
         "Never use web search for image generation — call generate_image. "
         "Media output paths: get_generation_context.media_paths or list_media_paths. "
         "For inpaint_advanced (flags, reference objects): setup_ip_adapter or "
@@ -722,6 +725,19 @@ def resolve_character_loras(character: str, include_eye_lora: bool = True) -> st
     resolved = _resolve_character_loras(
         _catalog._data, character, include_eye_lora=include_eye_lora
     )
+    return json.dumps(resolved, indent=2)
+
+
+@mcp.tool()
+def resolve_style_lane(ask: str) -> str:
+    """Parse a natural-language image ask into style_lanes (medium + mood + cast + recipe).
+
+    Example ask: 'retro anime with cyber lighting of Esil in armor casting at a monster'
+    Returns media, mood, cast axes, style checkpoint id, look_profile, prompt_tail,
+    negative_extra, and loras. Then call resolve_character_loras for named cast and
+    generate_image(style=..., loras=..., prompt with tails).
+    """
+    resolved = _resolve_style_lane(_catalog._data, ask)
     return json.dumps(resolved, indent=2)
 
 
@@ -2583,8 +2599,31 @@ def splice_pose_matched_loop(
 
 
 @mcp.tool()
+def rewrite_chapter_phonetic(
+    text: str,
+    chapter: int = 0,
+    stem: str = "",
+    also_speak: bool = False,
+) -> str:
+    """Orla-owned: rewrite chapter prose for clear Kokoro readback.
+
+    Pass the chapter body in `text` (Myra resolves files on the Pi and forwards text).
+    Saves a phonetic .txt via Orla tools; set also_speak=true to also synthesize a WAV
+    with generate_speech_kokoro / Kokoro :8090 when available.
+    """
+    result = _rewrite_chapter_phonetic(
+        _cfg,
+        text=text,
+        chapter=chapter or None,
+        stem=stem,
+        also_speak=also_speak,
+    )
+    return json.dumps(result, indent=2)
+
+
+@mcp.tool()
 def check_kokoro_backend() -> str:
-    """Kokoro narrate TTS on generation host :8090 — CPU service; no GPU lock."""
+    """Kokoro narrate TTS on generation host :8090 — CPU service; no GPU lock. Owned by Orla."""
     return json.dumps(inspect_kokoro_backend(_cfg), indent=2)
 
 

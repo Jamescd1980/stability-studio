@@ -47,10 +47,10 @@ WAN_VIDEO_LORAS: dict[str, dict[str, Any]] = {
         "repo": HF_REPO,
         "path": "loras/wan/wan22-face-naturalizer.safetensors",
         "size_hint": "~586 MB",
-        "default_weight": 0.55,
+        "default_weight": 0.65,
         "branch": "both",
         "workflows": ["i2v_5b", "i2v_5b_painter", "v2v_5b", "v2v_5b_painter", "i2v"],
-        "purpose": "Facial animation quality and more natural head motion (helps limb/face drift).",
+        "purpose": "Face/eye stability on Wan 2.2 (use on MoE both branches; best eye tool we have).",
     },
     "light_volumetric": {
         "id": "light_volumetric",
@@ -139,6 +139,8 @@ WAN_VIDEO_LORA_BUNDLES: dict[str, list[str]] = {
     # Always both halves on MoE — never orgasm HIGH alone on i2v.
     "female_orgasm": ["orgasm_i2v_high", "orgasm_i2v_low"],
     "lightning_i2v": ["lightning_i2v_high", "lightning_i2v_low"],
+    "face_lock": ["face_naturalizer"],
+    "orgasm_face": ["face_naturalizer", "orgasm_i2v_high", "orgasm_i2v_low"],
     "orgasm_lightning": [
         "lightning_i2v_high",
         "lightning_i2v_low",

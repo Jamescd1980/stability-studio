@@ -1,0 +1,340 @@
+{
+  "characters": [
+    {
+      "id": "akari_shimizu",
+      "display_name": "Akari Shimizu",
+      "aliases": [
+        "akari",
+        "akari shimizu",
+        "nb_akari_shimizu"
+      ],
+      "series": "solo_leveling",
+      "gender": "female",
+      "trigger": "nb_akari_shimizu",
+      "file": "Akari Shimizu.safetensors",
+      "weight": 0.8,
+      "preferred_style": "waijfu",
+      "pair_with": [
+        {
+          "file": "Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors",
+          "weight": 0.8
+        }
+      ],
+      "caption_helpers": "1girl, black hair, long hair, brown eyes"
+    },
+    {
+      "id": "cha_hae_in",
+      "display_name": "Cha Hae In",
+      "aliases": [
+        "cha",
+        "cha hae in",
+        "cha_hae",
+        "chahaein",
+        "nb_cha_hae_in"
+      ],
+      "series": "solo_leveling",
+      "gender": "female",
+      "trigger": "nb_cha_hae_in",
+      "file": "Cha Hae In.safetensors",
+      "weight": 0.8,
+      "preferred_style": "waijfu",
+      "pair_with": [
+        {
+          "file": "Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors",
+          "weight": 0.8
+        }
+      ],
+      "caption_helpers": "1girl, blonde hair, short hair, bangs, yellow eyes"
+    },
+    {
+      "id": "esil_radiru",
+      "display_name": "Esil Radiru",
+      "aliases": [
+        "esil",
+        "esil radiru",
+        "nb_esil_radiru"
+      ],
+      "series": "solo_leveling",
+      "gender": "female",
+      "trigger": "nb_esil_radiru",
+      "file": "Esil Radiru.safetensors",
+      "weight": 0.8,
+      "preferred_style": "waijfu",
+      "pair_with": [
+        {
+          "file": "Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors",
+          "weight": 0.8
+        }
+      ],
+      "caption_helpers": "1girl, demon girl, horns, blonde hair, red eyes"
+    },
+    {
+      "id": "fern",
+      "display_name": "Fern",
+      "aliases": [
+        "fern",
+        "firm",
+        "nb_fern"
+      ],
+      "series": "frieren",
+      "gender": "female",
+      "trigger": "nb_fern",
+      "file": "Fern/Fern.safetensors",
+      "weight": 0.8,
+      "preferred_style": "waijfu",
+      "pair_with": [
+        {
+          "file": "Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors",
+          "weight": 0.8
+        }
+      ],
+      "caption_helpers": ""
+    },
+    {
+      "id": "flamme",
+      "display_name": "Flamme",
+      "aliases": [
+        "flamme",
+        "nb_flamme"
+      ],
+      "series": "frieren",
+      "gender": "female",
+      "trigger": "nb_flamme",
+      "file": "Flamme/Flamme.safetensors",
+      "weight": 0.8,
+      "preferred_style": "waijfu",
+      "pair_with": [
+        {
+          "file": "Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors",
+          "weight": 0.8
+        }
+      ],
+      "caption_helpers": ""
+    },
+    {
+      "id": "frieren",
+      "display_name": "Frieren",
+      "aliases": [
+        "frieren",
+        "nb_frieren"
+      ],
+      "series": "frieren",
+      "gender": "female",
+      "trigger": "nb_frieren",
+      "file": "Frieren/Frieren.safetensors",
+      "weight": 0.8,
+      "preferred_style": "waijfu",
+      "pair_with": [
+        {
+          "file": "Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors",
+          "weight": 0.8
+        }
+      ],
+      "caption_helpers": ""
+    },
+    {
+      "id": "gina",
+      "display_name": "Gina",
+      "aliases": [
+        "gina",
+        "nb_gina"
+      ],
+      "series": "solo_leveling",
+      "gender": "female",
+      "trigger": "nb_gina",
+      "file": "Gina.safetensors",
+      "weight": 0.8,
+      "preferred_style": "waijfu",
+      "pair_with": [
+        {
+          "file": "Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors",
+          "weight": 0.8
+        }
+      ],
+      "caption_helpers": "1girl, blonde hair, long hair"
+    },
+    {
+      "id": "han_semi",
+      "display_name": "Han Semi",
+      "aliases": [
+        "han semi",
+        "nb_han_semi",
+        "semi"
+      ],
+      "series": "solo_leveling",
+      "gender": "female",
+      "trigger": "nb_han_semi",
+      "file": "Han Semi.safetensors",
+      "weight": 0.8,
+      "preferred_style": "waijfu",
+      "pair_with": [
+        {
+          "file": "Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors",
+          "weight": 0.8
+        }
+      ],
+      "caption_helpers": "1girl, black hair, long hair"
+    },
+    {
+      "id": "han_song_yi",
+      "display_name": "Han Song Yi",
+      "aliases": [
+        "han song yi",
+        "hansongyi",
+        "nb_han_song_yi",
+        "song_yi"
+      ],
+      "series": "solo_leveling",
+      "gender": "female",
+      "trigger": "nb_han_song_yi",
+      "file": "Han Song Yi.safetensors",
+      "weight": 0.8,
+      "preferred_style": "waijfu",
+      "pair_with": [
+        {
+          "file": "Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors",
+          "weight": 0.8
+        }
+      ],
+      "caption_helpers": "1girl, black hair, long hair, brown eyes"
+    },
+    {
+      "id": "jinah_sung",
+      "display_name": "Jinah Sung",
+      "aliases": [
+        "jinah",
+        "jinah sung",
+        "nb_jinah_sung",
+        "sung_jinah"
+      ],
+      "series": "solo_leveling",
+      "gender": "female",
+      "trigger": "nb_jinah_sung",
+      "file": "Jinah Sung.safetensors",
+      "weight": 0.8,
+      "preferred_style": "waijfu",
+      "pair_with": [
+        {
+          "file": "Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors",
+          "weight": 0.8
+        }
+      ],
+      "caption_helpers": "1girl, purple hair, medium hair, purple eyes"
+    },
+    {
+      "id": "joo_hee",
+      "display_name": "Joo Hee",
+      "aliases": [
+        "joo hee",
+        "joohee",
+        "nb_joo_hee"
+      ],
+      "series": "solo_leveling",
+      "gender": "female",
+      "trigger": "nb_joo_hee",
+      "file": "Joo Hee.safetensors",
+      "weight": 0.8,
+      "preferred_style": "waijfu",
+      "pair_with": [
+        {
+          "file": "Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors",
+          "weight": 0.8
+        }
+      ],
+      "caption_helpers": "1girl, brown hair, glasses"
+    },
+    {
+      "id": "kanae_tawata",
+      "display_name": "Kanae Tawata",
+      "aliases": [
+        "kanae",
+        "kanae tawata",
+        "nb_kanae_tawata"
+      ],
+      "series": "solo_leveling",
+      "gender": "female",
+      "trigger": "nb_kanae_tawata",
+      "file": "Kanae Tawata.safetensors",
+      "weight": 0.8,
+      "preferred_style": "waijfu",
+      "pair_with": [
+        {
+          "file": "Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors",
+          "weight": 0.8
+        }
+      ],
+      "caption_helpers": "1girl, black hair, long hair"
+    },
+    {
+      "id": "lee_bora",
+      "display_name": "Lee Bora",
+      "aliases": [
+        "bora",
+        "lee bora",
+        "nb_lee_bora"
+      ],
+      "series": "solo_leveling",
+      "gender": "female",
+      "trigger": "nb_lee_bora",
+      "file": "Lee Bora.safetensors",
+      "weight": 0.8,
+      "preferred_style": "waijfu",
+      "pair_with": [
+        {
+          "file": "Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors",
+          "weight": 0.8
+        }
+      ],
+      "caption_helpers": "1girl, purple hair, long hair"
+    },
+    {
+      "id": "park_heejin",
+      "display_name": "Park Heejin",
+      "aliases": [
+        "heejin",
+        "heejin park",
+        "hejin",
+        "hejin park",
+        "nb_park_heejin",
+        "park heejin",
+        "park hejin",
+        "park_hee_jin"
+      ],
+      "series": "solo_leveling",
+      "gender": "female",
+      "trigger": "nb_park_heejin",
+      "file": "Park Heejin.safetensors",
+      "weight": 0.8,
+      "preferred_style": "waijfu",
+      "pair_with": [
+        {
+          "file": "Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors",
+          "weight": 0.8
+        }
+      ],
+      "caption_helpers": "1girl, blonde hair, long hair"
+    },
+    {
+      "id": "ubel",
+      "display_name": "Ubel",
+      "aliases": [
+        "nb_ubel",
+        "ubel",
+        "\u00fcbel"
+      ],
+      "series": "frieren",
+      "gender": "female",
+      "trigger": "nb_ubel",
+      "file": "Ubel/Ubel.safetensors",
+      "weight": 0.8,
+      "preferred_style": "waijfu",
+      "pair_with": [
+        {
+          "file": "Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors",
+          "weight": 0.8
+        }
+      ],
+      "caption_helpers": ""
+    }
+  ]
+}

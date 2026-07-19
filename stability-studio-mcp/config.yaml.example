@@ -42,21 +42,38 @@ gpu_backend:
 #   final/    assembled deliverables
 #   source/   original reference uploads
 #   rejected/ superseded attempts
+# Delivery project — images/videos land here (not under MCP outputs/).
+# Example Windows: "D:/ComfyBox Images and Videos"
 outputs:
   delivery: ""
-  layout: {}
+  layout:
+    images: "Images"
+    clips: "Video"
+    temp: "temp"
+    logs: "logs"
+    audio: "audio"
+    assets: "assets"
+    source: "source"
+    final: "final"
+    rejected: "rejected"
+    chain: "Images/chain"
 
 # Optional extra LoRA folders (list; leave empty if unused)
 extra_lora_paths: []
 
-# Civitai API key — required for download_style_assets on Civitai checkpoints (e.g. ilustmix)
-# Create at https://civitai.com/user/account — or set env CIVITAI_API_TOKEN
+# Civitai API key — NEVER commit a filled key. Use env CIVITAI_API_TOKEN instead when possible.
+# Create at https://civitai.com/user/account
 civitai:
   api_key: ""
 
 comfyui:
+  # Generation host (ComfyBox LAN) or local ComfyUI
   url: "http://127.0.0.1:8188"
   timeout_seconds: 600
+  # Optional SSH fallback when /view 404s for large videos
+  ssh_host: ""
+  remote_output_dirs: []
+  remote_search_roots: []
 
 invokeai:
   url: "http://127.0.0.1:9090"

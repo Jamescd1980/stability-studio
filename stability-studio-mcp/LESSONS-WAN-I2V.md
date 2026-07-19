@@ -10,6 +10,10 @@ Updated **2026-07-18** after Frieren Tease Stage1 failures and BJ MoE successes.
 4. **First-frame identity gate** against the source still (MAE / visual check) before declaring a clip good. Filenames lie.
 5. **Never prompt female `cum`** — use orgasm / squirting / juices / wetness. Male climax language is separate.
 6. **Free VRAM** after heavy runs (`/free` unload_models). If torch still reports ~70% while ROCm is idle, re-check; restart ComfyUI if stuck.
+7. **One delivery path.** Sort by character under `D:\ComfyBox Images and Videos\Video\<Character>\` (e.g. `Video\Frieren\`). Do not nest `v3_14b` / `_review` / `_quarantine` trees. Engine dumps in `Video\` root are **promoted then recycled**. Fails → Windows Recycle Bin.
+8. **Eyes are the weak point.** Prefer **≥720²** (20GB tier was capped 832×480 → forced 480²). `face_naturalizer` softens melt but can cause glassy “dead fish” eyes — drop it when face is already stable; keep RealismBoost/detail V2V as a later option. Illustrious eye LoRAs do **not** apply to Wan.
+9. **Mouth:** only soft breathing / quiet moan — never talking / lip-sync / mouthing words (Wan steals motion budget from hands).
+10. **Dual-hand beats:** spell out *both hands keep moving the entire clip* or one hand freezes.
 
 ## Why online clips looked 1000× better
 

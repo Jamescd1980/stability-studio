@@ -1,0 +1,42 @@
+{
+  "shows": [
+    {
+      "id": "frieren",
+      "aliases": [
+        "frieren",
+        "frieren beyond journey's end",
+        "grimoire",
+        "grimoire of desires",
+        "sousou no frieren"
+      ],
+      "characters": [
+        "fern",
+        "flamme",
+        "frieren",
+        "ubel"
+      ]
+    },
+    {
+      "id": "solo_leveling",
+      "aliases": [
+        "ore dake level up na ken",
+        "solo leveling",
+        "solo_leveling",
+        "sung jinwoo show"
+      ],
+      "characters": [
+        "akari_shimizu",
+        "cha_hae_in",
+        "esil_radiru",
+        "gina",
+        "han_semi",
+        "han_song_yi",
+        "jinah_sung",
+        "joo_hee",
+        "kanae_tawata",
+        "lee_bora",
+        "park_heejin"
+      ]
+    }
+  ]
+}

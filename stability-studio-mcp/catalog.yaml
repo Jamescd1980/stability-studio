@@ -135,6 +135,288 @@ model_families:
       - "Optional LoRAs: check_wan_video_loras / download_wan_video_loras (studio/wan_video_loras.py)"
       - "PainterI2V motion: workflow_id=i2v_5b_painter or use_painter_i2v=true — install_painter_i2v_dependencies first"
 
+# Style lanes — Nari voice/prompt resolver (finer than food groups).
+# Voice pattern: medium + mood(+lighting) + cast axes + subject/action.
+# Example: "retro anime with cyber lighting of Esil in armor casting at a monster"
+#   → medium=anime_retro, mood=cyber, subject=female, grouping=solo, content=action
+# Food groups stay the coarse MCP switch; lanes pick checkpoint / LoRA / neg defaults.
+style_lanes:
+  howto: >
+    Parse the ask into medium → mood → cast axes, then apply the matching recipe.
+    "Anime" alone is too coarse — always prefer a medium substyle when the user hints one.
+    Merge rule when medium and mood disagree on checkpoint:
+      (1) If mood is cyber/gold_standard/dark_fantasy and names a default_style, use that
+          checkpoint and keep the medium's prompt_tail + negative_extra (recreate_005 pattern).
+      (2) Otherwise use medium.default_style and apply mood prompt_tail / loras / negatives.
+    Cast axes pick checkpoint role (A/B women+NSFW vs C groups) when the user doesn't name a style id.
+    Monster/opponent in frame does NOT force grouping=group — still solo hero vs foe unless
+    multiple named cast members.
+
+  media:
+    cartoon_american:
+      label: American cartoon
+      food_group: anime
+      aliases: [cartoon, western cartoon, disney-ish, toon]
+      default_style: dynavision_3d
+      look_profile: null
+      prompt_tail: "american cartoon style, clean cel shading, bold outlines, expressive faces"
+      negative_extra: "photorealistic, 3d render, japanese anime eyes, moe, detailed skin pores"
+      notes: Western toon / satirical — not Japanese anime grammar.
+
+    anime_modern:
+      label: Modern anime
+      food_group: anime
+      aliases: [anime, modern anime, current anime, tv anime]
+      default_style: ilustmix
+      look_profile: illustrious_detail_hero
+      prompt_tail: "modern anime illustration, clean linework, contemporary coloring"
+      negative_extra: "1990s anime, grainy film, watercolor bleed, western cartoon, photorealistic"
+      notes: Default Illustrious lane when user just says anime.
+
+    anime_retro:
+      label: Retro anime (80s/90s)
+      food_group: anime
+      aliases: [retro anime, 80s anime, 90s anime, classic anime, old anime]
+      default_style: aom2
+      look_profile: traditional_jp_anime
+      prompt_tail: >
+        1990s anime style, cel animation, film grain, soft gradients, classic anime coloring,
+        hand-painted backgrounds
+      negative_extra: >
+        modern anime, 2020s style, hyper detailed skin, 3d cgi, western cartoon,
+        oversharp, AI sheen, plastic skin
+      notes: recreate_004 lean — traditional Japanese anime look.
+
+    anime_dark:
+      label: Dark anime
+      food_group: anime
+      aliases: [dark anime, grim anime]
+      default_style: waijfu
+      look_profile: dark_gothic_anime
+      prompt_tail: "dark anime, high contrast, deep shadows, moody atmosphere"
+      negative_extra: "bright pastel, sunny day, soft moe, watercolor wash, flat lighting"
+      notes: recreate_001/002 lean — often pairs with gothic mood.
+
+    cgi:
+      label: CGI / stylized 3D
+      food_group: fantasy
+      aliases: [cgi, 3d, pixar, stylized 3d]
+      default_style: dynavision_3d
+      look_profile: null
+      prompt_tail: "stylized 3D CGI render, subsurface skin, soft global illumination"
+      negative_extra: "2d anime, flat cel, sketch, watercolor, photorealistic photo"
+      notes: DynaVision lane — not 2D anime.
+
+    watercolor:
+      label: Watercolor illustration
+      food_group: fantasy
+      aliases: [watercolor, watercolour, painted]
+      default_style: merged_dreams
+      look_profile: traditional_jp_anime
+      prompt_tail: "watercolor illustration, soft pigment bleed, paper texture, painterly"
+      negative_extra: "hard cel lines, neon cyberpunk, photorealistic, plastic skin, 3d cgi"
+      notes: Overlaps recreate_004 traditional finish when soft/painterly.
+
+  moods:
+    traditional:
+      label: Traditional lighting / color
+      aliases: [traditional, classic lighting, natural light]
+      prompt_tail: "natural lighting, balanced colors, clear read, soft ambient light"
+      negative_extra: "neon, cyberpunk glow, lens flare spam, rainbow light leak, harsh rim"
+      loras: []
+      notes: Neutral — lets medium carry the look.
+
+    gothic:
+      label: Gothic
+      aliases: [gothic, goth, goth girl]
+      prompt_tail: "gothic atmosphere, cool shadows, muted palette, dark elegance"
+      negative_extra: "bright neon pink, sunny beach, pastel candy colors, cheerful lighting"
+      loras:
+        - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+          weight: 0.75
+      look_profile: dark_gothic_anime
+      notes: recreate_001/002 — goth girl lean.
+
+    cyber:
+      label: Cyber lighting and color
+      aliases: [cyber, cyberpunk lighting, neon, synthwave]
+      food_group_hint: cyberpunk
+      default_style: n4mik4
+      prompt_tail: >
+        cyberpunk lighting, neon rim light, magenta and cyan accents, wet streets glow,
+        volumetric neon haze
+      negative_extra: "daylight pastoral, watercolor wash, medieval torch only, flat anime cel"
+      loras: []
+      look_profile: anime_cyber
+      notes: recreate_005 — anime medium + cyber mood often uses n4mik4.
+
+    dark_fantasy:
+      label: Dark fantasy action
+      aliases: [dark fantasy, grimdark, monster fight]
+      food_group_hint: fantasy
+      default_style: fantasy_prime
+      prompt_tail: >
+        dark fantasy, dramatic volumetric light, blood and grit optional, epic combat staging,
+        monster scale contrast
+      negative_extra: "cute chibi, slice of life, bright school anime, soft pastel"
+      loras:
+        - file: New_Fantasy_CoreV5_-_ILL.safetensors
+          weight: 0.55
+          optional: true
+      notes: Fragarach / monster fights — mood for action, not a medium.
+
+    gold_standard:
+      label: Gold standard finish (recreate_003 bar)
+      aliases: [gold standard, detail hero, park heejin bar, recreate 003]
+      default_style: waijfu
+      look_profile: illustrious_detail_hero
+      prompt_tail: "highly detailed, intricate, sharp focus, absurdres, perfect eyes, eye_focus"
+      negative_extra: >
+        plastic skin, soft face, muddy shading, flat color, oversmoothed,
+        anatomical artifact, deformed crotch
+      notes: Finish quality bar — apply when user wants hero still polish.
+
+  cast_axes:
+    subject:
+      - id: woman
+        aliases: [woman, girl, female, 1girl]
+      - id: man
+        aliases: [man, boy, male, 1boy]
+      - id: mixed
+        aliases: [mixed, couple, both]
+    grouping:
+      - id: solo
+        aliases: [solo, alone, single, 1girl, 1boy]
+      - id: pair
+        aliases: [pair, duo, two people, 2girls, 2boys]
+      - id: group
+        aliases: [group, crowd, multiple people, party]
+    content:
+      - id: nsfw
+        aliases: [nsfw, nude, explicit, sex, erotic]
+      - id: action
+        aliases: [action, fight, combat, spell, battle, shooting]
+      - id: portrait
+        aliases: [portrait, beauty shot, face focus, sfw portrait]
+
+  # Informal checkpoint roles (your A / B / C lean).
+  checkpoint_roles:
+    A_women_nsfw:
+      label: Checkpoint A — women / NSFW lean
+      styles: [waijfu, ilustmix]
+      prefer_when: { subject: [woman], grouping: [solo, pair], content: [nsfw, portrait] }
+      notes: Illustrious family solo-female keepers.
+    B_women_nsfw:
+      label: Checkpoint B — women / NSFW alternate
+      styles: [pony, miracle_nsfw]
+      prefer_when: { subject: [woman], grouping: [solo], content: [nsfw] }
+      notes: Pony grammar or Flux NSFW when Illustrious isn't the ask.
+    C_groups:
+      label: Checkpoint C — multiple people / groups
+      styles: [animagine_xl, perfection_25d, n4mik4]
+      prefer_when: { grouping: [pair, group] }
+      notes: Prefer when cast is crowd / multi-character staging.
+
+  # Voice → recipe cheat sheet (recreate map)
+  recreate_map:
+    recreate_001: { media: anime_dark, mood: gothic, notes: goth girl lean }
+    recreate_002: { media: anime_dark, mood: gothic, notes: darker anime / goth }
+    recreate_003: { media: anime_modern, mood: gold_standard, notes: detail hero bar }
+    recreate_004: { media: anime_retro, mood: traditional, notes: traditional JP anime / watercolor }
+    recreate_005: { media: anime_modern, mood: cyber, notes: anime + cyber lighting }
+
+# Named look profiles — concrete LoRA stacks referenced by style_lanes.
+# Target bar: D:\Test Images and Videos\_recreations\recreate_003_studio_agent_00009_.png
+look_profiles:
+  illustrious_detail_hero:
+    label: Illustrious detail hero (recreate_003 bar)
+    food_group: anime
+    style: waijfu
+    reference_still: "D:\\Test Images and Videos\\_recreations\\recreate_003_studio_agent_00009_.png"
+    notes: >
+      recreate_003 recipe: waijfu_alpha + Eyes + ILDetailerV2 + a lighting LoRA.
+      Use for hero stills when flat “pure anime” isn’t enough.
+    loras:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.75
+      - file: ILDetailerV2.safetensors
+        weight: 0.65
+      - file: LensFlare_LightLeak_IL.safetensors
+        weight: 0.35
+        optional: true
+    prompt_tail: "highly detailed, intricate, sharp focus, absurdres, highres, perfect eyes, eye_focus"
+    negative_extra: >
+      plastic skin, soft face, blurry face, muddy shading, flat color, oversmoothed,
+      extra flesh, flesh blob, anatomical artifact, deformed crotch, fused thighs,
+      floating skin flap, mutated genitals, bad pussy
+  frieren_soft_bedroom:
+    label: Frieren soft bedroom (tease / Stage1)
+    food_group: anime
+    style: waijfu
+    reference_still: "D:\\ComfyBox Images and Videos\\User Import\\Frieren Sex Sceens\\_refined\\scene_packs\\01_tease\\01_Frieren_Stage1_forge.png"
+    notes: Soft daylight NSFW bedroom — detail stack without harsh sun/prism.
+    loras:
+      - file: Frieren/Frieren.safetensors
+        weight: 0.8
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.75
+      - file: ILDetailerV2.safetensors
+        weight: 0.6
+    prompt_tail: >
+      soft diffused daylight, gentle shadows, matte skin, micro hair detail,
+      detailed hands, sharp iris, subtle catchlights, highly detailed, sharp focus
+    negative_extra: >
+      harsh spotlight, hard shadows, prism light, lens flare, neon, rainbow light,
+      plastic skin, soft face, extra flesh, flesh blob, anatomical artifact,
+      deformed crotch, fused thighs, floating skin flap, wet skin overlay,
+      star pupils, oversized eyes, thin line mouth
+
+  dark_gothic_anime:
+    label: Dark gothic anime (recreate_001/002 lean)
+    food_group: anime
+    style: waijfu
+    notes: Goth / dark anime — cool shadows, muted palette, Illustrious detail without sunny flare.
+    loras:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.75
+      - file: ILDetailerV2.safetensors
+        weight: 0.55
+    prompt_tail: >
+      dark anime, gothic atmosphere, cool shadows, muted palette, sharp iris,
+      highly detailed, sharp focus
+    negative_extra: >
+      bright pastel, sunny day, soft moe, neon cyberpunk, watercolor bleed,
+      plastic skin, muddy shading, anatomical artifact
+
+  traditional_jp_anime:
+    label: Traditional JP anime / watercolor (recreate_004 lean)
+    food_group: anime
+    style: aom2
+    notes: Classic cel / soft painted look — keep prompts simpler on AOM2.
+    loras: []
+    prompt_tail: >
+      1990s anime style, cel animation, soft gradients, hand-painted backgrounds,
+      classic anime coloring
+    negative_extra: >
+      modern anime, hyper detailed pores, 3d cgi, neon cyberpunk, western cartoon,
+      plastic skin, AI sheen
+
+  anime_cyber:
+    label: Anime + cyber lighting (recreate_005 lean)
+    food_group: cyberpunk
+    style: n4mik4
+    notes: Modern anime subject grammar with neon / cyber palette on n4mik4.
+    loras:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.65
+        optional: true
+    prompt_tail: >
+      anime character, cyberpunk lighting, neon rim light, magenta and cyan accents,
+      highly detailed, sharp focus
+    negative_extra: >
+      pastoral daylight, watercolor wash, medieval only, flat cel no lighting,
+      muddy neon, oversaturated rainbow
+
 # Four art "food groups" — pass food_group= to edit_image / generate_image
 art_food_groups:
   anime:

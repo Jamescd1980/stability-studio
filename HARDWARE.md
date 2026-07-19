@@ -7,17 +7,41 @@ Agents should **always** call `get_generation_context` before `generate_image` o
 
 Logic lives in `stability-studio-mcp/studio/hardware_profile.py`.
 
-## Division of labor (main rig vs ComfyBox)
+## Division of labor (book names)
 
-Split work by machine so agents do not overload the wrong host:
+| Name | Where | Role |
+|------|-------|------|
+| **Myra** | Pi 5 (`myra` / `192.168.50.230`) | Voice + **Gofor** (`myra-gofor` on Pi Ollama) — sort/funnel, room tools |
+| **Nari** | ComfyBox `192.168.50.57` **8600G CPU** Ollama `:11434` | Create / Forge refine / Wan clip language brain |
+| **nari-prompt** | Same ComfyBox Ollama | Eric's Prompt Enhancers only |
+| **Orla** | Windows main rig `192.168.50.42` **7900X CPU** Ollama `:11434` + tools `:11436` | Open/display, upscale, RIFE/interp, **Kokoro / phonetic chapter prep** |
+| **7900 XT** | ComfyBox dGPU | ComfyUI `:8188` / Forge `:7860` diffusion only |
+| **5060 Ti** | Windows dGPU | Polish GPU jobs (not chat) |
 
-| Machine | Role | Typical work |
-|---------|------|----------------|
-| **Main rig** (this PC — Ryzen 7900X + RTX 5060 Ti) | CPU-heavy + local polish GPU | ffmpeg splice/concat, RIFE/interp, file ops, downloads, catalog edits, MCP orchestration, `polish_wan_video` / AnimeSharp via `.venv-post` |
-| **ComfyBox** (RX 7900 XT `:8188` / Forge `:7860`) | GPU-heavy diffusion | `generate_image`, Forge refine/ADetailer, Wan `generate_video` (i2v/t2v/v2v); exclusive Comfy↔Forge switch |
+Voice path: **You → Myra (gofor) → ask_nari / ask_orla / local tools**.  
+Hey Jan wake still greets Nari (direct studio). Follow-up listen window skips re-wake.
 
-Rule of thumb: **generate on ComfyBox, polish and package on the main rig.**  
-`get_generation_context` returns `labor_split` with the same policy.
+ComfyBox Ollama: `OLLAMA_NUM_GPU=0` so Nari does not steal 7900 XT VRAM.  
+Modelfiles: `ollama/nari/`, `ollama/myra-gofor/`, `ollama/orla/`.
+
+### MCP source of truth
+
+- **Windows** `D:\studio-agent\stability-studio-mcp` is the main MCP repo (Cursor/Jan).
+- **ComfyBox** `/mnt/game/studio-agent/stability-studio-mcp` is a **one-way mirror** for backup.
+- Sync after catalog/code changes: `py -3 scripts/sync_mcp_to_comfybox.py` (writes `SYNCED_FROM_WINDOWS.txt`).
+- Do **not** edit catalog only on ComfyBox.
+- Voice cast: Myra uses local `handoff/myra-patches/cast/` lists (export via `scripts/general/export_cast_lists.py`); Nari expands scene after IDs are locked.
+
+| Brain | LAN |
+|-------|-----|
+| Myra gofor | `http://127.0.0.1:11434` on Pi (`myra-gofor`) |
+| Nari | `http://192.168.50.57:11434` |
+| Orla | `http://192.168.50.42:11434` + tools `:11436` |
+
+Eric node: `ollama` → `http://127.0.0.1:11434` → `model_name=nari-prompt`
+
+Rule of thumb: **gofor on Pi, generate on the 7900 XT (Nari), polish/display on Windows (Orla).**  
+`get_generation_context` returns `labor_split` with the generation/polish policy.
 
 ## Config overrides (`config.yaml`)
 
@@ -59,7 +83,7 @@ When `prefer_prompt_quality` is true:
 
 **`i2v` MoE wiring (MCP `studio.wan22_i2v_moe`):** HIGH UNET (+ HIGH LoRAs) → KSamplerAdv → LOW UNET (+ LOW LoRAs) → KSamplerAdv → decode. Default stacks LightX2V distill when installed; action LoRAs must be HIGH+LOW pairs (`female_orgasm`).
 
-Assets: `check_wan_assets(workflow_id="i2v")` / `download_wan_assets` + `scripts/download_wan22_lightning_loras.py`. Orgasm NSFW LoRAs already on ComfyBox. See `stability-studio-mcp/LESSONS-WAN-I2V.md`.
+Assets: `check_wan_assets(workflow_id="i2v")` / `download_wan_assets` + `scripts/general/download_wan22_lightning_loras.py`. Orgasm NSFW LoRAs already on ComfyBox. See `stability-studio-mcp/LESSONS-WAN-I2V.md`. NSFW kits live under `scripts/nsfw/`.
 
 ## For agents
 

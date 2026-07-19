@@ -2,8 +2,12 @@
 
 Language ban: never use cum / female cum for her.
 Soft-body: hair bounce, breast bounce, ass-cheek jiggle when pose allows.
-v3: workflow_id=i2v = Wan 2.2 I2V-A14B MoE HIGH+LOW (not Wan 2.1 single-UNET,
-not i2v_5b). Climax beats use female_orgasm (HIGH+LOW pair).
+v3: workflow_id=i2v = Wan 2.2 I2V-A14B MoE HIGH+LOW.
+
+Delivery (one path, character-sorted):
+  Video → D:\\ComfyBox Images and Videos\\Video\\Frieren\\
+  Stills → User Import\\Frieren Sex Sceens\\_refined\\...
+Fails → Windows Recycle Bin (do not leave quarantine trees around).
 """
 
 from __future__ import annotations
@@ -16,8 +20,9 @@ TEASE_DIR = Path(
 KEYS_DIR = Path(
     r"D:\ComfyBox Images and Videos\User Import\Frieren Sex Sceens\_refined\tease_keys"
 )
-VIDEO_DIR = Path(r"D:\ComfyBox Images and Videos\Video\Frieren Tease")
-CLIPS_DIR = VIDEO_DIR / "clips" / "v3_14b"
+# Canonical clip folder — character name only. No nested v3/_review/quarantine.
+VIDEO_DIR = Path(r"D:\ComfyBox Images and Videos\Video\Frieren")
+CLIPS_DIR = VIDEO_DIR
 
 STAGE1 = TEASE_DIR / "01_Frieren_Stage1_forge.png"
 STAGE2 = TEASE_DIR / "02_Frieren_Stage2_forge.png"
@@ -29,11 +34,36 @@ SOFT_BODY = (
     "ass cheeks jiggling, soft body physics, natural bounce"
 )
 
-# Critical: kill rainbow melt / chromatic aberration / body morph from Wan 5B.
+# Eyes + mouth discipline + dual-hand continuity.
+# Soft eye life — do NOT push "lively/huge" or Wan grows doll eyes mid-clip.
+EYE_LOCK = (
+    "same eye size as start frame, keep Frieren eye shape, "
+    "clear teal irises, subtle specular catchlights, sharp pupils, "
+    "locked eye identity matching start frame"
+)
+MOUTH_OK = (
+    "full plump lips, soft full mouth, lips lightly parted, "
+    "soft breathing, quiet moan"
+)
+# Asymmetric pace: sensual breast hand vs faster fingering (Wan freezes the quieter hand).
+# Keep fingering clearly faster than breast hand, but not frantic — post slowdown ~15–25% OK.
+HANDS_BOTH = (
+    "both hands keep moving the entire clip, never freeze either hand: "
+    "left hand moderate rhythmic fingering, fingers thrusting in and out at a steady unhurried pace, "
+    "right hand very slow sensual soft squeezing of her breast in place, gentle lingering knead"
+)
+
 NEG = (
     "cum, semen, male ejaculation, text overlay, watermark, logo, "
-    "stiff hair, frozen breasts, morphing hands, extra fingers, "
+    "stiff hair, frozen breasts, frozen hands, one hand frozen, "
+    "morphing hands, extra fingers, "
+    "talking, speaking, mouthing words, lip sync, chewing, "
+    "exaggerated mouth movement, wide open talking mouth, "
     "jittery, morphing, flickering, melting face, melting body, "
+    "melting eyes, deformed eyes, crossed eyes, empty eyes, blank eyes, "
+    "asymmetric eyes, blurry eyes, mushy pupils, "
+    "oversized eyes, enlarged eyes, huge eyes, doll eyes, bug eyes, "
+    "thin line mouth, tiny mouth, small mouth, lipless, "
     "deformed face, deformed body, warping, liquid body, "
     "grabbing breast hard, yanking breast, dragging breast across body, "
     "pulling breast sideways, mauling breast, "
@@ -68,14 +98,29 @@ SQUIRT_STILL_PROMPT = (
 )
 
 BEATS = {
-    # All Stage1 motion from clean Stage1 forge — wetness via light prompt only.
     "s1a_play": {
+        "image": STAGE1,  # forge master — not the overcooked eyes still
+        "prompt": (
+            f"{HANDS_BOTH}, "
+            "gentle breast bounce, twin tails swaying, subtle hip movement, "
+            f"{EYE_LOCK}, {MOUTH_OK}, "
+            "steady camera, natural daylight"
+        ),
+        "num_frames": 65,
+        "workflow": "i2v",
+        # Face naturalizer off — glassy eyes. No Illustrious eye LoRA on Wan path.
+        "loras": "",
+        "smooth_motion": False,
+        "motion_amplitude": 1.12,
+    },
+    # Prompt-tuned A/B from forge still (does not overwrite s1a_play keeper).
+    "s1a_play_prompt": {
         "image": STAGE1,
         "prompt": (
-            "slow fingering, fingers moving in and out, "
-            "other hand softly squeezing her breast in place, lightly squeezing, "
-            "gentle breast bounce, twin tails swaying, "
-            "subtle hip movement, stable face, steady camera, natural daylight"
+            f"{HANDS_BOTH}, "
+            "gentle breast bounce, twin tails swaying, subtle hip movement, "
+            f"{EYE_LOCK}, {MOUTH_OK}, "
+            "steady camera, natural daylight"
         ),
         "num_frames": 65,
         "workflow": "i2v",
@@ -86,9 +131,10 @@ BEATS = {
     "s1b_wet": {
         "image": STAGE1,
         "prompt": (
-            "more urgent fingering, wet pussy, glistening juices on fingers, "
-            "other hand softly squeezing her breast, lightly squeezing in place, "
-            "gentle breast bounce, hair sway, stable face and body, "
+            f"{HANDS_BOTH}, "
+            "wet pussy, glistening juices on fingers, "
+            "gentle breast bounce, hair sway, "
+            f"{EYE_LOCK}, {MOUTH_OK}, "
             "steady camera, natural daylight"
         ),
         "num_frames": 49,
@@ -102,7 +148,9 @@ BEATS = {
         "prompt": (
             "she is having an orgasm, body shudders and shivers, thighs trembling, "
             "back arching, breasts shuddering, twin tails whipping, "
-            "eyes half-closed in pleasure, fingers on clit, steady camera"
+            "fingering hand keeps rubbing clit at a quick pace, "
+            f"{EYE_LOCK}, eyes half-lidded in pleasure, {MOUTH_OK}, "
+            "steady camera"
         ),
         "num_frames": 49,
         "workflow": "i2v",
@@ -115,7 +163,8 @@ BEATS = {
         "image": STAGE1,
         "prompt": (
             "female ejaculation, squirting clear fluid from pussy, "
-            "strong orgasm shudder, breasts bouncing, soaked sheets, steady camera"
+            "strong orgasm shudder, breasts bouncing, soaked sheets, "
+            f"{EYE_LOCK}, {MOUTH_OK}, steady camera"
         ),
         "num_frames": 33,
         "workflow": "i2v",
@@ -129,7 +178,8 @@ BEATS = {
         "prompt": (
             "after orgasm, body goes limp, falling back onto bed pillows, "
             "breasts settling, hair falling with her, legs still open, "
-            "wet pussy glistening, steady camera"
+            "wet pussy glistening, "
+            f"{EYE_LOCK}, {MOUTH_OK}, steady camera"
         ),
         "num_frames": 49,
         "workflow": "i2v",
@@ -141,7 +191,8 @@ BEATS = {
         "image": STAGE2,
         "prompt": (
             "riding dildo, hip bounce, ass cheeks jiggling, breast bounce, "
-            "twin tails bouncing, slow ride up and down, steady camera"
+            "twin tails bouncing, slow ride up and down, "
+            f"{EYE_LOCK}, {MOUTH_OK}, steady camera"
         ),
         "num_frames": 65,
         "workflow": "i2v",
@@ -152,8 +203,9 @@ BEATS = {
     "s3_hand_dildo": {
         "image": STAGE3,
         "prompt": (
-            "hand thrusting dildo, ass cheeks jiggling, hip movement, "
-            "twin tails swaying, looking back over shoulder, steady camera"
+            "hand thrusting dildo continuously, ass cheeks jiggling, hip movement, "
+            "twin tails swaying, looking back over shoulder, "
+            f"{EYE_LOCK}, {MOUTH_OK}, steady camera"
         ),
         "num_frames": 65,
         "workflow": "i2v",
@@ -165,7 +217,8 @@ BEATS = {
         "image": STAGE4,
         "prompt": (
             "riding dildo, slow hip bounce, ass cheeks jiggling, breast bounce, "
-            "twin tails bouncing, dual toys inserted, steady camera"
+            "twin tails bouncing, dual toys inserted, "
+            f"{EYE_LOCK}, {MOUTH_OK}, steady camera"
         ),
         "num_frames": 65,
         "workflow": "i2v",

@@ -1,10 +1,13 @@
 {
   "mcpServers": {
     "stability-studio": {
-      "command": "python",
-      "args": ["${workspaceFolder}/stability-studio-mcp/server.py"],
+      "command": "C:\\Users\\Creel\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
+      "args": ["D:\\studio-agent\\stability-studio-mcp\\server.py"],
+      "cwd": "D:\\studio-agent\\stability-studio-mcp",
       "env": {
-        "PYTHONUNBUFFERED": "1"
+        "PYTHONUNBUFFERED": "1",
+        "PYTHONPATH": "D:\\studio-agent\\stability-studio-mcp",
+        "STABILITY_STUDIO_COMFYUI_URL": "http://192.168.50.57:8188"
       }
     }
   }

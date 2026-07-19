@@ -127,23 +127,42 @@ class GenerationEngine:
             "merged_loras": merged_loras,
         }
 
+    def _delivery_bucket_dir(self, bucket: str) -> Path:
+        """Prefer ComfyBox Images/Video over MCP outputs/ for media."""
+        from studio.project_layout import project_paths
+
+        paths = project_paths(self.cfg) or {}
+        dest = paths.get(bucket)
+        if dest is not None:
+            dest.mkdir(parents=True, exist_ok=True)
+            return dest
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        return self.output_dir
+
     def _save_comfy_outputs(
         self,
         outputs: list[dict[str, Any]],
         *,
         extensions: tuple[str, ...],
     ) -> list[str]:
-        saved: list[str] = []
-        for file_info in outputs:
-            name = str(file_info.get("filename") or "").lower()
-            if not name.endswith(extensions):
-                continue
-            path = self.comfy.download_file(file_info, self.output_dir, cfg=self.cfg)
-            saved.append(str(path))
-        # Mirror into Windows delivery (Images/ / Video/) when configured.
-        # Prefer delivery paths in the return value so Jan/Myra report the right folder.
         image_ext = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"}
         video_ext = {".mp4", ".webm", ".mkv", ".avi", ".mov"}
+        saved: list[str] = []
+        for file_info in outputs:
+            name = str(file_info.get("filename") or "")
+            low = name.lower()
+            if not low.endswith(extensions):
+                continue
+            # Download straight into ComfyBox delivery when possible.
+            if any(low.endswith(e) for e in image_ext):
+                dest_dir = self._delivery_bucket_dir("images")
+            elif any(low.endswith(e) for e in video_ext):
+                dest_dir = self._delivery_bucket_dir("clips")
+            else:
+                dest_dir = self.output_dir
+            path = self.comfy.download_file(file_info, dest_dir, cfg=self.cfg)
+            saved.append(str(path))
+        # Mirror/cleanup if anything still landed under MCP outputs/.
         images = [p for p in saved if Path(p).suffix.lower() in image_ext]
         videos = [p for p in saved if Path(p).suffix.lower() in video_ext]
         handed: list[str] = []

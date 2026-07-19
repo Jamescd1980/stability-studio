@@ -1,8 +1,14 @@
-# Local machine config (copy from config.yaml.example)
+# Local machine config (copy from config.yaml.example) — NEVER commit secrets
 stability-studio-mcp/config.yaml
 config-examples/laptop-remote/config.generated.yaml
 .handoff-extract/
 stability-studio-mcp/studio/wan_video_loras_local.py
+
+# Orla / Myra local runtime state (not source)
+ollama/orla/gallery_state.json
+orla-phonetic/
+**/*.wav
+handoff/myra-patches/config.local.yaml
 
 # Local check / debug artifacts
 wan_assets_check.txt
@@ -47,3 +53,4 @@ Thumbs.db
 # Cursor — copy mcp.json.example → mcp.json and set your Python path
 .cursor/mcp.json
 .cursor/*.local.json
+server.py.bak_77tools

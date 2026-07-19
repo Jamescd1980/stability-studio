@@ -59,6 +59,14 @@ class StyleCatalog:
         return self._data.get("art_food_groups", {})
 
     @property
+    def style_lanes(self) -> dict[str, Any]:
+        return self._data.get("style_lanes", {})
+
+    @property
+    def look_profiles(self) -> dict[str, Any]:
+        return self._data.get("look_profiles", {})
+
+    @property
     def character_loras(self) -> dict[str, Any]:
         return self._data.get("character_loras", {})
 
@@ -363,6 +371,14 @@ class StyleCatalog:
             "model_families_doc": "See MODEL-FAMILIES.md in repo root for full agent guide",
             "art_food_groups": self.art_food_groups or {},
             "art_food_groups_doc": "Pass food_group=anime|fantasy|cyberpunk|photoreal to edit_image. See IMAGE-EDITING.md.",
+            "style_lanes": self.style_lanes or {},
+            "style_lanes_doc": (
+                "Finer than food groups: media (cartoon/anime_modern/anime_retro/cgi/…) "
+                "+ mood (traditional/gothic/cyber/dark_fantasy/gold_standard) "
+                "+ cast axes (subject/grouping/content). Maps to styles, look_profiles, checkpoint_roles A/B/C."
+            ),
+            "look_profiles": self.look_profiles or {},
+            "look_profiles_doc": "Named LoRA/neg stacks (illustrious_detail_hero = recreate_003 bar).",
             "character_loras": self.character_loras or {},
             "character_loras_doc": (
                 "Trained cast LoRAs: Frieren (fern|frieren|ubel|flamme) + Solo Leveling "

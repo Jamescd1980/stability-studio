@@ -124,8 +124,9 @@ def build_generation_limits(vram_gb: float, cfg: dict[str, Any]) -> dict[str, An
         video_i2v = {
             "workflow_id": "i2v_5b",
             "model_hint": "wan2.2_ti2v_5B_fp16 + wan2.2_vae",
-            "max_width": 832,
-            "max_height": 480,
+            # Square/portrait I2V needs equal caps — 832×480 was forcing 480² and dead eyes.
+            "max_width": 720,
+            "max_height": 720,
             "max_frames": 81,
             "frame_rate": 16,
         }

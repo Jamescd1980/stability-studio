@@ -1,12 +1,16 @@
-# Scripts
+# Scripts layout
 
-| Folder / file | Audience |
-|---------------|----------|
-| `download_wan_assets.py`, `download_wan_video_loras.py`, `check_asset_updates.py` | **Users** — model maintenance |
-| `storyboard/generate_storyboard.py` | **Users** — multi-beat storyboard CLI |
-| `experiments/kitsune_full_test.py` | **Example** — end-to-end image + draft video smoke test |
-| `experiments/` (other) | Optional local batch tools; paths default from `config.yaml` |
-| `dev/` | **Dev-only** — Invoke migration, Civitai search, local probes (excluded from handoff zip) |
-| `storyboard/legacy/` | Deprecated per-scene runners; use `generate_storyboard.py` instead |
+| Folder | Purpose |
+|--------|---------|
+| **`nsfw/`** | Explicit kits, bj_*, sex_scenes, cum/penis/orgasm downloads, NSFW polish. Scrub this folder for a clean export. |
+| **`general/`** | Style recreation, Wan asset downloads, storyboard helpers, smokes that are not cast-sex kits. |
+| **`storyboard/`** | Storyboard splice / sheet tools (shared). |
+| **`experiments/`** | Ad-hoc batch experiments. |
+| **`_bootstrap.py`** | Shared path bootstrap for runners. |
 
-Handoff zip: `python scripts/build_handoff_zip.py` (repo root parent writes `studio-agent.zip`).
+**Rules**
+
+- New explicit runners go in `nsfw/` only.
+- Private repo includes both `nsfw/` and `general/`.
+- Public may include NSFW **workflows/scripts**; never commit generated NSFW images/videos.
+- Windows MCP is source of truth; sync to ComfyBox with `scripts/sync_mcp_to_comfybox.ps1` at repo root `D:\studio-agent\scripts\`.
