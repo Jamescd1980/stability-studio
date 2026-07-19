@@ -47,7 +47,12 @@ from studio.moss_workflow_builder import (
 )
 from studio.audio_post import estimate_voice_max_tokens, polish_voice_instruction, trim_leading_trailing_silence
 from studio.output_paths import deliver_files
-from studio.wan_video_loras import apply_smooth_motion_preset, resolve_lora_list
+from studio.wan22_i2v_moe import build_wan22_i2v_moe_api, describe_moe_graph
+from studio.wan_video_loras import (
+    apply_smooth_motion_preset,
+    resolve_lora_list,
+    resolve_moe_lora_stacks,
+)
 from studio.workflow_builder import (
     append_face_detailer_workflow,
     build_advanced_inpaint_workflow,
@@ -1400,7 +1405,8 @@ class GenerationEngine:
 
         Default I2V (empty workflow_id): catalog `i2v_5b` (Wan 2.2 TI2V-5B native).
         Default V2V (empty workflow_id): catalog `v2v_5b_painter`.
-        Explicit `workflow_id=i2v`: legacy 14B dual-model blockswap workflow.
+        Explicit `workflow_id=i2v`: Wan 2.2 I2V-A14B MoE HIGH+LOW (API builder).
+        Explicit `workflow_id=i2v_wan21_native`: legacy single-UNET Wan 2.1 native JSON.
         Explicit `workflow_id=i2v_gpu`: Wan 2.1 14B builder (24GB+ or forced).
         """
         wf_choice = (workflow_id or "").strip().lower()
@@ -1422,6 +1428,8 @@ class GenerationEngine:
             return "i2v_gpu", True
         if wf_choice == "i2v_wan21":
             return "i2v_wan21", False
+        if wf_choice == "i2v_wan21_native":
+            return "i2v_wan21_native", False
         if wf_choice == "i2v":
             return "i2v", False
         if wf_choice in {"i2v_5b", "i2v_5b_painter"}:
@@ -1610,8 +1618,12 @@ class GenerationEngine:
             limits=limits,
             profile=profile,
         )
+        use_wan22_moe = wf_key == "i2v" and not use_gpu_i2v
         if use_gpu_i2v:
             ui_workflow, wf_meta = self.load_ui_workflow("t2v", "t2v")
+        elif use_wan22_moe:
+            ui_workflow = {}
+            wf_meta = self.catalog.resolve_video_workflow("i2v", "i2v")
         else:
             ui_workflow, wf_meta = self.load_ui_workflow(
                 wf_key or workflow_id,
@@ -1647,6 +1659,124 @@ class GenerationEngine:
             if not src.is_file():
                 raise FileNotFoundError(f"Source image not found: {src}")
             uploaded_image = self.comfy.upload_image(src)
+
+            if use_wan22_moe:
+                import secrets
+
+                caps = limits.get("video_i2v", {})
+                max_w = int(caps.get("max_width", 720))
+                max_h = int(caps.get("max_height", 720))
+                try:
+                    from PIL import Image
+
+                    with Image.open(src) as im:
+                        vid_w, vid_h = fit_i2v_dimensions(im.width, im.height, max_w, max_h)
+                except Exception:
+                    vid_w, vid_h = max_w, max_h
+
+                resolved_loras = (
+                    loras if loras is not None else resolve_lora_list(lora_ids, bundle=lora_bundle)
+                )
+                high_loras, low_loras = resolve_moe_lora_stacks(loras=resolved_loras)
+                # Prefer quality (no distill) when smooth_motion; else default MoE+Lightning.
+                moe_preset = "quality" if smooth_motion else "default"
+                # If Lightning LoRAs were explicitly requested via bundle, keep lightning on.
+                if (lora_bundle or "").strip().lower() in {
+                    "lightning_i2v",
+                    "orgasm_lightning",
+                }:
+                    moe_preset = "fast"
+                # Fall back if LightX2V distill LoRAs are not visible to Comfy yet.
+                try:
+                    from studio.wan22_i2v_moe import LIGHTNING_HIGH, LIGHTNING_LOW
+
+                    lora_opts = (
+                        self.comfy.get_object_info()
+                        .get("LoraLoaderModelOnly", {})
+                        .get("input", {})
+                        .get("required", {})
+                        .get("lora_name", [[]])[0]
+                    )
+                    if moe_preset != "quality" and (
+                        LIGHTNING_HIGH not in lora_opts or LIGHTNING_LOW not in lora_opts
+                    ):
+                        moe_preset = "quality"
+                except Exception:
+                    pass
+                seed = secrets.randbelow(2**31 - 1)
+                api_workflow = build_wan22_i2v_moe_api(
+                    image_name=uploaded_image,
+                    prompt=full_prompt,
+                    negative=neg,
+                    width=vid_w,
+                    height=vid_h,
+                    length=int(num_frames or 49),
+                    seed=seed,
+                    frame_rate=float(frame_rate or 16),
+                    high_loras=high_loras,
+                    low_loras=low_loras,
+                    preset=moe_preset,
+                )
+                prompt_id = self.comfy.queue_prompt(api_workflow)
+                old_timeout = self.comfy.timeout
+                try:
+                    self.comfy.timeout = max(old_timeout, 3600)
+                    history = self.comfy.wait_for_completion(prompt_id)
+                finally:
+                    self.comfy.timeout = old_timeout
+                outputs = self.comfy.collect_outputs(history)
+                saved = self._save_comfy_outputs(
+                    outputs,
+                    extensions=(".mp4", ".webm", ".gif", ".png", ".jpg"),
+                )
+                if source_video and concat_source and saved:
+                    extended = self.output_dir / f"{source_video.stem}_v2v_extended.mp4"
+                    concat_videos([source_video, Path(saved[0])], extended)
+                    saved.append(str(extended))
+                moe_meta = describe_moe_graph(
+                    high_loras=high_loras,
+                    low_loras=low_loras,
+                    preset=moe_preset,
+                )
+                result = {
+                    "backend": "comfyui",
+                    "mode": original_mode,
+                    "workflow_id": wf_key,
+                    "workflow": "wan22_i2v_a14b_moe",
+                    "api_builder": "wan22_i2v_moe",
+                    "prompt": full_prompt,
+                    "negative_prompt": neg,
+                    "image_path": image_path,
+                    "video_path": str(source_video) if source_video else None,
+                    "v2v_seed_frame": str(v2v_seed_frame) if v2v_seed_frame else None,
+                    "concat_source": bool(source_video and concat_source),
+                    "uploaded_image": uploaded_image,
+                    "num_frames": num_frames,
+                    "frame_rate": frame_rate,
+                    "width": vid_w,
+                    "height": vid_h,
+                    "seed": seed,
+                    "use_painter_i2v": False,
+                    "motion_amplitude": None,
+                    "smooth_motion": smooth_motion,
+                    "quality_preset": quality_preset or None,
+                    "loras": resolved_loras or None,
+                    "moe": moe_meta,
+                    "prompt_id": prompt_id,
+                    "outputs": outputs,
+                    "saved_files": saved,
+                }
+                if video_clamped:
+                    result["clamped_to_limits"] = video_clamped
+                if safety_applied:
+                    result["applied_safety_caps"] = safety_applied
+                if not saved:
+                    raise RuntimeError(
+                        f"ComfyUI finished without video outputs (prompt_id={prompt_id}). "
+                        "Check ComfyUI for validation errors or a stuck queue."
+                    )
+                return result
+
             if use_gpu_i2v:
                 ui_workflow = build_wan21_i2v_ui_workflow(
                     ui_workflow,

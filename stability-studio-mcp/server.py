@@ -181,17 +181,24 @@ mcp = FastMCP(
         "Pass checkpoint= to override. For video: call check_comfyui_dependencies(workflow_id) first; "
         "if missing nodes, call install_comfyui_dependencies then restart ComfyUI on the generation host. "
         "Use generate_video(mode=t2v|i2v|v2v, workflow_id=t2v|i2v_5b|i2v_5b_painter|v2v_5b|v2v_5b_painter|i2v|i2v_gpu) — short ids only. "
-        "Default I2V: i2v_5b (Wan 2.2 TI2V-5B). User asks for 14B → generate_video(mode=i2v, workflow_id=i2v) on ComfyUI — NOT generate_video_hero. "
+        "Default I2V: i2v_5b (Wan 2.2 TI2V-5B, often censored). User asks for 14B / NSFW motion → "
+        "generate_video(mode=i2v, workflow_id=i2v) = Wan 2.2 I2V-A14B MoE HIGH+LOW — NOT generate_video_hero, NOT i2v_5b. "
         "Never map '14B' to Wan2GP / generate_video_hero. "
-        "I2V identity: short motion-only prompts; do not re-describe the still. "
+        "I2V identity: short motion-only prompts; do not re-describe the still; gate first-frame vs source still. "
         "No i2v_5b_painter / PainterI2V when the user needs face/body lock (BJ, portraits) — use workflow_id=i2v. "
+        "MoE LoRAs: stack HIGH on high expert + LOW on low expert (Lightning pair + at most one action pair). "
+        "Bundles: female_orgasm, lightning_i2v, orgasm_lightning. Never orgasm HIGH alone on i2v. "
         "Wan NSFW: never prompt full penis exit; partial withdraw only; negate deflating/disappearing shaft. "
+        "Never prompt female 'cum' — use orgasm/squirting/juices. One Comfy job at a time; free VRAM between heavy runs. "
         "If ok=false do not claim success; after success, verify identity vs source still. "
-        "workflow_id=i2v_5b_painter or use_painter_i2v=true for PainterI2V motion. Optional LoRAs: lora_ids / lora_bundle. "
-        "Optional Wan video LoRAs: check_wan_video_loras / download_wan_video_loras(bundle=smooth_character|walk_cycle|cinematic_church). "
+        "workflow_id=i2v_5b_painter or use_painter_i2v=true for PainterI2V motion (5B path only). "
+        "Optional Wan video LoRAs: check_wan_video_loras / download_wan_video_loras(bundle=female_orgasm|lightning_i2v|smooth_character). "
         "Pass lora_ids or lora_bundle to generate_video. Call check_wan_assets / download_wan_assets for base models. "
         "Audio (MOSS-TTS): check_moss_assets → download_moss_assets → generate_audio(mode=speech|sound_effect|voice_design). "
         "Kokoro book TTS (CPU :8090): check_kokoro_backend → generate_speech_kokoro — no GPU lock (AUDIO-KOKORO.md). "
+        "Labor split: ComfyBox (7900 XT) = GPU diffusion (generate_image, Forge refine, Wan video); "
+        "main rig (7900X + 5060 Ti) = CPU-heavy work + local polish (ffmpeg/splice/interp, file ops, "
+        "polish_wan_video / AnimeSharp). Generate on ComfyBox; polish and package locally. "
         "Post-clip (main rig 5060 Ti / 7900X, not Jan): check_local_post → "
         "interpolate_video → upscale_video_local / polish_wan_video; "
         "splice via concat_video_clips / splice_pingpong / splice_pose_matched_loop / "
@@ -1569,26 +1576,26 @@ def generate_video(
     """
     Generate video via ComfyUI (remote comfybox when configured).
 
-    Routing: user asks for 14B → workflow_id=i2v (keep ComfyUI running).
-    Do NOT call generate_video_hero for 14B. Hero/Wan2GP is a separate tool.
+    Routing: user asks for 14B / NSFW motion → workflow_id=i2v (Wan 2.2 MoE HIGH+LOW; keep ComfyUI running).
+    Do NOT call generate_video_hero for 14B. Hero/Wan2GP is a separate tool. Do NOT use i2v_5b for uncensored NSFW.
 
     Args:
         prompt: Scene description.
         mode: t2v, i2v, or v2v (video extend from last frame).
         style: Optional image style for prompt prefix/negative defaults.
         negative_prompt: Override negative prompt for Wan text encode nodes.
-        workflow_id: Short catalog id: t2v, i2v_5b, i2v_5b_painter, v2v_5b, v2v_5b_painter, i2v, i2v_wan21, i2v_gpu. Empty = auto. Do NOT pass the .json filename. For Wan 14B use i2v (not i2v_5b_painter).
+        workflow_id: Short catalog id: t2v, i2v_5b, i2v_5b_painter, v2v_5b, v2v_5b_painter, i2v, i2v_wan21_native, i2v_gpu. Empty = auto. Do NOT pass the .json filename. For Wan 14B use i2v (MoE).
         content_rating: open (default) or sfw for optional safety negatives.
         image_path: Required for i2v — exact local path from list_source_images (never invent D:\\Users\\...).
         video_path: Required for v2v — local path to source clip to extend.
         concat_source: For v2v — append continuation to source clip (default true).
         num_frames: Optional frame count override (e.g. 65 for ~4s at 16fps).
         frame_rate: Optional output fps override (e.g. 16).
-        lora_ids: Wan video LoRA id(s): comma-separated string or list (face_naturalizer, …).
-        lora_bundle: smooth_character | walk_cycle | cinematic_church | motion_boost — merged with lora_ids.
-        use_painter_i2v: Inject PainterI2V node for motion_amplitude (or use workflow_id=i2v_5b_painter).
+        lora_ids: Wan video LoRA id(s): comma-separated string or list (orgasm_i2v_high, …). MoE auto-pairs HIGH/LOW mates.
+        lora_bundle: female_orgasm | lightning_i2v | orgasm_lightning | smooth_character | … — merged with lora_ids.
+        use_painter_i2v: Inject PainterI2V on 5B path only (or workflow_id=i2v_5b_painter). Ignored on MoE i2v.
         motion_amplitude: PainterI2V strength 1.0–1.5 (default 1.15). Lower = subtler gait.
-        smooth_motion: For i2v/v2v — gentler preset (lower amplitude, 12fps). On 16 GB prefer false + motion_amplitude 1.15–1.2.
+        smooth_motion: For i2v/v2v — gentler preset; on MoE i2v switches to quality (no Lightning) preset.
     """
     ids = _parse_lora_ids_arg(lora_ids)
     try:
@@ -2102,12 +2109,18 @@ def refine_image_forge(
     seed: int = -1,
     adetailer: bool = True,
     ad_prompt: str = "",
+    ad_negative: str = "",
+    ad_model: str = "face_yolov8n.pt",
+    ad_denoising_strength: float = 0.4,
 ) -> str:
     """
     img2img refine on Forge with optional ADetailer. Forge must be running.
 
     Typical denoise 0.28–0.45 after a Comfy still. Then switch_stills_backend(comfy)
     before generate_video.
+
+    For oral/insertion stills use eyes-only: ad_model=mediapipe_face_mesh_eyes_only
+    and keep denoising_strength very low (≈0.05–0.10) so mouth/cock stay locked.
     """
     try:
         result = _refine_image_forge(
@@ -2122,6 +2135,9 @@ def refine_image_forge(
             seed=seed,
             adetailer=adetailer,
             ad_prompt=ad_prompt,
+            ad_negative=ad_negative,
+            ad_model=ad_model,
+            ad_denoising_strength=ad_denoising_strength,
         )
     except Exception as exc:
         return json.dumps({"ok": False, "error": humanize_error(exc)}, indent=2)

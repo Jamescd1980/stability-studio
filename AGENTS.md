@@ -10,7 +10,7 @@ Supports:
 
 - **Images** — SD 1.5 / SDXL / Pony / Flux.2 Klein via `catalog.yaml` style presets and `model_families`
 - **Image editing** — **`edit_image`** (unified), i2i, inpaint, IP-Adapter, ControlNet — see [IMAGE-EDITING.md](IMAGE-EDITING.md)
-- **Video** — Wan T2V/I2V via converted Stability Matrix workflows (`workflow_id=t2v` recommended)
+- **Video** — Wan T2V/I2V via ComfyUI; **14B NSFW/identity = `workflow_id=i2v`** (Wan 2.2 MoE HIGH+LOW). Draft/SFW = `i2v_5b`. See `stability-studio-mcp/LESSONS-WAN-I2V.md`.
 
 ## Four art food groups
 
@@ -119,6 +119,7 @@ Call **`get_generation_context`** and read `hardware_profile`, `generation_limit
 - **Flux2:** `miracle_nsfw` — companion assets via `download_style_assets`
 - **Video T2V:** `workflow_id=t2v` — Wan 2.1 1.3B; **81 frames max** on 16 GB (validated 2026-06-11)
 - **Video I2V draft:** `mode=i2v` + `image_path` → **`i2v_5b`** / **`i2v_5b_painter`**; **65 frames max** on 16 GB
+- **Video I2V 14B / NSFW:** `workflow_id=i2v` — Wan 2.2 A14B MoE; LoRA pairs (`female_orgasm`, Lightning); one job at a time; gate first frame vs still
 - **Video I2V hero:** **`generate_video_hero`** — Wan2GP Enhanced Lightning v2; **49 frames @ 832×480** validated (2026-06-12) — `outputs/wan2gp_bow_hero_result.json`
 - **Bow from still:** hero → `generate_video_hero`; draft → `i2v_5b_painter` `motion_amplitude=1.1`, 49 frames
 

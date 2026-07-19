@@ -774,14 +774,28 @@ video_workflows:
     painter_i2v: true
 
   i2v:
-    description: "Wan 2.1 14B I2V (native ComfyUI — identity-critical; no Painter/5B)"
+    description: "Wan 2.2 I2V-A14B MoE HIGH+LOW (identity/NSFW 14B — API builder)"
+    file: "workflow-wan22-i2v-a14b-moe-comfyui-native.json"
+    api_builder: wan22_i2v_moe
+    prompt_nodes:
+      - type: "CLIPTextEncode"
+        role: positive
+      - type: "CLIPTextEncode"
+        role: negative
+    note: >
+      Dual UNET HIGH→LOW KSamplerAdvanced. Default stacks LightX2V distill HIGH/LOW when
+      installed; action LoRAs must be HIGH+LOW pairs (e.g. female_orgasm). Do not use i2v_5b
+      for uncensored NSFW. Legacy single-UNET Wan 2.1: i2v_wan21_native.
+
+  i2v_wan21_native:
+    description: "Legacy Wan 2.1 single-UNET 14B I2V (native ComfyUI — prefer i2v MoE)"
     file: "workflow-wan21-i2v-14b-comfyui-native.json"
     prompt_nodes:
       - type: "CLIPTextEncode"
         role: positive
       - type: "CLIPTextEncode"
         role: negative
-    note: "Requires wan2.1_i2v_480p_14B + wan_2.1_vae + umt5 on the generation host. Legacy WanVideoWrapper OpenArt graph kept as i2v_wrapper."
+    note: "Superseded by workflow_id=i2v (Wan 2.2 MoE). Kept for A/B and fallback only."
 
   i2v_wrapper:
     description: "Legacy WanVideoWrapper 14B graph (needs Easy-Use + WanVideoWrapper custom nodes)"

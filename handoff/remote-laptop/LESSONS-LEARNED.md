@@ -98,4 +98,10 @@ Desktop `config.yaml` may include Wan2GP, Civitai key, etc. — **do not commit*
 
 ---
 
+---
+
+## Related: Wan I2V MoE (2026-07)
+
+ComfyBox NSFW / identity video uses **`workflow_id=i2v` = Wan 2.2 I2V-A14B HIGH+LOW MoE**, not the old Wan 2.1 single-UNET graph and not `i2v_5b`. Full write-up: `stability-studio-mcp/LESSONS-WAN-I2V.md`.
+
 *Stability Studio — remote generation handoff.*

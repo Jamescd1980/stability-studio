@@ -203,6 +203,29 @@ def build_hardware_profile(cfg: dict[str, Any], comfy: ComfyUIClient | None) -> 
     return {
         "hardware_profile": profile,
         "generation_limits": limits,
+        "labor_split": {
+            "comfybox": {
+                "role": "GPU-heavy diffusion",
+                "host": "RX 7900 XT :8188 ComfyUI / :7860 Forge (exclusive)",
+                "tasks": [
+                    "generate_image",
+                    "refine_image_forge / generate_image_forge",
+                    "generate_video (i2v/t2v/v2v)",
+                ],
+            },
+            "main_rig": {
+                "role": "CPU-heavy + local polish GPU",
+                "host": "Ryzen 7900X + RTX 5060 Ti",
+                "tasks": [
+                    "ffmpeg splice/concat",
+                    "interpolate_video (RIFE)",
+                    "upscale_video_local / polish_wan_video (AnimeSharp)",
+                    "file ops, downloads, catalog edits, MCP orchestration",
+                ],
+            },
+            "rule": "Generate on ComfyBox; polish and package on the main rig.",
+            "doc": "HARDWARE.md#division-of-labor-main-rig-vs-comfybox",
+        },
     }
 
 

@@ -1,4 +1,9 @@
-"""Optional Wan 2.2 video LoRAs (motion, face, lighting, camera) — separate from base WORKFLOW_ASSETS."""
+"""Optional Wan 2.2 video LoRAs (motion, face, lighting, camera) — separate from base WORKFLOW_ASSETS.
+
+MoE note: Wan 2.2 I2V-A14B uses HIGH + LOW experts. Action / distill LoRAs are usually
+paired — put HIGH files on the high branch and LOW files on the low branch. Never dump
+many singles onto one UNET. Typical stack: Lightning pair + 0–1 action pair (+ optional face).
+"""
 
 from __future__ import annotations
 
@@ -9,7 +14,32 @@ from studio.wan_assets import FOLDER_MAP, _find_file, download_asset, model_dirs
 HF_REPO = "wangkanai/wan22-fp16-i2v-loras"
 
 # Curated I2V-friendly LoRAs (fp16, Wan 2.2). Download into Stability Matrix Lora/.
+# branch: high | low | both — used by wan22 MoE stacking (ignored on single-UNET 5B inject).
 WAN_VIDEO_LORAS: dict[str, dict[str, Any]] = {
+    "lightning_i2v_high": {
+        "id": "lightning_i2v_high",
+        "filename": "wan2.2_i2v_A14b_high_noise_lora_rank64_lightx2v_4step_1022.safetensors",
+        "folder": "loras",
+        "repo": "lightx2v/Wan2.2-Distill-Loras",
+        "path": "wan2.2_i2v_A14b_high_noise_lora_rank64_lightx2v_4step_1022.safetensors",
+        "size_hint": "~300 MB",
+        "default_weight": 0.7,
+        "branch": "high",
+        "workflows": ["i2v"],
+        "purpose": "LightX2V distill HIGH — motion/structure backbone for Wan 2.2 MoE.",
+    },
+    "lightning_i2v_low": {
+        "id": "lightning_i2v_low",
+        "filename": "wan2.2_i2v_A14b_low_noise_lora_rank64_lightx2v_4step_1022.safetensors",
+        "folder": "loras",
+        "repo": "lightx2v/Wan2.2-Distill-Loras",
+        "path": "wan2.2_i2v_A14b_low_noise_lora_rank64_lightx2v_4step_1022.safetensors",
+        "size_hint": "~300 MB",
+        "default_weight": 1.0,
+        "branch": "low",
+        "workflows": ["i2v"],
+        "purpose": "LightX2V distill LOW — detail/stability half for Wan 2.2 MoE.",
+    },
     "face_naturalizer": {
         "id": "face_naturalizer",
         "filename": "wan22-face-naturalizer.safetensors",
@@ -17,7 +47,8 @@ WAN_VIDEO_LORAS: dict[str, dict[str, Any]] = {
         "repo": HF_REPO,
         "path": "loras/wan/wan22-face-naturalizer.safetensors",
         "size_hint": "~586 MB",
-        "default_weight": 0.65,
+        "default_weight": 0.55,
+        "branch": "both",
         "workflows": ["i2v_5b", "i2v_5b_painter", "v2v_5b", "v2v_5b_painter", "i2v"],
         "purpose": "Facial animation quality and more natural head motion (helps limb/face drift).",
     },
@@ -29,6 +60,7 @@ WAN_VIDEO_LORAS: dict[str, dict[str, Any]] = {
         "path": "loras/wan/wan22-light-volumetric.safetensors",
         "size_hint": "~293 MB",
         "default_weight": 0.5,
+        "branch": "both",
         "workflows": ["i2v_5b", "i2v_5b_painter", "i2v", "t2v"],
         "purpose": "Volumetric god-rays / cinematic church lighting.",
     },
@@ -40,6 +72,7 @@ WAN_VIDEO_LORAS: dict[str, dict[str, Any]] = {
         "path": "loras/wan/wan22-camera-rotation-rank16-v2.safetensors",
         "size_hint": "~293 MB",
         "default_weight": 0.35,
+        "branch": "both",
         "workflows": ["i2v_5b", "i2v_5b_painter", "v2v_5b", "v2v_5b_painter"],
         "purpose": "Controlled orbit/rotation — use low weight for steady aisle dolly.",
     },
@@ -51,6 +84,7 @@ WAN_VIDEO_LORAS: dict[str, dict[str, Any]] = {
         "path": "loras/wan/wan22-camera-arcshot-rank16-v2-high.safetensors",
         "size_hint": "~293 MB",
         "default_weight": 0.4,
+        "branch": "high",
         "workflows": ["i2v_5b", "i2v_5b_painter", "v2v_5b", "v2v_5b_painter"],
         "purpose": "Cinematic arc shot around subject.",
     },
@@ -62,8 +96,37 @@ WAN_VIDEO_LORAS: dict[str, dict[str, Any]] = {
         "path": "loras/wan/wan22-action-wink-i2v-v1-low.safetensors",
         "size_hint": "~147 MB",
         "default_weight": 0.55,
+        "branch": "low",
         "workflows": ["i2v_5b", "i2v_5b_painter", "v2v_5b", "v2v_5b_painter"],
         "purpose": "Small gesture motion reference (not for walk cycles).",
+    },
+    # Female climax motion (Playtime_AI). Prefer prompt trigger: "She is having an orgasm."
+    # Trained for Wan 2.2 I2V 14B HIGH/LOW — must stack as a pair on MoE i2v.
+    "orgasm_i2v_high": {
+        "id": "orgasm_i2v_high",
+        "filename": "Wan22-I2V-Orgasm-HIGH-14B.safetensors",
+        "folder": "loras",
+        "repo": "iarcanar/wan22_template",
+        "path": "Wan2.2 - I2V - Orgasm - HIGH 14B.safetensors",
+        "size_hint": "~293 MB",
+        "default_weight": 0.75,
+        "branch": "high",
+        "pair_id": "orgasm_i2v_low",
+        "workflows": ["i2v", "i2v_5b", "i2v_5b_painter", "v2v_5b", "v2v_5b_painter"],
+        "purpose": "Orgasm shudder HIGH (motion). Trigger: She is having an orgasm.",
+    },
+    "orgasm_i2v_low": {
+        "id": "orgasm_i2v_low",
+        "filename": "Wan22-I2V-Orgasm-LOW-14B.safetensors",
+        "folder": "loras",
+        "repo": "iarcanar/wan22_template",
+        "path": "Wan2.2 - I2V - Orgasm - LOW 14B.safetensors",
+        "size_hint": "~293 MB",
+        "default_weight": 0.75,
+        "branch": "low",
+        "pair_id": "orgasm_i2v_high",
+        "workflows": ["i2v"],
+        "purpose": "Orgasm LoRA LOW (detail/stability) for Wan 2.2 MoE I2V.",
     },
 }
 
@@ -73,6 +136,15 @@ WAN_VIDEO_LORA_BUNDLES: dict[str, list[str]] = {
     "smooth_character": ["face_naturalizer", "camera_steady"],
     "cinematic_church": ["face_naturalizer", "light_volumetric"],
     "motion_boost": ["face_naturalizer", "light_volumetric", "camera_steady"],
+    # Always both halves on MoE — never orgasm HIGH alone on i2v.
+    "female_orgasm": ["orgasm_i2v_high", "orgasm_i2v_low"],
+    "lightning_i2v": ["lightning_i2v_high", "lightning_i2v_low"],
+    "orgasm_lightning": [
+        "lightning_i2v_high",
+        "lightning_i2v_low",
+        "orgasm_i2v_high",
+        "orgasm_i2v_low",
+    ],
 }
 
 # Optional machine-local LoRAs (gitignored). Copy wan_video_loras_local.example.py → wan_video_loras_local.py
@@ -149,8 +221,9 @@ def resolve_lora_list(
     *,
     bundle: str = "",
     weights: dict[str, float] | None = None,
+    auto_pair: bool = True,
 ) -> list[dict[str, Any]]:
-    """Return [{file, weight, id}, ...] for workflow injection."""
+    """Return [{file, weight, id, branch}, ...] for workflow injection."""
     ids: list[str] = []
     if bundle:
         ids.extend(WAN_VIDEO_LORA_BUNDLES.get(bundle.strip().lower(), []))
@@ -158,6 +231,19 @@ def resolve_lora_list(
         ids.extend(lora_ids)
     if not ids:
         return []
+
+    if auto_pair:
+        # If only one half of a HIGH/LOW pair is requested, add the mate for MoE.
+        extras: list[str] = []
+        for raw in list(ids):
+            try:
+                entry = resolve_lora_entry(raw)
+            except KeyError:
+                continue
+            mate = entry.get("pair_id")
+            if mate and mate not in {x.strip().lower() for x in ids} and mate not in extras:
+                extras.append(mate)
+        ids.extend(extras)
 
     out: list[dict[str, Any]] = []
     seen: set[str] = set()
@@ -168,8 +254,47 @@ def resolve_lora_list(
             continue
         seen.add(lid)
         w = (weights or {}).get(lid, entry.get("default_weight", 0.6))
-        out.append({"id": lid, "file": entry["filename"], "weight": float(w)})
+        out.append(
+            {
+                "id": lid,
+                "file": entry["filename"],
+                "weight": float(w),
+                "branch": entry.get("branch", "both"),
+            }
+        )
     return out
+
+
+def resolve_moe_lora_stacks(
+    lora_ids: list[str] | None = None,
+    *,
+    bundle: str = "",
+    weights: dict[str, float] | None = None,
+    loras: list[dict[str, Any]] | None = None,
+) -> tuple[list[tuple[str, float]], list[tuple[str, float]]]:
+    """Split resolved LoRAs into HIGH / LOW stacks for Wan 2.2 MoE.
+
+    Lightning distill LoRAs are applied by `build_wan22_i2v_moe_api` when
+    use_lightning=True — exclude them from these stacks to avoid double-loading.
+    """
+    skip = {"lightning_i2v_high", "lightning_i2v_low"}
+    resolved = loras if loras is not None else resolve_lora_list(lora_ids, bundle=bundle, weights=weights)
+    high: list[tuple[str, float]] = []
+    low: list[tuple[str, float]] = []
+    for item in resolved:
+        lid = str(item.get("id") or "")
+        if lid in skip:
+            continue
+        name = str(item.get("file") or item.get("name") or "")
+        if not name:
+            continue
+        weight = float(item.get("weight", 0.6))
+        branch = str(item.get("branch") or WAN_VIDEO_LORAS.get(lid, {}).get("branch", "both")).lower()
+        if branch in {"high", "both"}:
+            high.append((name, weight))
+        if branch in {"low", "both"}:
+            low.append((name, weight))
+    return high, low
 
 
 def check_wan_video_loras(cfg: dict[str, Any], lora_ids: list[str] | None = None) -> dict[str, Any]:

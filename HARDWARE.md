@@ -7,6 +7,18 @@ Agents should **always** call `get_generation_context` before `generate_image` o
 
 Logic lives in `stability-studio-mcp/studio/hardware_profile.py`.
 
+## Division of labor (main rig vs ComfyBox)
+
+Split work by machine so agents do not overload the wrong host:
+
+| Machine | Role | Typical work |
+|---------|------|----------------|
+| **Main rig** (this PC — Ryzen 7900X + RTX 5060 Ti) | CPU-heavy + local polish GPU | ffmpeg splice/concat, RIFE/interp, file ops, downloads, catalog edits, MCP orchestration, `polish_wan_video` / AnimeSharp via `.venv-post` |
+| **ComfyBox** (RX 7900 XT `:8188` / Forge `:7860`) | GPU-heavy diffusion | `generate_image`, Forge refine/ADetailer, Wan `generate_video` (i2v/t2v/v2v); exclusive Comfy↔Forge switch |
+
+Rule of thumb: **generate on ComfyBox, polish and package on the main rig.**  
+`get_generation_context` returns `labor_split` with the same policy.
+
 ## Config overrides (`config.yaml`)
 
 ```yaml
@@ -40,11 +52,14 @@ When `prefer_prompt_quality` is true:
 
 | `workflow_id` | Model | When |
 |---------------|-------|------|
-| **`i2v_5b`** (default) | Wan 2.2 TI2V-5B native ComfyUI | ≤16 GB, fast, clean prompts |
-| **`i2v`** | Wan 2.2 14B dual + blockswap | Explicit only; heavy (~15–20 min) |
+| **`i2v_5b`** (default) | Wan 2.2 TI2V-5B native ComfyUI | Drafts / SFW; often weak/censored for NSFW |
+| **`i2v`** | **Wan 2.2 I2V-A14B MoE HIGH+LOW** | Explicit 14B / identity / NSFW motion |
+| **`i2v_wan21_native`** | Legacy Wan 2.1 single-UNET | Fallback / A/B only — prefer `i2v` |
 | **`i2v_gpu`** | Wan 2.1 14B builder | 24 GB+ or forced; can hang on 16 GB |
 
-Requires **`wan2.2_ti2v_5B_fp16.safetensors`**, **`wan2.2_vae.safetensors`**, and umt5 text encoder. Run **`check_wan_assets`** / **`download_wan_assets(workflow_id="i2v_5b")`**.
+**`i2v` MoE wiring (MCP `studio.wan22_i2v_moe`):** HIGH UNET (+ HIGH LoRAs) → KSamplerAdv → LOW UNET (+ LOW LoRAs) → KSamplerAdv → decode. Default stacks LightX2V distill when installed; action LoRAs must be HIGH+LOW pairs (`female_orgasm`).
+
+Assets: `check_wan_assets(workflow_id="i2v")` / `download_wan_assets` + `scripts/download_wan22_lightning_loras.py`. Orgasm NSFW LoRAs already on ComfyBox. See `stability-studio-mcp/LESSONS-WAN-I2V.md`.
 
 ## For agents
 
