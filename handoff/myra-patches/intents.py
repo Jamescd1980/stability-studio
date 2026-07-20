@@ -64,12 +64,18 @@ _READ_CHAPTER_RE = re.compile(
 ASK_JAN_TRIGGERS = (
     "ask jan", "tell jan", "have jan", "get jan to", "ask jan to",
     "ask nari", "tell nari", "have nari", "get nari to", "ask nari to",
+    # No hey_nari wake model yet — spoken after Hey Myra
+    "hey nari", "hey jan", "talk to nari", "talk to jan",
+    "switch to nari", "open nari",
 )
 ASK_ORLA_TRIGGERS = (
     "ask orla", "tell orla", "have orla", "get orla to", "ask orla to",
     "ask orluh", "have orluh", "tell orluh",  # TTS/STT of Orla
     "ask oral", "have oral", "tell oral", "ask orlo", "have orlo",
     "ask o'er", "have o'er", "ask o er", "have o er",
+    # No hey_orla wake model yet — spoken after Hey Myra
+    "hey orla", "hey orluh", "talk to orla", "talk to orluh",
+    "switch to orla", "open orla",
 )
 # STT mangling of "Orla" in free speech (oral / orlo / o'er / o er).
 _ORLA_NAME_RE = re.compile(
@@ -82,8 +88,31 @@ PHONETIC_REWRITE_TRIGGERS = (
 )
 SEARCH_TRIGGERS = (
     "search online", "research online", "look up", "look this up", "look that up",
-    "web search", "search the web", "google ", "find out about", "who is ",
-    "what is ", "tell me about",
+    "look it up", "web search", "search the web", "google ",
+)
+# Deeper research → Nari (not Pi gofor)
+RESEARCH_TRIGGERS = (
+    "find out about", "research this", "figure this out", "dig into",
+)
+WEB_LOOKUP_TRIGGERS = (
+    "look this up", "look that up", "look it up", "look up",
+    "search online", "web search", "search the web", "google ",
+)
+RECREATE_TRIGGERS = (
+    "recreate", "re-create", "re create", "try again", "redo that", "remake that",
+    "same image but", "recreate image", "recreate that", "recreate the image",
+)
+# Must mention changing/swapping the character — bare "same scene" is a scene answer.
+CAST_SWAP_TRIGGERS = (
+    "change the character", "change character", "swap character", "swap the character",
+)
+CAST_SWAP_KEEP_TRIGGERS = (
+    "keep the pose", "keep pose", "same pose", "keep the scene", "keep scene",
+    "same scene", "same layout", "same pose and scene",
+)
+CAST_BATCH_TRIGGERS = (
+    "one of each", "whole cast", "everyone from", "all the cast",
+    "all characters from", "cast of ", "one image of each",
 )
 REFERENCE_TRIGGERS = (
     "grab reference images", "find reference images", "get reference images",
@@ -113,11 +142,16 @@ COMFYBOX_SHOW_TRIGGERS = (
     "display a comfy box", "show a comfy box", "display the comfy box",
     "show the comfy box", "display comfy box", "show comfy box",
     "comfy box", "comfybox",
+    # Hailo STT often hears Comfy → Compy / coffee
+    "display compy box", "show compy box", "compy box status", "compy box",
+    "display coffee box", "show coffee box", "coffee box status",
     "show gpu status", "display gpu status", "show training status",
 )
-# STT often splits ComfyBox → "comfy box" and drops "status".
+# STT: ComfyBox → "comfy box" / "compy box" / "coffee box" / glued "compibox".
 _COMFYBOX_SHOW_RE = re.compile(
-    r"\b(?:display|show|open)\b.{0,40}\bcomfy\b|\bcomfy\s*box\b|\bcomfybox\b",
+    r"\b(?:display|show|open)\b.{0,40}\b(?:comfy|compy|coffee|compi)\b"
+    r"|\b(?:comfy|compy|coffee|compi)\s*box\b"
+    r"|\b(?:comfybox|compibox|compybox)\b",
     re.I,
 )
 COMFYBOX_HIDE_TRIGGERS = (
@@ -134,10 +168,10 @@ COMFYBOX_HIDE_TRIGGERS = (
 
 @dataclass
 class Intent:
-    kind: str            # note | generate | pose | weather | headlines | datetime | read | ask_jan | ask_orla | search | reference | screensaver_on | screensaver_off | comfybox_status | hide_display | conversation
+    kind: str            # note | generate | image_brief | recreate | cast_swap | cast_batch | web_lookup | pose | weather | headlines | datetime | read | ask_jan | ask_orla | search | reference | screensaver_on | screensaver_off | comfybox_status | hide_display | conversation
     text: str            # cleaned payload (command stripped)
     raw: str
-    persona: str = "myra"  # myra | jan — set by wake word
+    persona: str = "myra"  # myra | jan | orla — set by wake word
 
 
 def _strip_prefix(text: str, triggers: tuple[str, ...]) -> str:
@@ -209,10 +243,35 @@ def classify(text: str, persona: str = "myra") -> Intent:
         return Intent("ask_orla", raw, raw, persona=persona)
 
     if any(t in low for t in ASK_ORLA_TRIGGERS):
-        return Intent("ask_orla", _strip_prefix(raw, ASK_ORLA_TRIGGERS), raw, persona=persona)
+        payload = _strip_prefix(raw, ASK_ORLA_TRIGGERS)
+        # Bare "hey orla" / "talk to orla" → open Orla chat
+        if not payload.strip() or payload.strip().lower() in {"please", "now"}:
+            return Intent(
+                "ask_orla",
+                "You're on with Orla. Ask what they need in one short line.",
+                raw,
+                persona=persona,
+            )
+        return Intent("ask_orla", payload, raw, persona=persona)
 
     if any(t in low for t in ASK_JAN_TRIGGERS):
-        return Intent("ask_jan", _strip_prefix(raw, ASK_JAN_TRIGGERS), raw, persona=persona)
+        payload = _strip_prefix(raw, ASK_JAN_TRIGGERS)
+        if any(
+            k in low
+            for k in (
+                "image", "picture", "generate", "draw", "paint", "recreate",
+                "cast", "character",
+            )
+        ):
+            return Intent("image_brief", payload or raw, raw, persona=persona)
+        if not payload.strip() or payload.strip().lower() in {"please", "now"}:
+            return Intent(
+                "ask_jan",
+                "You're on with Nari. What should we create?",
+                raw,
+                persona=persona,
+            )
+        return Intent("ask_jan", payload, raw, persona=persona)
 
     if any(t in low for t in REFERENCE_TRIGGERS):
         payload = _strip_prefix(raw, REFERENCE_TRIGGERS) or raw
@@ -240,26 +299,50 @@ def classify(text: str, persona: str = "myra") -> Intent:
     if any(t in low for t in SCREENSAVER_OFF_TRIGGERS):
         return Intent("screensaver_off", "", raw, persona=persona)
 
-    # Search shortcuts: always for Jan; for Myra only when clearly "look up / research"
-    if persona == "jan" and any(t in low for t in SEARCH_TRIGGERS):
-        return Intent("search", raw, raw, persona=persona)
-    if persona == "myra" and any(
-        t in low for t in ("search online", "research online", "look up", "web search", "search the web")
-    ):
-        # Myra should hand research to Jan
+    # Short web lookup on Pi tool — never myra-gofor
+    if any(t in low for t in WEB_LOOKUP_TRIGGERS):
+        q = _strip_prefix(raw, WEB_LOOKUP_TRIGGERS)
+        q = re.sub(r"^(?:for\s+me|please)\s+", "", q, flags=re.I).strip(" ,.:;-")
+        return Intent("web_lookup", q or raw, raw, persona=persona)
+
+    if any(t in low for t in RESEARCH_TRIGGERS):
         return Intent("ask_jan", raw, raw, persona=persona)
+
+    if persona in {"jan", "nari"} and any(t in low for t in SEARCH_TRIGGERS):
+        return Intent("search", raw, raw, persona=persona)
 
     if any(t in low for t in READ_TRIGGERS) or _READ_CHAPTER_RE.search(low):
         return Intent("read", raw, raw, persona=persona)
 
-    # Generation: trigger word near the start so normal chat about "drawing" etc.
-    # doesn't accidentally fire. On Jan persona, treat most creative asks as generate.
-    if any(re.search(rf"\b{re.escape(t.strip())}\b", low[:40]) for t in GENERATE_TRIGGERS):
-        return Intent("generate", _strip_prefix(raw, GENERATE_TRIGGERS), raw, persona=persona)
+    if any(t in low for t in CAST_BATCH_TRIGGERS):
+        return Intent("cast_batch", raw, raw, persona=persona)
 
-    if persona == "jan" and any(
+    if any(t in low for t in CAST_SWAP_TRIGGERS) or (
+        any(t in low for t in CAST_SWAP_KEEP_TRIGGERS)
+        and re.search(r"\b(?:change|swap)\b", low)
+        and "character" in low
+    ):
+        return Intent("cast_swap", raw, raw, persona=persona)
+
+    if any(t in low for t in RECREATE_TRIGGERS):
+        return Intent("recreate", raw, raw, persona=persona)
+
+    # Generation → guided brief (thin Myra; Nari expands at the end)
+    if any(re.search(rf"\b{re.escape(t.strip())}\b", low[:50]) for t in GENERATE_TRIGGERS):
+        return Intent(
+            "image_brief",
+            _strip_prefix(raw, GENERATE_TRIGGERS),
+            raw,
+            persona=persona,
+        )
+
+    if persona in {"jan", "nari"} and any(
         k in low for k in ("image", "picture", "prompt", "storyboard", "inpaint", "edit the")
     ):
-        return Intent("generate", raw, raw, persona=persona)
+        return Intent("image_brief", raw, raw, persona=persona)
+    if persona == "orla" and any(
+        k in low for k in ("image", "display", "show", "open", "upscale", "newest", "last")
+    ):
+        return Intent("ask_orla", raw, raw, persona=persona)
 
     return Intent("conversation", raw, raw, persona=persona)

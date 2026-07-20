@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ComfyBox Status</title>
+  <style>
+    :root {
+      --bg: #070b10;
+      --panel: rgba(14, 20, 28, 0.82);
+      --accent: #3ec7ff;
+      --forge: #c084fc;
+      --text: #e8eef5;
+      --muted: #7f93a8;
+      --warn: #ffb020;
+      --hot: #ff5c5c;
+      --ok: #3dff9a;
+      --track: rgba(255,255,255,0.08);
+      --display: "Nunito Sans", "DejaVu Sans", "Segoe UI", sans-serif;
+      --mono: "Liberation Mono", "DejaVu Sans Mono", monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%; height: 100%;
+      color: var(--text);
+      font-family: var(--display);
+      overflow: hidden;
+      cursor: none;
+      user-select: none;
+      background: #070b10;
+    }
+    body::before {
+      content: "";
+      position: fixed; inset: 0;
+      background:
+        radial-gradient(90% 140% at 8% 0%, rgba(62,199,255,.16), transparent 55%),
+        radial-gradient(70% 120% at 92% 100%, rgba(61,255,154,.07), transparent 50%),
+        linear-gradient(180deg, #0c141d 0%, #070b10 55%, #05080c 100%);
+      z-index: 0;
+    }
+    body::after {
+      content: "";
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
+      background-size: 48px 48px;
+      mask-image: radial-gradient(ellipse at center, black 35%, transparent 85%);
+      opacity: .45;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .shell {
+      position: relative;
+      z-index: 1;
+      height: 100%;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      padding: 14px 22px 10px;
+      gap: 10px;
+    }
+    .top {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 16px;
+      min-height: 64px;
+    }
+    .brand { display: flex; flex-direction: column; gap: 2px; }
+    .eyebrow {
+      color: var(--accent);
+      letter-spacing: .28em;
+      font-weight: 800;
+      font-size: 13px;
+      text-shadow: 0 0 18px rgba(62,199,255,.35);
+    }
+    .backend {
+      font-size: 40px;
+      font-weight: 800;
+      line-height: 1;
+    }
+    .job {
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--muted);
+      max-width: 55vw;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .job.busy { color: var(--warn); }
+    .job.train { color: var(--accent); }
+    .job.bad { color: var(--hot); }
+    .top-right {
+      text-align: right;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+    }
+    .clock {
+      font-family: var(--mono);
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: .04em;
+    }
+    .alive {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: .08em;
+    }
+    .alive i {
+      width: 9px; height: 9px; border-radius: 50%;
+      background: var(--ok);
+      box-shadow: 0 0 10px var(--ok);
+    }
+    .alive.stale i { background: var(--hot); box-shadow: 0 0 10px var(--hot); animation: blink 1s step-end infinite; }
+    .alive.busy i { background: var(--warn); box-shadow: 0 0 10px var(--warn); animation: blink 1.2s ease-in-out infinite; }
+    .alive.train i { background: var(--accent); box-shadow: 0 0 12px var(--accent); animation: blink 1.4s ease-in-out infinite; }
+
+    .main {
+      display: grid;
+      grid-template-columns: minmax(280px, 1.05fr) 2.2fr;
+      gap: 14px;
+      min-height: 0;
+    }
+    .agents {
+      background: var(--panel);
+      border: 1px solid rgba(62,199,255,.16);
+      border-radius: 18px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 10px 28px rgba(0,0,0,.35);
+      padding: 10px 10px 8px;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .agents h2 {
+      font-size: 11px;
+      letter-spacing: .24em;
+      color: var(--muted);
+      font-weight: 800;
+      margin-bottom: 6px;
+      flex: 0 0 auto;
+    }
+    .agent-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      overflow: hidden;
+      flex: 1;
+      min-height: 0;
+      justify-content: space-between;
+    }
+    .agent {
+      display: grid;
+      grid-template-columns: 8px 1fr;
+      gap: 8px;
+      align-items: start;
+      padding: 8px 10px;
+      border-radius: 12px;
+      background: rgba(255,255,255,.03);
+      border: 1px solid rgba(255,255,255,.06);
+      flex: 1 1 0;
+      min-height: 0;
+    }
+    .agent.error, .agent.hung {
+      border-color: rgba(255,92,92,.45);
+      background: rgba(255,92,92,.08);
+      animation: blink 1.4s step-end infinite;
+    }
+    .agent.working, .agent.generating, .agent.thinking, .agent.talking {
+      border-color: rgba(255,176,32,.35);
+    }
+    .agent.listening, .agent.ready {
+      border-color: rgba(61,255,154,.22);
+    }
+    .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      margin-top: 5px;
+      background: var(--muted);
+      box-shadow: 0 0 8px transparent;
+    }
+    .agent.ready .dot, .agent.listening .dot { background: var(--ok); box-shadow: 0 0 10px var(--ok); }
+    .agent.hearing .dot { background: var(--accent); box-shadow: 0 0 10px var(--accent); animation: blink 1s ease-in-out infinite; }
+    .agent.thinking .dot, .agent.talking .dot, .agent.talking_to_myra .dot {
+      background: var(--warn); box-shadow: 0 0 10px var(--warn); animation: blink 1.1s ease-in-out infinite;
+    }
+    .agent.working .dot, .agent.generating .dot, .agent.upscaling .dot {
+      background: var(--accent); box-shadow: 0 0 12px var(--accent); animation: blink 0.9s ease-in-out infinite;
+    }
+    .agent.error .dot, .agent.hung .dot { background: var(--hot); box-shadow: 0 0 12px var(--hot); }
+    .agent-body { min-width: 0; }
+    .agent-name {
+      font-size: 18px;
+      font-weight: 800;
+      line-height: 1.05;
+      letter-spacing: .01em;
+    }
+    .agent-role {
+      font-size: 11px;
+      letter-spacing: .12em;
+      color: var(--muted);
+      font-weight: 700;
+      margin-top: 1px;
+    }
+    .agent-status {
+      margin-top: 4px;
+      font-size: 15px;
+      font-weight: 700;
+      text-transform: capitalize;
+    }
+    .agent-detail {
+      margin-top: 1px;
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .gauges {
+      display: grid;
+      grid-template-columns: 1.15fr 1.15fr 1.2fr;
+      gap: 14px;
+      min-height: 0;
+    }
+    .gauge, .spark-card {
+      background: var(--panel);
+      border: 1px solid rgba(62,199,255,.16);
+      border-radius: 18px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 10px 28px rgba(0,0,0,.35);
+      overflow: hidden;
+      min-width: 0;
+    }
+    .gauge {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      justify-content: center;
+      padding: 12px 14px 14px;
+      gap: 4px;
+    }
+    .gauge-title {
+      font-size: 12px;
+      letter-spacing: .22em;
+      color: var(--muted);
+      font-weight: 800;
+      text-align: center;
+      margin-bottom: 2px;
+    }
+    .dual {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      align-items: end;
+    }
+    .dual-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .dual-col svg { width: min(100%, 170px); height: auto; display: block; }
+    .dual-col .label {
+      margin-top: -4px;
+      font-size: 11px;
+      letter-spacing: .16em;
+      color: var(--muted);
+      font-weight: 800;
+    }
+    .dual-col .readout {
+      font-family: var(--mono);
+      font-size: 24px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+    }
+    .dual-col .sub {
+      margin-top: 2px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+      text-align: center;
+    }
+    .arc-track { fill: none; stroke: var(--track); stroke-width: 12; stroke-linecap: round; }
+    .arc-fill {
+      fill: none;
+      stroke-width: 12;
+      stroke-linecap: round;
+      stroke-dasharray: 220;
+      stroke-dashoffset: 220;
+      transition: stroke-dashoffset .7s cubic-bezier(.22,.8,.25,1), stroke .35s ease;
+      filter: drop-shadow(0 0 6px currentColor);
+    }
+    .spark-card {
+      padding: 12px 14px 10px;
+      display: flex;
+      flex-direction: column;
+    }
+    .spark-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 4px;
+    }
+    .spark-head .k {
+      font-size: 11px;
+      letter-spacing: .2em;
+      color: var(--muted);
+      font-weight: 800;
+    }
+    .spark-head .v {
+      font-family: var(--mono);
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    #spark { width: 100%; flex: 1; min-height: 120px; display: block; }
+    .meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .meta .cell {
+      background: rgba(255,255,255,.03);
+      border-radius: 10px;
+      padding: 6px 8px;
+    }
+    .meta .k { color: var(--muted); font-size: 12px; letter-spacing: .12em; font-weight: 800; }
+    .meta .v { font-family: var(--mono); font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .meta .cell.session .v { color: var(--accent); }
+    .heat-veil {
+      position: fixed; inset: 0;
+      pointer-events: none;
+      z-index: 5;
+      opacity: 0;
+      background:
+        radial-gradient(120% 80% at 50% -10%, rgba(255,92,92,.28), transparent 55%),
+        radial-gradient(90% 70% at 50% 110%, rgba(255,92,92,.18), transparent 50%);
+      transition: opacity .4s ease;
+    }
+    body.heat-alarm .heat-veil {
+      opacity: 1;
+      animation: heatPulse 1.4s ease-in-out infinite;
+    }
+    body.heat-alarm .eyebrow::after {
+      content: " · HOT";
+      color: var(--hot);
+      letter-spacing: .18em;
+    }
+    @keyframes heatPulse {
+      0%, 100% { opacity: .55; }
+      50% { opacity: .95; }
+    }
+    .footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 15px;
+      font-weight: 600;
+      padding: 0 2px;
+    }
+    .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+    .chip {
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 999px;
+      padding: 4px 12px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      color: var(--muted);
+      background: rgba(0,0,0,.28);
+    }
+    .chip.on { color: #04120a; background: var(--ok); border-color: transparent; }
+    .chip.warn { color: #1a1200; background: var(--warn); border-color: transparent; }
+    .chip.accent { color: #031018; background: var(--accent); border-color: transparent; }
+    .chip.forge { color: #14081c; background: var(--forge); border-color: transparent; }
+    .chip.session {
+      color: #031018;
+      background: var(--accent);
+      border-color: transparent;
+      font-family: var(--mono);
+    }
+    .chip.hot {
+      color: #1a0505;
+      background: var(--hot);
+      border-color: transparent;
+      animation: blink 1s step-end infinite;
+    }
+    .hint { opacity: .8; }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: .35; }
+    }
+  </style>
+</head>
+<body>
+  <div class="heat-veil" aria-hidden="true"></div>
+  <div class="shell" id="app">
+    <header class="top">
+      <div class="brand">
+        <div class="eyebrow">COMFYBOX · STUDIO RACK</div>
+        <div class="backend" id="backend">—</div>
+        <div class="job" id="job">connecting…</div>
+      </div>
+      <div class="top-right">
+        <div class="clock" id="clock">--:--</div>
+        <div class="alive" id="alive"><i></i><span id="aliveText">LINK</span></div>
+      </div>
+    </header>
+
+    <section class="main">
+      <aside class="agents">
+        <h2>AGENTS</h2>
+        <div class="agent-list" id="agents"></div>
+      </aside>
+
+      <div class="gauges">
+        <div class="gauge" data-key="heat">
+          <div class="gauge-title">HEAT</div>
+          <div class="dual">
+            <div class="dual-col">
+              <svg viewBox="0 0 120 90" aria-hidden="true">
+                <path class="arc-track" d="M14 78 A46 46 0 1 1 106 78" />
+                <path class="arc-fill" id="arcGpu" d="M14 78 A46 46 0 1 1 106 78" />
+              </svg>
+              <div class="label">GPU</div>
+              <div class="readout" id="gpuTemp">—</div>
+              <div class="sub" id="gpuName">7900 XT</div>
+            </div>
+            <div class="dual-col">
+              <svg viewBox="0 0 120 90" aria-hidden="true">
+                <path class="arc-track" d="M14 78 A46 46 0 1 1 106 78" />
+                <path class="arc-fill" id="arcCpu" d="M14 78 A46 46 0 1 1 106 78" />
+              </svg>
+              <div class="label">CPU</div>
+              <div class="readout" id="cpu">—</div>
+              <div class="sub" id="clocks">SCLK / MCLK</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="gauge" data-key="load">
+          <div class="gauge-title">GPU USE</div>
+          <div class="dual">
+            <div class="dual-col">
+              <svg viewBox="0 0 120 90" aria-hidden="true">
+                <path class="arc-track" d="M14 78 A46 46 0 1 1 106 78" />
+                <path class="arc-fill" id="arcUtil" d="M14 78 A46 46 0 1 1 106 78" />
+              </svg>
+              <div class="label">LOAD</div>
+              <div class="readout" id="gpuUtil">—</div>
+              <div class="sub" id="gpuPower">— W</div>
+            </div>
+            <div class="dual-col">
+              <svg viewBox="0 0 120 90" aria-hidden="true">
+                <path class="arc-track" d="M14 78 A46 46 0 1 1 106 78" />
+                <path class="arc-fill" id="arcVram" d="M14 78 A46 46 0 1 1 106 78" />
+              </svg>
+              <div class="label">VRAM</div>
+              <div class="readout" id="vram">—</div>
+              <div class="sub" id="vramGb">— / — GB</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="spark-card">
+          <div class="spark-head">
+            <span class="k">GPU TEMP TREND</span>
+            <span class="v" id="sparkNow">—</span>
+          </div>
+          <svg id="spark" viewBox="0 0 280 120" preserveAspectRatio="none" aria-hidden="true">
+            <defs>
+              <linearGradient id="sparkFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#3ec7ff" stop-opacity=".35" />
+                <stop offset="100%" stop-color="#3ec7ff" stop-opacity="0" />
+              </linearGradient>
+            </defs>
+            <path id="sparkArea" fill="url(#sparkFill)" d="" />
+            <polyline id="sparkLine" fill="none" stroke="#3ec7ff" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" points="" />
+          </svg>
+          <div class="meta">
+            <div class="cell"><div class="k">HOST</div><div class="v" id="host">comfybox</div></div>
+            <div class="cell"><div class="k">QUEUE</div><div class="v" id="queue">0</div></div>
+            <div class="cell session"><div class="k">SESSION</div><div class="v" id="session">—</div></div>
+            <div class="cell"><div class="k">JOB</div><div class="v" id="sessionJob">idle</div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <div class="chips" id="chips"></div>
+      <div class="hint" id="hint">Tap = °F/°C · “Hey Myra, blank the screen”</div>
+    </footer>
+  </div>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const STATUS_URL = params.get("url") || "http://192.168.50.57:7870/status";
+    const POLL_MS = Number(params.get("poll") || 1500);
+    let tempUnit = (params.get("unit") || "F").toUpperCase() === "C" ? "C" : "F";
+    let lastOk = 0;
+    const ARC_LEN = 220;
+    const history = [];
+    const HIST_MAX = 48;
+    let sessionKey = "";
+    let sessionStart = 0;
+
+    const GPU_WARN = 85, GPU_HOT = 95, CPU_WARN = 80, CPU_HOT = 95;
+    const NAMES = { comfy: "ComfyUI", forge: "Forge", training: "Kohya Train", idle: "Idle", offline: "Offline" };
+    const BUSY_JOBS = new Set(["training", "generating", "queued"]);
+    const STATUS_LABEL = {
+      ready: "Ready",
+      listening: "Listening",
+      hearing: "Hearing",
+      talking: "Talking",
+      talking_to_myra: "Talking to Myra",
+      thinking: "Thinking",
+      working: "Working",
+      generating: "Generating",
+      upscaling: "Upscaling",
+      writing: "Writing",
+      error: "Error",
+      hung: "Hung",
+      unknown: "Unknown",
+      offline: "Offline",
+    };
+
+    function fmtDuration(ms) {
+      if (!ms || ms < 0) return "—";
+      const s = Math.floor(ms / 1000);
+      const h = Math.floor(s / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      const sec = s % 60;
+      if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+      return `${m}:${String(sec).padStart(2, "0")}`;
+    }
+    function updateSession(job, detail) {
+      const busy = BUSY_JOBS.has(job);
+      const key = busy ? `${job}|${detail || ""}` : "";
+      if (!busy) {
+        sessionKey = "";
+        sessionStart = 0;
+        setText("session", "—");
+        setText("sessionJob", job || "idle");
+        return null;
+      }
+      if (key !== sessionKey) {
+        sessionKey = key;
+        sessionStart = Date.now();
+      }
+      setText("sessionJob", String(detail || job).slice(0, 18));
+      const elapsed = Date.now() - sessionStart;
+      setText("session", fmtDuration(elapsed));
+      return elapsed;
+    }
+    function fmtTemp(c) {
+      if (typeof c !== "number") return "—";
+      if (tempUnit === "C") return `${Math.round(c)}°C`;
+      return `${Math.round(c * 9 / 5 + 32)}°F`;
+    }
+    function tempTone(c, kind) {
+      if (typeof c !== "number") return "var(--muted)";
+      const warn = kind === "cpu" ? CPU_WARN : GPU_WARN;
+      const hot = kind === "cpu" ? CPU_HOT : GPU_HOT;
+      if (c >= hot) return "var(--hot)";
+      if (c >= warn) return "var(--warn)";
+      return "var(--ok)";
+    }
+    function pctTone(p) {
+      if (typeof p !== "number") return "var(--muted)";
+      if (p >= 95) return "var(--hot)";
+      if (p >= 80) return "var(--warn)";
+      return "var(--accent)";
+    }
+    function setArc(id, pct, color) {
+      const el = document.getElementById(id);
+      const len = window.__ARC_LEN || ARC_LEN;
+      const p = Math.max(0, Math.min(100, typeof pct === "number" ? pct : 0));
+      el.style.stroke = color;
+      el.style.color = color;
+      el.style.strokeDasharray = String(len);
+      el.style.strokeDashoffset = String(len - (len * p) / 100);
+    }
+    function setText(id, text) { document.getElementById(id).textContent = text; }
+
+    function pushHistory(c) {
+      if (typeof c !== "number") return;
+      history.push(c);
+      if (history.length > HIST_MAX) history.shift();
+      drawSpark();
+    }
+    function drawSpark() {
+      const w = 280, h = 120, pad = 8;
+      if (history.length < 2) {
+        document.getElementById("sparkLine").setAttribute("points", "");
+        document.getElementById("sparkArea").setAttribute("d", "");
+        return;
+      }
+      const min = Math.min(...history) - 2;
+      const max = Math.max(...history) + 2;
+      const span = Math.max(1, max - min);
+      const pts = history.map((v, i) => {
+        const x = pad + (i / (HIST_MAX - 1)) * (w - pad * 2);
+        const y = h - pad - ((v - min) / span) * (h - pad * 2);
+        return [x, y];
+      });
+      const poly = pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+      document.getElementById("sparkLine").setAttribute("points", poly);
+      const first = pts[0], last = pts[pts.length - 1];
+      let area = `M ${first[0].toFixed(1)} ${(h - pad).toFixed(1)}`;
+      for (const [x, y] of pts) area += ` L ${x.toFixed(1)} ${y.toFixed(1)}`;
+      area += ` L ${last[0].toFixed(1)} ${(h - pad).toFixed(1)} Z`;
+      document.getElementById("sparkArea").setAttribute("d", area);
+    }
+
+    function renderAgents(agents) {
+      const root = document.getElementById("agents");
+      const list = Array.isArray(agents) && agents.length
+        ? agents
+        : [
+            { id: "myra", name: "Myra", role: "Gofor · Pi", status: "unknown", detail: "No data" },
+            { id: "nari", name: "Nari", role: "Create · ComfyBox", status: "unknown", detail: "" },
+            { id: "orla", name: "Orla", role: "Polish · Windows", status: "unknown", detail: "" },
+          ];
+      root.innerHTML = list.map((a) => {
+        const st = String(a.status || "unknown").toLowerCase();
+        const label = STATUS_LABEL[st] || st.replace(/_/g, " ");
+        const detail = a.detail || "";
+        return `<div class="agent ${st}">
+          <div class="dot"></div>
+          <div class="agent-body">
+            <div class="agent-name">${a.name || a.id}</div>
+            <div class="agent-role">${a.role || ""}</div>
+            <div class="agent-status">${label}</div>
+            <div class="agent-detail">${detail}</div>
+          </div>
+        </div>`;
+      }).join("");
+    }
+
+    function render(s) {
+      const stale = !s || s.ok === false || (lastOk && Date.now() - lastOk > 8000);
+      const backend = String((s && s.backend) || "offline").toLowerCase();
+      const job = String((s && s.job) || "offline").toLowerCase();
+      const detail = (s && (s.detail || s.error)) || "";
+
+      setText("backend", NAMES[backend] || backend);
+      document.getElementById("backend").style.color =
+        backend === "forge" ? "var(--forge)" :
+        backend === "training" ? "var(--accent)" :
+        backend === "offline" ? "var(--hot)" : "var(--text)";
+
+      let jobLabel = {
+        generating: "● Generating",
+        training: "● Training LoRA",
+        queued: "● Queued",
+        idle: "○ Ready / idle",
+        offline: "✕ Unreachable",
+      }[job] || `· ${job}`;
+      if (detail && job !== "offline") jobLabel += `  ·  ${detail}`;
+      const jobEl = document.getElementById("job");
+      jobEl.textContent = jobLabel;
+      jobEl.className = "job" + (
+        job === "training" ? " train" :
+        job === "generating" || job === "queued" ? " busy" :
+        job === "offline" ? " bad" : ""
+      );
+
+      const alive = document.getElementById("alive");
+      alive.className = "alive" + (stale || job === "offline" ? " stale" : job === "training" ? " train" : job === "generating" ? " busy" : "");
+      setText("aliveText", stale || job === "offline" ? "NO LINK" : job === "training" ? "TRAINING" : job === "generating" ? "RENDER" : "LIVE");
+
+      renderAgents(s && s.agents);
+
+      const gt = s && s.gpu_temp_c;
+      const gu = s && s.gpu_util_pct;
+      const vp = s && s.gpu_vram_pct;
+      const vu = s && s.gpu_vram_used_gb;
+      const vt = s && s.gpu_vram_total_gb;
+      const ct = s && s.cpu_temp_c;
+      const pw = s && s.gpu_power_w;
+      const sclk = s && s.gpu_sclk_mhz;
+      const mclk = s && s.gpu_mclk_mhz;
+
+      const gpuPct = typeof gt === "number" ? Math.max(0, Math.min(100, ((gt - 35) / 65) * 100)) : 0;
+      const cpuPct = typeof ct === "number" ? Math.max(0, Math.min(100, ((ct - 30) / 70) * 100)) : 0;
+      setArc("arcGpu", gpuPct, tempTone(typeof gt === "number" ? gt : null, "gpu"));
+      setArc("arcUtil", typeof gu === "number" ? gu : 0, pctTone(typeof gu === "number" ? gu : null));
+      setArc("arcVram", typeof vp === "number" ? vp : 0, pctTone(typeof vp === "number" ? vp : null));
+      setArc("arcCpu", cpuPct, tempTone(typeof ct === "number" ? ct : null, "cpu"));
+
+      const gpuEl = document.getElementById("gpuTemp");
+      gpuEl.textContent = fmtTemp(typeof gt === "number" ? gt : null);
+      gpuEl.style.color = tempTone(typeof gt === "number" ? gt : null, "gpu");
+      setText("gpuName", (s && s.gpu_name) ? String(s.gpu_name).replace(/^Radeon\s+/i, "") : "GPU");
+      setText("gpuUtil", typeof gu === "number" ? `${Math.round(gu)}%` : "—");
+      document.getElementById("gpuUtil").style.color = pctTone(typeof gu === "number" ? gu : null);
+      setText("gpuPower", typeof pw === "number" ? `${Math.round(pw)} W` : "— W");
+
+      setText("vram", typeof vp === "number" ? `${Math.round(vp)}%` : "—");
+      document.getElementById("vram").style.color = pctTone(typeof vp === "number" ? vp : null);
+      if (typeof vu === "number" && typeof vt === "number") setText("vramGb", `${vu.toFixed(1)} / ${vt.toFixed(1)} GB`);
+      else setText("vramGb", "— / — GB");
+
+      const cpuEl = document.getElementById("cpu");
+      cpuEl.textContent = fmtTemp(typeof ct === "number" ? ct : null);
+      cpuEl.style.color = tempTone(typeof ct === "number" ? ct : null, "cpu");
+      const bits = [];
+      if (typeof sclk === "number") bits.push(`${Math.round(sclk)}`);
+      if (typeof mclk === "number") bits.push(`${Math.round(mclk)}`);
+      setText("clocks", bits.length ? `${bits.join(" / ")} MHz` : "SCLK / MCLK");
+
+      setText("sparkNow", fmtTemp(typeof gt === "number" ? gt : null));
+      setText("host", (s && s.host) || "comfybox");
+      setText("queue", String((s && s.queue_remaining) != null ? s.queue_remaining : "—"));
+      if (typeof gt === "number" && !stale) pushHistory(gt);
+
+      const hot = typeof gt === "number" && gt >= GPU_HOT;
+      document.body.classList.toggle("heat-alarm", hot);
+      const sessMs = updateSession(job, detail);
+
+      const chips = [];
+      if (hot) chips.push(["GPU HOT", "hot"]);
+      if (sessMs != null) chips.push([`⏱ ${fmtDuration(sessMs)}`, "session"]);
+      if (s && s.training) chips.push(["TRAIN", "accent"]);
+      if (s && s.comfy_active) chips.push(["COMFY", "on"]);
+      if (s && s.forge_active) chips.push(["FORGE", "forge"]);
+      if (s && s.narrate_active) chips.push(["NARRATE", "warn"]);
+      const hung = (s && s.agents || []).some(a => String(a.status).toLowerCase() === "hung" || a.ok === false);
+      if (hung) chips.push(["AGENT FAULT", "hot"]);
+      document.getElementById("chips").innerHTML = chips.map(([t, c]) =>
+        `<span class="chip ${c}">${t}</span>`).join("") || `<span class="chip">STANDBY</span>`;
+
+      document.getElementById("hint").textContent =
+        `Tap = °${tempUnit === "F" ? "C" : "F"} · agents left · “hide ComfyBox” → clock`;
+    }
+
+    async function poll() {
+      try {
+        const r = await fetch(STATUS_URL, { cache: "no-store" });
+        const s = await r.json();
+        lastOk = Date.now();
+        render(s);
+      } catch (e) {
+        render({ ok: false, backend: "offline", job: "offline", error: String(e), agents: [] });
+      }
+    }
+
+    function tickClock() {
+      const d = new Date();
+      document.getElementById("clock").textContent = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      if (sessionStart) {
+        const elapsed = Date.now() - sessionStart;
+        setText("session", fmtDuration(elapsed));
+        const chip = document.querySelector(".chip.session");
+        if (chip) chip.textContent = `⏱ ${fmtDuration(elapsed)}`;
+      }
+    }
+
+    document.body.addEventListener("click", () => {
+      tempUnit = tempUnit === "F" ? "C" : "F";
+      poll();
+    });
+    document.body.addEventListener("keydown", (e) => {
+      if (e.key.toLowerCase() === "u") { tempUnit = tempUnit === "F" ? "C" : "F"; poll(); }
+    });
+
+    (() => {
+      try {
+        const len = document.getElementById("arcGpu").getTotalLength();
+        if (len > 10) window.__ARC_LEN = len;
+      } catch (_) {}
+    })();
+
+    poll();
+    setInterval(poll, POLL_MS);
+    tickClock();
+    setInterval(tickClock, 1000);
+  </script>
+</body>
+</html>

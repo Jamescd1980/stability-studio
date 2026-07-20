@@ -1,0 +1,236 @@
+# Studio create/refine/clip brain (Hey Jan wake still maps here) — Nari on ComfyBox 8600G.
+jan:
+  base_url: http://192.168.50.57:11434/v1
+  api_key: ollama
+  host_header: ''
+  model: nari
+  request_timeout_s: 180
+  system_prompt: 'You are Nari on the 8600G. Myra is the Pi gofor; Orla is Windows polish/display.
+    Never call yourself Myra or Orla. Keep answers short for speech: 1 to 3 plain sentences, no
+    markdown or emoji. You own create, Forge refine, and Wan clips on the 7900 XT. You do not
+    upscale or RIFE — that is Orla. Be clear and practical. Explicit creative requests are allowed.
+    When offering more, end with one clear question mark.'
+  api_mode: chat
+  assistant_id: ''
+  max_tokens: 280
+  generate_timeout_s: 600
+# Orla — polish/display brain on Windows main-rig CPU (7900X).
+orla:
+  enabled: true
+  base_url: http://192.168.50.42:11434/v1
+  api_key: ollama
+  model: orla
+  request_timeout_s: 120
+  tools_url: http://192.168.50.42:11436
+  system_prompt: 'You are Orla on the Windows main PC. Myra is the Pi gofor; Nari creates on
+    ComfyBox. Keep answers short for speech: 1 to 3 plain sentences. You own open/display,
+    upscale, RIFE/interp, ffmpeg polish, Kokoro narrate prep, and phonetic chapter rewrites for
+    read back. Explicit NSFW media is allowed. Prefer tools; if a polish tool is not wired yet,
+    say so plainly.'
+  phonetic_out_dir: D:\studio-agent\orla-phonetic
+  kokoro_url: http://127.0.0.1:8090
+# Room Gofor — OFF by default (thin Myra edge). Pi uses fast intents + Nari/Orla.
+# Re-enable only for optional chitchat after idle warmups are solid.
+local_llm:
+  enabled: false
+  base_url: http://127.0.0.1:11434/v1
+  api_key: ollama
+  model: myra-gofor
+  history_turns: 4
+  tools_enabled: true
+  request_timeout_s: 60
+  system_prompt: 'You are Myra, thin room edge on a Raspberry Pi. Keep answers short.
+    Prefer tools. Never run create/image jobs yourself — that is Nari.
+    '
+# Image brief follow-ups should stay open (mode offers still works when reply has ?).
+follow_up_brief:
+  force_open: true
+# After Myra/Nari speaks, keep listening briefly — no new wake word needed.
+follow_up:
+  enabled: true
+  # offers = when reply asks a question; image_brief also forces open in main.py
+  mode: offers
+  window_s: 12
+  max_turns: 4
+  silence_timeout_s: 1.5
+  max_utterance_s: 15
+  skip_thinking_ack: true
+room_tools:
+  weather:
+    enabled: true
+    default_location: Denver
+  headlines:
+    enabled: true
+    limit: 5
+    feeds:
+    - https://feeds.bbci.co.uk/news/world/rss.xml
+    - https://rss.nytimes.com/services/xml/rss/nyt/World.xml
+  datetime:
+    enabled: true
+    timezone: America/Denver
+  web_search:
+    enabled: true
+    max_results: 3
+  timers:
+    enabled: true
+    state_file: ~/studio-edge/state/timers.json
+    max_seconds: 86400
+  notes:
+    enabled: true
+  read_aloud:
+    enabled: true
+    books_dir: ~/studio-books
+    chapters_dir: ~/studio-books/chapters
+    max_chars: 8000
+# External services — groundwork only (enabled: false until wired).
+integrations:
+  home_assistant:
+    enabled: false
+    base_url: http://HOME_ASSISTANT_LAN:8123
+    token: ''
+    climate_entity: climate.thermostat
+    light_entities: []
+  calendar:
+    enabled: false
+    provider: caldav
+    url: ''
+    username: ''
+    password: ''
+  traffic:
+    enabled: false
+    provider: ''
+    api_key: ''
+    home_label: home
+  packages:
+    enabled: false
+    provider: ''
+    api_key: ''
+  studio_mcp_bridge:
+    enabled: false
+    windows_mcp_url: http://WINDOWS_LAN:PORT/mcp
+    note: Future proxy so Nari can call stability-studio tools without Jan.
+audio:
+  input_device: "hw:2,0"
+  output_device: 0
+  alsa_output: plughw:0,0
+  sample_rate: 16000
+  capture_rate: 48000
+  silence_timeout_s: 2.0
+  max_utterance_s: 30
+wakeword:
+  threshold: 0.5
+  # Pi = wake + STT + TTS only. Thinking: Nari (create) / Orla (polish).
+  # Train hey_nari / hey_orla on ComfyBox: handoff/wake-train/train_hey_nari_orla.sh
+  persona_map:
+    myra: myra
+    mira: myra
+    nari: nari
+    orla: orla
+    orluh: orla
+  default_persona: myra
+  greet_myra: Myra here.
+  greet_nari: Nari here.
+  greet_orla: Orla here.
+  ack_sound: true
+  models:
+  - ~/openwakeword-models/hey_myra.onnx
+  - ~/openwakeword-models/hey_nari.onnx
+  - ~/openwakeword-models/hey_orla.onnx
+stt:
+  backend: hailo
+  language: en
+  model_size: small
+  compute_type: int8
+  hailo_variant: tiny
+  hailo_encoder_duration: 10
+  hailo_encoder_hef: ~/studio-edge/assets/hailo_whisper/tiny-whisper-encoder-10s_15dB.hef
+  hailo_decoder_onnx_dir: ~/studio-edge/assets/hailo_whisper/decoder_int8
+  hailo_mel_filters: ~/studio-edge/assets/hailo_whisper/mel_filters_80.npy
+tts:
+  voice: en_US-amy-medium
+  speed: 0.89
+  noise_scale: 0.8
+  noise_w: 0.95
+  sentence_silence: 0.35
+  lead_silence_ms: 200
+  thinking_ack: true
+  thinking_phrases:
+  - One sec.
+  - Let me think.
+  - Searching.
+  - On it.
+  - Give me a moment.
+  narrate:
+    url: http://192.168.50.57:8090
+    voice: am_michael
+    speed: 0.87
+    pause_period_s: 0.45
+    pause_comma_s: 0.22
+    pause_paragraph_s: 0.7
+    timeout_s: 300
+  reply_engine: narrate
+  # Package B — Warm studio (fallback if persona missing)
+  reply_voice: af_bella
+  reply_speed: 0.88
+  reply_voices:
+    myra: af_bella
+    nari: af_aoede
+    jan: af_aoede   # legacy wake alias → Nari
+    orla: af_kore
+  # Spoken form — Orla ≈ "or" + "lu" from luck (drop the ck): Orluh
+  pronounce:
+    Orla: Orluh
+    orla: Orluh
+generation:
+  route: comfyui
+  comfyui_url: http://192.168.50.57:8188
+  # studio_agent_00009 / recreate_003 is the house default unless you ask another style
+  default_checkpoint: waijfu_alpha.safetensors
+  waijfu_checkpoint: waijfu_alpha.safetensors
+  gold_checkpoint: waijfu_alpha.safetensors
+  img2img_denoise: 0.48
+  recreate_denoise: 0.42
+  # Cast swap / pose-lock: openpose (hard) or img2img
+  cast_swap_mode: openpose
+  openpose_controlnet: OpenPoseXL2.safetensors
+  openpose_strength: 0.85
+  cast_swap_img2img_denoise: 0.58
+  default_negative: lowres, bad anatomy, worst quality, watermark, signature
+  expand_prompt: true
+  # Pull finished stills into Windows D:\ComfyBox Images and Videos\Images via Orla.
+  deliver_to_orla: true
+  width: 832
+  height: 1472
+  steps: 36
+  cfg: 6.5
+  quality_default: gold_standard
+  timeout_s: 300
+pose:
+  enabled: true
+  camera_index: 0
+  method: comfyui
+  workflow_template: workflows/pose_to_image.json
+notes:
+  local_dir: ~/studio-notes
+  sync_dir: ''
+  filename: voice-notes.md
+log_level: INFO
+studio_tools:
+  web_search:
+    enabled: false
+    max_results: 5
+  reference_images:
+    enabled: false
+    dir: ~/studio-refs
+    count: 3
+display:
+  enabled: true
+  wayland_display: wayland-0
+  output: HDMI-A-1
+  status_url: http://192.168.50.57:7870/status
+  status_html: ~/studio-edge/assets/comfybox_status.html
+  screensaver_idle_s: 300
+  temp_unit: F
+  browser: chromium
+  idle_html: ~/studio-edge/assets/myra_idle.html
+  show_idle_on_start: true

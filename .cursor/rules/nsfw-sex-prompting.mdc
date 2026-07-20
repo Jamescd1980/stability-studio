@@ -1,0 +1,78 @@
+---
+description: Vulgar/explicit sex-scene prompting for Illustrious/Comfy/WAN (no soft euphemisms; view not camera)
+alwaysApply: true
+---
+
+# NSFW / sex-scene prompting (house standard)
+
+When writing prompts, captions, VLM tags, Nari expands, WAN I2V beats, or ControlNet scene text for sexual content:
+
+## waijfu_alpha: description + sex act (best pattern)
+
+Canonical examples live in Invoke gallery metadata (not stripped):
+`D:\Invoke AI\outputs\images\*.png` → PNG chunk `invokeai_metadata` → `positive_prompt`.
+Mined cheat sheet: `D:\studio-agent\docs\invoke_nsfw_prompt_examples.md`.
+
+This checkpoint responds best to a **layered prompt**: quality/scene → style → **View** → vulgar pose sentence → sex-act tags. Not soft prose; not tag soup alone.
+
+**Layer order (from Invoke):**
+1. Quality / aesthetic (`masterpiece, best quality, … perfect eyes`)
+2. Scene / lighting / room
+3. Style (`anime++, bold outline, cel-shaded coloring`)
+4. Framing: `View from mans POV` (never “camera”)
+5. Character + vulgar action sentence
+6. Position + hole tags (`doggystyle, vaginal penetration` / `anal sex`)
+
+**Example (rear lookback / vaginal — from Invoke):**
+`… View from mans POV, solo focus, 1girl, Frieren, silver hair, naked, flushed cheeks, look of pleasure on her face, mouth open as she looks back over her shoulder at the man, on her hands and knees, legs slightly spread, man behind her shoving his cock in her pussy, man grabs her hips, doggystyle, vaginal penetration`
+
+**Swap the hole by swapping the act phrase + tag:**
+| Want | Use in the sentence + tags |
+|---|---|
+| Anal | `shoving his cock in her ass` / `fucks her in her ass` + `doggystyle, anal sex` / `anal penetration` |
+| Vaginal | `shoving his cock in her pussy` + `doggystyle, vaginal penetration` / `vaginal sex` |
+
+Same pose sentence + different hole/act language is enough to change which hole the penis is in.
+
+## Use vulgar, sexually explicit terms
+
+| Prefer (yes) | Avoid (no) |
+|---|---|
+| fingering her pussy | gently rubbing her clit / touching herself softly |
+| hand on pussy, fingers in pussy | intimate self-touch |
+| doggystyle, anal sex, anal penetration | rear entry, intimate rear play |
+| vaginal sex, vaginal penetration | soft “making love” |
+| deepthroat, facefuck | oral affection, taking him deeply |
+| pussy juice, wet pussy | arousal sheen (unless lighting-only) |
+| straddling cock, cowgirl, reverse cowgirl | riding affectionately |
+| missionary, mating press | face-to-face intimacy |
+| creampie / cum in pussy (only if asked) | vague “finish” |
+| **dildo** + type (see below) | sex toy / toy (vague; wrong shape) |
+
+## Toys: say dildo + type (not “sex toy”)
+
+- Prefer **`dildo`**, and **describe the type/shape/color/size** (e.g. `thick purple dildo`, `realistic flesh-colored dildo`, `long black dildo`, `horse dildo` if that’s the beat).
+- Never use vague **`sex toy`** — the model won’t know what to draw.
+- **`vibrator`** = only the **small wired bullet/wand-style vibrator**. Do **not** use “vibrator” as a generic word for insertable toys/dildos — you’ll get the little corded vibe, not a dildo.
+- Insertion language: `inserting a thick purple dildo into her pussy`, `fucking herself with a dildo`, `dildo in her ass` — same description + act pattern as cock scenes.
+
+## Framing: say “view”, never “camera”
+
+The word **camera** (and DSLR / lens / camcorder) often spawns props in the image.
+
+| Prefer | Avoid |
+|---|---|
+| side view, top view, from behind, from below | camera angle, low camera, camera looking up |
+| man's POV, POV, looking at viewer | camera POV, shot on camera |
+| looking back over her shoulder | camera over shoulder |
+
+Negatives when relevant: `camera, dslr, camcorder, lens, smartphone, selfie stick`.
+
+## Quality vs pose
+
+- Batch-1 / `01_tease_gold` = preferred **still quality** bar for game/story stills.
+- Pose-locked OpenPose+i2i may win composition but lose finish — use pose winners only when the beat needs that lock (e.g. WAN).
+
+## Fluids policy
+
+Do not invent cum / semen / aftersex / bukkake unless the user asked. Female wetness / pussy juice for tease beats is OK when the scene calls for it. Never label her climax as “female cum.”

@@ -26,10 +26,10 @@
       "id": "cha_hae_in",
       "display_name": "Cha Hae In",
       "aliases": [
-        "cha",
         "cha hae in",
-        "cha_hae",
+        "cha haein",
         "chahaein",
+        "cha_hae_in",
         "nb_cha_hae_in"
       ],
       "series": "solo_leveling",
@@ -95,6 +95,9 @@
       "display_name": "Flamme",
       "aliases": [
         "flamme",
+        "flame",
+        "flam",
+        "flama",
         "nb_flamme"
       ],
       "series": "frieren",
@@ -116,6 +119,12 @@
       "display_name": "Frieren",
       "aliases": [
         "frieren",
+        "frayer in",
+        "frayerin",
+        "freiren",
+        "free rin",
+        "ferry in",
+        "ferrien",
         "nb_frieren"
       ],
       "series": "frieren",
@@ -293,8 +302,18 @@
       "aliases": [
         "heejin",
         "heejin park",
+        "he jin",
+        "he-jin",
+        "he-jin park",
+        "he jin park",
         "hejin",
         "hejin park",
+        "hijin",
+        "hijin park",
+        "hijing",
+        "hijing park",
+        "hee jin",
+        "park hee jin",
         "nb_park_heejin",
         "park heejin",
         "park hejin",
@@ -320,7 +339,13 @@
       "aliases": [
         "nb_ubel",
         "ubel",
-        "\u00fcbel"
+        "ubele",
+        "oebel",
+        "oo bell",
+        "oo-bell",
+        "ubell",
+        "\u00fcbel",
+        "ubel frieren"
       ],
       "series": "frieren",
       "gender": "female",

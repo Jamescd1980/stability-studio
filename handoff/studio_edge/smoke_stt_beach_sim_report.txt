@@ -1,0 +1,35 @@
+OK  cast:character is a frayer in
+OK  cast:Change character to Ferry.
+OK  cast:free rin on the beach
+OK  cast:make firm on the beach
+OK  cast:character named Firm
+OK  cast:ubele night beach
+OK  cast:will you see actual character on the bea
+OK  cast:o bell standing on the beach
+OK  cast:flame from frieren
+OK  cast:flamme beach night
+OK  cast:Park He-jin on the beach
+OK  cast:hijing park night beach
+OK  no_gina_original
+OK  no_cha_on_change
+OK  same_scene_not_swap
+OK  fuck_you_myra
+OK  brief_start
+OK  brief_frieren
+OK  brief_gold
+OK  cloth:same pose and scene, red dre
+OK  cloth:same pose and scene, black b
+OK  cloth:same pose and scene, make he
+OK  cloth:same pose and scene, white r
+OK  swap_seed:frieren
+OK  swap_seed:fern
+OK  swap_seed:flamme
+OK  swap_seed:ubel
+OK  recreate_reject_0000
+OK  recreate_wrong
+OK  recreate_31
+OK  recreate_locks_gold
+OK  detect_gold
+OK  abort_named
+
+FAILS 0

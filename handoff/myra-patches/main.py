@@ -10,6 +10,7 @@ import time
 
 from . import audio as audio_mod
 from . import generate as gen_mod
+from . import image_brief
 from . import intents as intents_mod
 from . import notes as notes_mod
 from . import pose_capture
@@ -43,12 +44,23 @@ _FOLLOW_UP_END_RE = re.compile(
     r")\s*[.!?]?\s*$",
     re.I,
 )
+# "Fuck you" / "Fuck you Myra" / "Fuck you, Nari" (any short name)
+_HARD_ABORT_RE = re.compile(
+    r"\b(?:fuck\s+you(?:\s*,?\s*[A-Za-z][A-Za-z']{0,20})?|"
+    r"fuck\s+this|fuck\s+off|screw\s+(?:this|you)|"
+    r"shut\s+(?:the\s+fuck\s+)?up|kill\s+it|abort|"
+    r"god\s*damn\s+it|stop\s+everything|stop\s+all)\b",
+    re.I,
+)
 # Hailo/Whisper noise labels — do not send to the gofor LLM.
 _FOLLOW_UP_NOISE_RE = re.compile(
     r"^\s*(?:"
     r"\[?\s*blank[_\s-]?audio\s*\]?"
     r"|\[?\s*silence\s*\]?"
     r"|\[?\s*inaudible\s*\]?"
+    r"|\[?\s*music\s*\]?"
+    r"|\[?\s*noise\s*\]?"
+    r"|\[?\s*coughing\s*\]?"
     r"|\([^)]*\)"
     r")\s*$",
     re.I,
@@ -98,10 +110,11 @@ def build(cfg: dict):
         narrate_pause_period_s=float(narrate.get("pause_period_s", 0.45)),
         narrate_pause_comma_s=float(narrate.get("pause_comma_s", 0.22)),
         narrate_pause_paragraph_s=float(narrate.get("pause_paragraph_s", 0.70)),
-        # Kokoro af_heart = warm/friendly; alts: af_sky (softer), af_bella, af_kore
+        # Package B: myra af_bella / nari af_aoede / orla af_kore
         reply_engine=str(tts_cfg.get("reply_engine", "narrate")),
-        reply_voice=str(tts_cfg.get("reply_voice", "af_heart")),
+        reply_voice=str(tts_cfg.get("reply_voice", "af_bella")),
         reply_speed=float(tts_cfg.get("reply_speed", 0.88)),
+        reply_voices=dict(tts_cfg.get("reply_voices") or {}),
         pronounce=dict(tts_cfg.get("pronounce") or {"Orla": "Orluh", "orla": "Orluh"}),
     )
     jan = JanBrain(
@@ -117,7 +130,8 @@ def build(cfg: dict):
         cfg=cfg,
     )
     myra = None
-    if local_cfg.get("enabled", True):
+    # Thin edge: gofor optional/off — room tools + Nari/Orla sessions instead.
+    if local_cfg.get("enabled", False):
         myra = LocalBrain(
             base_url=local_cfg.get("base_url", "http://127.0.0.1:11434/v1"),
             model=local_cfg.get("model", "myra-gofor"),
@@ -163,7 +177,40 @@ def handle(
         return "Got it, I wrote that down."
 
     if intent.kind == "generate":
-        return gen_mod.generate(jan, intent.text, cfg)
+        # Legacy one-shot — prefer brief; still allow direct generate if already packed
+        return gen_mod.generate(jan, intent.text, cfg, require_scene=True, scene_hint=intent.text)
+
+    if intent.kind == "image_brief":
+        if image_brief.is_active():
+            return image_brief.feed(intent.raw or intent.text, jan, cfg)
+        return image_brief.start(intent.raw or intent.text)
+
+    if intent.kind == "recreate":
+        # Never clobber an open brief with a fresh start mid-interview
+        if image_brief.is_active():
+            return image_brief.feed(intent.raw or intent.text, jan, cfg)
+        return image_brief.start(intent.raw or intent.text, mode="recreate")
+
+    if intent.kind == "cast_swap":
+        if image_brief.is_active():
+            return image_brief.feed(intent.raw or intent.text, jan, cfg)
+        return image_brief.start(intent.raw or intent.text, mode="cast_swap")
+
+    if intent.kind == "cast_batch":
+        if image_brief.is_active():
+            return image_brief.feed(intent.raw or intent.text, jan, cfg)
+        return image_brief.start(intent.raw or intent.text, mode="cast_batch")
+
+    if intent.kind == "brief_answer":
+        return image_brief.feed(intent.raw or intent.text, jan, cfg)
+
+    if intent.kind == "web_lookup":
+        return room_tools.run_tool(
+            "web_search",
+            {"query": intent.text or intent.raw},
+            cfg,
+            jan,
+        )
 
     if intent.kind == "pose":
         if not cfg.get("pose", {}).get("enabled", False):
@@ -200,42 +247,108 @@ def handle(
         return room_tools.run_tool("read_aloud", {"query": intent.text}, cfg, jan)
 
     if intent.kind == "ask_jan":
-        return room_tools.run_tool(
-            "ask_jan", {"request": intent.text}, cfg, jan, orla_brain=orla
+        # Nari session on ComfyBox — full transcript, no Pi gofor middleman
+        req = (intent.text or intent.raw).strip()
+        try:
+            from . import agent_pulse as _pulse
+
+            _pulse.set_status("nari", "talking_to_myra", detail="Direct session")
+            _pulse.set_status("myra", "working", detail="Relay to Nari")
+        except Exception:
+            pass
+        reply = jan.ask(
+            "You are Nari. Myra is only the room mic. "
+            "Answer in 1 to 3 short spoken sentences. "
+            f"Request: {req}"
         )
+        try:
+            from . import agent_pulse as _pulse
+
+            _pulse.set_status("nari", "ready", detail="")
+        except Exception:
+            pass
+        return reply
 
     if intent.kind == "ask_orla":
-        return room_tools.run_tool(
+        try:
+            from . import agent_pulse as _pulse
+
+            _pulse.set_status("orla", "talking_to_myra", detail="Direct session")
+            _pulse.set_status("myra", "working", detail="Relay to Orla")
+        except Exception:
+            pass
+        reply = room_tools.run_tool(
             "ask_orla", {"request": intent.text}, cfg, jan, orla_brain=orla
         )
+        try:
+            from . import agent_pulse as _pulse
+
+            _pulse.set_status("orla", "ready", detail="")
+        except Exception:
+            pass
+        return reply
 
     if intent.kind == "search":
-        # Windows Jan MCP (Exa/fetch) via /v1/orchestrations
         return jan.ask(
-            "Use your web search / fetch MCP tools on this machine. "
-            "Answer in 1 to 3 short spoken sentences. "
+            "Answer in 1 to 3 short spoken sentences using what you know, "
+            "or say you need a web tool. "
             f"Request: {intent.raw}"
         )
 
     if intent.kind == "reference":
         q = (intent.text or intent.raw).strip()
         return jan.ask(
-            "Use your browser / fetch / search MCP tools to find reference images "
-            "for this subject. Save or describe useful refs, then confirm in one "
-            f"short spoken sentence. Subject: {q}"
+            "Help find reference direction for this subject in one short spoken sentence. "
+            f"Subject: {q}"
         )
 
-    # conversation — persona picks the brain
-    if intent.persona == "jan":
-        return jan.ask(intent.text)
+    # conversation — thin edge: Pi only relays; brains are Nari/Orla
+    if intent.persona in {"nari", "jan"}:
+        # Hey Nari wake → create brief or Nari chat (never Pi gofor)
+        if image_brief.wants_create_brief(intent.text) or any(
+            k in (intent.text or "").lower()
+            for k in ("image", "picture", "generate", "draw", "recreate", "cast")
+        ):
+            return image_brief.start(intent.raw or intent.text)
+        return jan.ask(
+            "You are Nari. Answer in 1 to 3 short spoken sentences. "
+            f"Request: {intent.text}"
+        )
+
+    if intent.persona == "orla":
+        # Hey Orla wake → polish/display brain on Windows
+        req = (intent.text or intent.raw).strip()
+        return room_tools.run_tool(
+            "ask_orla",
+            {"request": req or "What do you need?"},
+            cfg,
+            jan,
+            orla_brain=orla,
+        )
+
+    # Active image brief steals follow-up answers
+    if image_brief.is_active():
+        return image_brief.feed(intent.raw or intent.text, jan, cfg)
+
+    # Create phrases spoken to Hey Myra → hand off to Nari brief
+    if image_brief.wants_create_brief(intent.text) or any(
+        k in (intent.text or "").lower()
+        for k in ("make an image", "create an image", "generate", "recreate")
+    ):
+        return "Sending that to Nari. " + image_brief.start(intent.raw or intent.text)
 
     if myra is not None and myra.is_up():
         return myra.ask(intent.text, cfg, jan_brain=jan, orla_brain=orla)
 
-    # Local gofor down: fall back to Nari so the room still answers
-    log = logging.getLogger("studio_edge")
-    log.warning("Myra gofor unavailable; falling back to Nari for conversation.")
-    return jan.ask(intent.text)
+    # Gofor off: polite room fallback — hand deep asks to Nari
+    low = (intent.text or "").lower()
+    if any(k in low for k in ("why", "how", "explain", "tell me about", "what do you think")):
+        return jan.ask(intent.text)
+    return (
+        "I can do time, weather, notes, timers, look-ups, and the display. "
+        "For images, say make an image or Hey Nari. "
+        "For display polish, ask Orla."
+    )
 
 
 def _follow_up_cfg(cfg: dict) -> dict:
@@ -247,7 +360,10 @@ def should_open_follow_up(reply: str, intent: intents_mod.Intent, cfg: dict) -> 
     fu = _follow_up_cfg(cfg)
     if not fu.get("enabled", True):
         return False
-    # Display / notes / image jobs: go straight back to wake (avoids hang on re-wake).
+    # Keep mic open only while a brief is still active.
+    if image_brief.is_active():
+        return True
+    # Display / notes / finished image jobs: back to wake.
     if intent.kind in {
         "screensaver_on",
         "screensaver_off",
@@ -255,10 +371,16 @@ def should_open_follow_up(reply: str, intent: intents_mod.Intent, cfg: dict) -> 
         "hide_display",
         "note",
         "generate",
-        "ask_jan",
         "ask_orla",
+        "ask_jan",
         "pose",
         "reference",
+        "web_lookup",
+        "image_brief",
+        "brief_answer",
+        "recreate",
+        "cast_swap",
+        "cast_batch",
     }:
         return False
     mode = str(fu.get("mode", "always")).lower()
@@ -287,8 +409,19 @@ def _speak_reply(
         if not chapter_stem:
             chapter_stem = room_tools.last_read_stem
         myra.last_tts_quality = "piper"
-    log.info("TTS quality=%s chapter_stem=%r intent=%s", quality, chapter_stem, intent.kind)
-    tts.speak(reply, quality=quality, chapter_stem=chapter_stem)
+    log.info(
+        "TTS quality=%s chapter_stem=%r intent=%s persona=%s",
+        quality,
+        chapter_stem,
+        intent.kind,
+        intent.persona,
+    )
+    tts.speak(
+        reply,
+        quality=quality,
+        chapter_stem=chapter_stem,
+        persona=intent.persona,
+    )
     room_tools.last_read_stem = ""
 
 
@@ -308,9 +441,14 @@ def run_follow_up_turns(
     """Listen for short follow-ups without a new wake word."""
     fu = _follow_up_cfg(cfg)
     max_turns = max(0, int(fu.get("max_turns", 3)))
+    # Image brief needs more slot answers without re-wake
+    if image_brief.is_active():
+        max_turns = max(max_turns, 6)
     if max_turns <= 0:
         return
     window_s = float(fu.get("window_s", 12))
+    if image_brief.is_active():
+        window_s = max(window_s, 12.0)
     silence_s = float(
         fu.get("silence_timeout_s", cfg.get("audio", {}).get("silence_timeout_s", 1.2))
     )
@@ -346,9 +484,18 @@ def run_follow_up_turns(
             log.info("Follow-up silence (peak=%d) — back to wake word", peak)
             return
         if _FOLLOW_UP_NOISE_RE.match(text):
-            log.info("Follow-up noise/blank %r — back to wake word", text)
+            log.info("Follow-up noise/blank %r — ignore, keep listening", text)
+            continue
+        if _HARD_ABORT_RE.search(text):
+            log.warning("Hard abort from follow-up: %r", text)
+            reply = image_brief.hard_abort(cfg)
+            tts.speak(reply, persona=persona)
             return
-        if _FOLLOW_UP_END_RE.match(text):
+        if image_brief.consume_abort():
+            log.warning("Abort latch set — ending follow-up")
+            return
+        # Bare "no" ends follow-up only when no image brief is open
+        if _FOLLOW_UP_END_RE.match(text) and not image_brief.is_active():
             log.info("Follow-up ended by user: %r", text)
             return
         if _FOLLOW_UP_WAKE_ECHO_RE.match(text):
@@ -357,6 +504,15 @@ def run_follow_up_turns(
             continue
 
         intent = intents_mod.classify(text, persona=persona)
+        # Image brief must own follow-up answers (was falling through as conversation
+        # or restarting as cast_swap on "same scene…").
+        if image_brief.is_active() and intent.kind in {
+            "conversation", "ask_jan", "generate", "image_brief",
+            "recreate", "cast_swap", "cast_batch",
+        }:
+            intent = intents_mod.Intent(
+                "brief_answer", text, text, persona=persona
+            )
         log.info(
             "Follow-up intent=%s persona=%s payload=%r",
             intent.kind,
@@ -364,17 +520,20 @@ def run_follow_up_turns(
             intent.text,
         )
         fast = intent.kind in {
-            "note", "weather", "headlines", "datetime",
+            "note", "weather", "headlines", "datetime", "web_lookup",
             "screensaver_on", "screensaver_off",
             "comfybox_status", "hide_display",
+            "brief_answer", "image_brief",
         }
         if tts_ack and not skip_ack and not fast and tts_phrases:
-            tts.speak(random.choice(tts_phrases))
+            tts.speak(random.choice(tts_phrases), persona=persona)
 
         reply = handle(intent, cfg, jan, myra, orla)
         if not reply:
             return
         _speak_reply(reply, intent, cfg, tts, myra, log)
+        if image_brief.consume_abort() or _HARD_ABORT_RE.search(text):
+            return
 
 
 def main() -> int:
@@ -394,9 +553,13 @@ def main() -> int:
     tts_phrases = tts_cfg.get("thinking_phrases") or [
         "One sec.", "Let me think.", "Searching.", "On it.",
     ]
+    ww_cfg = cfg.get("wakeword") or {}
     greetings = {
-        "myra": (cfg.get("wakeword") or {}).get("greet_myra", "Myra here."),
-        "jan": (cfg.get("wakeword") or {}).get("greet_jan", "Jan here."),
+        "myra": ww_cfg.get("greet_myra", "Myra here."),
+        "nari": ww_cfg.get("greet_nari", "Nari here."),
+        "orla": ww_cfg.get("greet_orla", "Orla here."),
+        # Legacy alias if an old hey_jan.onnx is still present
+        "jan": ww_cfg.get("greet_nari", ww_cfg.get("greet_jan", "Nari here.")),
     }
 
     if not jan.is_up():
@@ -406,8 +569,7 @@ def main() -> int:
         )
     if myra is not None and not myra.is_up():
         log.warning(
-            "Myra gofor not reachable at %s — create myra-gofor on Pi Ollama. "
-            "Conversation will fall back to Nari.",
+            "Optional Myra gofor not reachable at %s (thin edge works without it).",
             myra.base_url,
         )
     if orla is not None and not orla.is_up():
@@ -427,8 +589,17 @@ def main() -> int:
     signal.signal(signal.SIGTERM, _stop)
 
     log.info(
-        "Studio Edge ready. Hey Myra = gofor; Hey Jan = Nari; ask_orla = Windows polish."
+        "Studio Edge ready (thin edge). Hey Myra=room; Hey Nari=create; "
+        "Hey Orla=display/polish; Pi=wake/STT/TTS only; gofor=%s.",
+        "on" if myra is not None else "off",
     )
+    try:
+        from . import agent_pulse
+
+        agent_pulse.start(cfg)
+        agent_pulse.set_status("myra", "listening", detail="Wake word")
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Agent pulse skipped: %s", exc)
     try:
         from . import display as display_mod
 
@@ -438,16 +609,23 @@ def main() -> int:
     try:
         from . import timers as timers_mod
 
-        timers_mod.start_watcher(cfg, lambda msg: tts.speak(msg))
+        timers_mod.start_watcher(cfg, lambda msg: tts.speak(msg, persona="myra"))
         log.info("Timer watcher started")
     except Exception as exc:  # noqa: BLE001
         log.warning("Timer watcher skipped: %s", exc)
-    tts.speak("Myra, Nari, and Orla are listening.")
+    tts.speak("Myra, Nari, and Orla are listening.", persona="myra")
 
     while running["go"]:
         try:
+            try:
+                from . import agent_pulse as _pulse
+
+                _pulse.set_status("myra", "listening", detail="Wake word")
+            except Exception:
+                pass
             fired = ww.wait()
             persona = resolve_persona(fired, cfg)
+            tts.set_persona(persona)
             log.info("Persona=%s (wake=%s)", persona, fired)
             if ack:
                 audio_mod.beep(
@@ -457,8 +635,20 @@ def main() -> int:
             # Short spoken identity so you know who answered
             greet = greetings.get(persona)
             if greet:
-                tts.speak(greet)
+                try:
+                    from . import agent_pulse as _pulse
 
+                    _pulse.set_status("myra", "talking", detail="Greeting")
+                except Exception:
+                    pass
+                tts.speak(greet, persona=persona)
+
+            try:
+                from . import agent_pulse as _pulse
+
+                _pulse.set_status("myra", "hearing", detail="Listening for command")
+            except Exception:
+                pass
             audio = audio_mod.record_until_silence(
                 sample_rate=cfg.get("audio", {}).get("sample_rate", 16000),
                 silence_timeout_s=cfg.get("audio", {}).get("silence_timeout_s", 1.2),
@@ -471,27 +661,81 @@ def main() -> int:
             if not text:
                 if peak < 200:
                     log.warning("Captured near-silence (peak=%d) - mic muted/unplugged?", peak)
-                    tts.speak("I can't hear your microphone. Check it isn't muted.")
+                    tts.speak(
+                        "I can't hear your microphone. Check it isn't muted.",
+                        persona=persona,
+                    )
                 else:
-                    tts.speak("Sorry, I didn't catch that.")
+                    tts.speak("Sorry, I didn't catch that.", persona=persona)
+                continue
+
+            if _HARD_ABORT_RE.search(text):
+                log.warning("Hard abort from wake turn: %r", text)
+                reply = image_brief.hard_abort(cfg)
+                tts.speak(reply, persona=persona)
                 continue
 
             intent = intents_mod.classify(text, persona=persona)
+            # Active image brief steals soft intents so slot answers don't need Hey Nari.
+            if image_brief.is_active() and intent.kind in {
+                "conversation", "ask_jan", "generate", "image_brief",
+                "recreate", "cast_swap", "cast_batch",
+            }:
+                intent = intents_mod.Intent(
+                    "brief_answer", text, text, persona=persona
+                )
             log.info("Intent=%s persona=%s payload=%r", intent.kind, intent.persona, intent.text)
 
             # Instant local shortcuts skip the thinking filler
             fast = intent.kind in {
-                "note", "weather", "headlines", "datetime",
+                "note", "weather", "headlines", "datetime", "web_lookup",
                 "screensaver_on", "screensaver_off",
                 "comfybox_status", "hide_display",
+                "image_brief", "brief_answer", "recreate", "cast_swap", "cast_batch",
             }
             # Timers/notes via tools are also local-fast when the model calls them.
             if tts_ack and not fast and tts_phrases:
-                tts.speak(random.choice(tts_phrases))
+                try:
+                    from . import agent_pulse as _pulse
+
+                    _pulse.set_status("myra", "thinking", detail=intent.kind)
+                except Exception:
+                    pass
+                tts.speak(random.choice(tts_phrases), persona=persona)
+
+            try:
+                from . import agent_pulse as _pulse
+
+                if intent.kind in {
+                    "ask_jan", "generate", "image_brief", "brief_answer",
+                    "recreate", "cast_swap", "cast_batch",
+                }:
+                    _pulse.set_status("nari", "talking_to_myra", detail="Create session")
+                    _pulse.set_status("myra", "working", detail="Route to Nari")
+                elif intent.kind == "ask_orla":
+                    _pulse.set_status("orla", "talking_to_myra", detail="Request from Myra")
+                    _pulse.set_status("myra", "working", detail="Ask Orla")
+                else:
+                    _pulse.set_status("myra", "working", detail=intent.kind)
+            except Exception:
+                pass
 
             reply = handle(intent, cfg, jan, myra, orla)
             if reply:
+                try:
+                    from . import agent_pulse as _pulse
+
+                    _pulse.set_status("myra", "talking", detail="Reply")
+                except Exception:
+                    pass
                 _speak_reply(reply, intent, cfg, tts, myra, log)
+                try:
+                    from . import agent_pulse as _pulse
+
+                    _pulse.set_status("nari", "ready", detail="")
+                    _pulse.set_status("orla", "ready", detail="")
+                except Exception:
+                    pass
                 if should_open_follow_up(reply, intent, cfg):
                     run_follow_up_turns(
                         persona=persona,
@@ -507,6 +751,12 @@ def main() -> int:
                     )
         except Exception as exc:  # noqa: BLE001 - keep the loop alive
             log.exception("Loop error: %s", exc)
+            try:
+                from . import agent_pulse as _pulse
+
+                _pulse.set_status("myra", "error", detail=type(exc).__name__, ok=False)
+            except Exception:
+                pass
             # Mic busy / wrong device: don't spam TTS — two processes often cause this.
             try:
                 import sounddevice as sd  # noqa: WPS433
@@ -520,7 +770,10 @@ def main() -> int:
             try:
                 now = time.time()
                 if now - error_state["last_spoken"] > 60:
-                    tts.speak("Something went wrong, but I'm still here.")
+                    tts.speak(
+                        "Something went wrong, but I'm still here.",
+                        persona="myra",
+                    )
                     error_state["last_spoken"] = now
             except Exception:
                 pass

@@ -29,33 +29,29 @@ orla:
     say so plainly.'
   phonetic_out_dir: D:\studio-agent\orla-phonetic
   kokoro_url: http://127.0.0.1:8090
-# Room Gofor — small uncensored model on the Pi (tools execute on the Pi).
+# Room Gofor — OFF by default (thin Myra edge). Pi uses fast intents + Nari/Orla.
+# Re-enable only for optional chitchat after idle warmups are solid.
 local_llm:
-  enabled: true
+  enabled: false
   base_url: http://127.0.0.1:11434/v1
   api_key: ollama
   model: myra-gofor
   history_turns: 4
   tools_enabled: true
-  request_timeout_s: 180
-  system_prompt: 'You are Myra, the room gofor on a Raspberry Pi. Keep answers short for
-    text-to-speech: 1 to 3 plain sentences. No markdown, bullets, emoji, or code. You own weather,
-    headlines, date and time, timers, notes, web look-ups, reading aloud, and the ultrawide display.
-    Use set_timer for remind me in N minutes. Use add_note for write this down. For create, refine,
-    Forge, clip, Wan, or Comfy work use ask_nari. For open, display, upscale, RIFE, interp, Kokoro
-    prep, or rewrite a chapter phonetically for read back use ask_orla. Plain read chapter stays
-    local read_aloud. Thermostat, calendar, lights, traffic, and packages are not live yet — call
-    the stub tool if asked. Prefer tools over guessing. Never invent the time. After a short answer
-    you may offer more with one clear question ending in a question mark.
-
+  request_timeout_s: 60
+  system_prompt: 'You are Myra, thin room edge on a Raspberry Pi. Keep answers short.
+    Prefer tools. Never run create/image jobs yourself — that is Nari.
     '
+# Image brief follow-ups should stay open (mode offers still works when reply has ?).
+follow_up_brief:
+  force_open: true
 # After Myra/Nari speaks, keep listening briefly — no new wake word needed.
 follow_up:
   enabled: true
-  # offers = only when reply asks a question / offers more (safer than always)
+  # offers = when reply asks a question; image_brief also forces open in main.py
   mode: offers
-  window_s: 10
-  max_turns: 2
+  window_s: 12
+  max_turns: 4
   silence_timeout_s: 1.5
   max_utterance_s: 15
   skip_thinking_ack: true
@@ -123,17 +119,23 @@ audio:
   max_utterance_s: 30
 wakeword:
   threshold: 0.5
+  # Pi = wake + STT + TTS only. Thinking: Nari (create) / Orla (polish).
+  # Train hey_nari / hey_orla on ComfyBox: handoff/wake-train/train_hey_nari_orla.sh
   persona_map:
     myra: myra
     mira: myra
-    jan: jan
+    nari: nari
+    orla: orla
+    orluh: orla
   default_persona: myra
   greet_myra: Myra here.
-  greet_jan: Nari here.
+  greet_nari: Nari here.
+  greet_orla: Orla here.
   ack_sound: true
   models:
   - ~/openwakeword-models/hey_myra.onnx
-  - ~/openwakeword-models/hey_jan.onnx
+  - ~/openwakeword-models/hey_nari.onnx
+  - ~/openwakeword-models/hey_orla.onnx
 stt:
   backend: hailo
   language: en
@@ -167,8 +169,14 @@ tts:
     pause_paragraph_s: 0.7
     timeout_s: 300
   reply_engine: narrate
+  # Package B — Warm studio (fallback if persona missing)
   reply_voice: af_bella
   reply_speed: 0.88
+  reply_voices:
+    myra: af_bella
+    nari: af_aoede
+    jan: af_aoede   # legacy wake alias → Nari
+    orla: af_kore
   # Spoken form — Orla ≈ "or" + "lu" from luck (drop the ck): Orluh
   pronounce:
     Orla: Orluh
@@ -176,17 +184,26 @@ tts:
 generation:
   route: comfyui
   comfyui_url: http://192.168.50.57:8188
-  default_checkpoint: waiIllustriousSDXL_v160.safetensors
-  # Used when cast preferred_style=waijfu (falls back to default_checkpoint if missing).
-  waijfu_checkpoint: waiIllustriousSDXL_v160.safetensors
+  # studio_agent_00009 / recreate_003 is the house default unless you ask another style
+  default_checkpoint: waijfu_alpha.safetensors
+  waijfu_checkpoint: waijfu_alpha.safetensors
+  gold_checkpoint: waijfu_alpha.safetensors
+  img2img_denoise: 0.48
+  recreate_denoise: 0.42
+  # Cast swap / pose-lock: openpose (hard) or img2img
+  cast_swap_mode: openpose
+  openpose_controlnet: OpenPoseXL2.safetensors
+  openpose_strength: 0.85
+  cast_swap_img2img_denoise: 0.58
   default_negative: lowres, bad anatomy, worst quality, watermark, signature
   expand_prompt: true
   # Pull finished stills into Windows D:\ComfyBox Images and Videos\Images via Orla.
   deliver_to_orla: true
   width: 832
-  height: 1216
-  steps: 28
-  cfg: 6.0
+  height: 1472
+  steps: 36
+  cfg: 6.5
+  quality_default: gold_standard
   timeout_s: 300
 pose:
   enabled: true

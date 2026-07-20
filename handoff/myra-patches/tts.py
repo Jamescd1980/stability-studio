@@ -321,10 +321,11 @@ class Speaker:
         narrate_pause_period_s: float = 0.45,
         narrate_pause_comma_s: float = 0.22,
         narrate_pause_paragraph_s: float = 0.70,
-        # Short Myra replies: "narrate" = Kokoro (warmer), "piper" = on-device.
+        # Short replies: "narrate" = Kokoro (warmer), "piper" = on-device.
         reply_engine: str = "narrate",
         reply_voice: str = "af_heart",
         reply_speed: float = 0.88,
+        reply_voices: dict[str, str] | None = None,
         pronounce: dict[str, str] | None = None,
     ) -> None:
         self.speed = speed
@@ -344,7 +345,13 @@ class Speaker:
         self.reply_engine = (reply_engine or "piper").strip().lower()
         self.reply_voice = reply_voice or "af_heart"
         self.reply_speed = float(reply_speed)
+        self.reply_voices = {
+            str(k).lower(): str(v)
+            for k, v in (reply_voices or {}).items()
+            if k and v
+        }
         self.pronounce = dict(pronounce or {})
+        self._active_persona = "myra"
         self.piper = _find_piper()
         if not self.piper:
             log.warning("piper executable not found (pip install piper-tts in the venv)")
@@ -353,8 +360,31 @@ class Speaker:
         if not self.model_path.exists():
             log.warning("Piper voice not found at %s (run 03-download-models.sh)", self.model_path)
 
-    def speak(self, text: str, *, quality: str = "piper", chapter_stem: str = "") -> None:
+    def set_persona(self, persona: str | None) -> None:
+        """Remember who is speaking for subsequent speak() calls."""
+        p = (persona or "myra").strip().lower() or "myra"
+        if p == "jan":
+            p = "nari"
+        self._active_persona = p
+
+    def voice_for(self, persona: str | None = None) -> str:
+        """Kokoro reply voice for persona (package map → reply_voice fallback)."""
+        p = (persona or self._active_persona or "myra").strip().lower() or "myra"
+        if p == "jan":
+            p = "nari"
+        return self.reply_voices.get(p) or self.reply_voice
+
+    def speak(
+        self,
+        text: str,
+        *,
+        quality: str = "piper",
+        chapter_stem: str = "",
+        persona: str | None = None,
+    ) -> None:
         """Speak text. quality=piper (default) or narrate (Kokoro on studio box)."""
+        if persona is not None:
+            self.set_persona(persona)
         # Book prose defaults leftover "read" → red; short assistant cues → reed.
         default_read = "red" if quality == "narrate" else "reed"
         text = clean_for_speech(
@@ -387,10 +417,11 @@ class Speaker:
             and self.reply_engine == "narrate"
             and self.narrate_url
         ):
-            # Warmer Kokoro voice for everyday Myra replies (greetings, weather, chat).
+            use_voice = self.voice_for(persona)
+            log.info("Kokoro reply persona=%s voice=%s", self._active_persona, use_voice)
             if self._speak_narrate(
                 text,
-                voice=self.reply_voice,
+                voice=use_voice,
                 speed=self.reply_speed,
                 # Short replies: lighter punctuation pauses than book narration.
                 pause_period_s=min(self.narrate_pause_period_s, 0.32),

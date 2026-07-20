@@ -45,7 +45,38 @@ def _load() -> tuple[list[dict], list[dict]]:
 
 
 def _norm(s: str) -> str:
-    return re.sub(r"[^a-z0-9]+", " ", (s or "").lower()).strip()
+    # Collapse hyphens/underscores/spaces so He-jin == heejin-ish matching via aliases
+    t = (s or "").lower().replace("ü", "u").replace("Ü", "u")
+    t = re.sub(r"[^a-z0-9]+", " ", t)
+    return re.sub(r"\s+", " ", t).strip()
+
+
+def characters_for_show(show_id: str, *, gender: str | None = None) -> list[str]:
+    """Ordered character ids for a show (for cast_batch)."""
+    chars, shows = _load()
+    sid = (show_id or "").strip().lower().replace(" ", "_")
+    show = None
+    for s in shows:
+        if str(s.get("id", "")).lower() == sid:
+            show = s
+            break
+        aliases = [_norm(a) for a in (s.get("aliases") or [])]
+        if _norm(sid) in aliases or _norm(s.get("id", "")) == _norm(sid):
+            show = s
+            break
+    if not show:
+        show = match_show(show_id or "", shows)
+    if not show:
+        return []
+    out: list[str] = []
+    for cid in show.get("characters") or []:
+        ch = _char_by_id(chars, str(cid))
+        if not ch:
+            continue
+        if gender and ch.get("gender") and ch.get("gender") != gender:
+            continue
+        out.append(str(ch["id"]))
+    return out
 
 
 def _char_by_id(chars: list[dict], cid: str) -> dict | None:
@@ -56,6 +87,11 @@ def _char_by_id(chars: list[dict], cid: str) -> dict | None:
 
 
 def match_character(text: str, chars: list[dict] | None = None) -> dict | None:
+    """Match a known cast name with word-boundary safety.
+
+    Avoids fatal false hits like alias ``cha`` matching ``character``/``change``,
+    or ``gina`` matching inside ``original``.
+    """
     if chars is None:
         chars, _ = _load()
     low = _norm(text)
@@ -70,10 +106,32 @@ def match_character(text: str, chars: list[dict] | None = None) -> dict | None:
             nn = _norm(str(n))
             if not nn:
                 continue
-            if nn == low or f" {nn} " in f" {low} " or low.endswith(nn) or low.startswith(nn):
-                if len(nn) > best_len:
-                    best = c
-                    best_len = len(nn)
+            # Require at least 4 chars, or a multi-token name (e.g. "han semi")
+            tokens = nn.split()
+            if len(nn.replace(" ", "")) < 4 and len(tokens) < 2:
+                continue
+            # "Flamme from frieren" — do not pick the show title as the character
+            if re.search(rf"\bfrom\s+{re.escape(nn)}\b", low):
+                continue
+            hit = False
+            if nn == low:
+                hit = True
+            elif f" {nn} " in f" {low} ":
+                hit = True
+            elif len(tokens) >= 2 and low.endswith(f" {nn}"):
+                # "... named Cha Hae In"
+                hit = True
+            elif len(tokens) >= 2 and low.startswith(f"{nn} "):
+                hit = True
+            else:
+                # Contiguous compact match only for longer ids (nb_frieren, parkheejin)
+                nc = nn.replace(" ", "")
+                compact = low.replace(" ", "")
+                if len(nc) >= 7 and nc in compact:
+                    hit = True
+            if hit and len(nn) > best_len:
+                best = c
+                best_len = len(nn)
     return best
 
 
@@ -106,9 +164,13 @@ def resolve_cast(request: str) -> dict[str, Any]:
     text = (request or "").strip()
     low = text.lower()
     wants_random = bool(_RANDOM_RE.search(low))
+    # Bare "from" is too broad ("recreate from studio_agent_00031") — require cast phrasing
     from_show_phrasing = bool(
-        re.search(r"\bfrom\b", low)
-        or re.search(r"\b(?:someone|somebody|anybody|anyone)\s+from\b", low)
+        re.search(
+            r"\b(?:character|someone|somebody|anybody|anyone|girl|boy|woman|man)\s+from\b",
+            low,
+        )
+        or re.search(r"\bfrom\s+(?:the\s+)?(?:show|series|anime)\b", low)
     )
     gender = None
     if _FEMALE_RE.search(low) and not _MALE_RE.search(low):
@@ -179,9 +241,15 @@ def resolve_cast(request: str) -> dict[str, Any]:
     return {"ok": True, "character": None, "mode": "scene_only"}
 
 
-def directive_for_nari(request: str, resolved: dict[str, Any]) -> str:
+def directive_for_nari(
+    request: str,
+    resolved: dict[str, Any],
+    *,
+    locks: list[str] | None = None,
+) -> str:
     """Lock cast tokens so Nari cannot drop the character."""
     ch = resolved.get("character")
+    locks = locks or []
     if not ch:
         return request
     helpers = (ch.get("caption_helpers") or "").strip()
@@ -189,9 +257,21 @@ def directive_for_nari(request: str, resolved: dict[str, Any]) -> str:
         f"Character={ch['display_name']}",
         f"trigger={ch.get('trigger')}",
         f"Keep trigger token `{ch.get('trigger')}` in the positive prompt.",
+        "Do not invent a different character. Do not ask questions.",
     ]
+    if "pose" in locks:
+        parts.append("LOCK pose from the stage-one reference — do not change pose.")
+    if "scene" in locks:
+        parts.append("LOCK scene/setting from the stage-one reference — do not change background.")
     if helpers:
         parts.append(f"look_tags={helpers}")
+    parts.append(
+        "waijfu_alpha: write a short vulgar scene description PLUS sex-act tags "
+        "(e.g. on her hands and knees, looking back over her shoulder, a man behind "
+        "her holding her hips while he fucks her in her ass, doggystyle, anal sex). "
+        "Hole swap: anal sex/anal penetration vs vaginal sex/vaginal penetration. "
+        "Framing: side view / man's POV — never say camera."
+    )
     parts.append(f"Scene request: {request}")
     return " ".join(parts)
 

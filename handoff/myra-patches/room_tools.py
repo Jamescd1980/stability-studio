@@ -857,9 +857,14 @@ def run_tool(name: str, arguments: dict, cfg: dict, jan_brain, orla_brain=None) 
                 for k in ("last image", "the image", "send", "display", "show", "open", "over to")
             )
         ):
-            return gen_mod.generate(jan_brain, request, cfg)
+            # Thin edge: guided brief instead of skinny one-shot through gofor
+            from . import image_brief
+
+            if image_brief.is_active():
+                return image_brief.feed(request, jan_brain, cfg)
+            return image_brief.start(request)
         return jan_brain.ask(
-            "The user spoke to Myra (gofor) and asked you (Nari) to help. "
+            "You are Nari. Myra only relayed this request. "
             f"Request: {request}. "
             "Reply in one to three short spoken sentences. No markdown."
         )
@@ -871,6 +876,12 @@ def run_tool(name: str, arguments: dict, cfg: dict, jan_brain, orla_brain=None) 
         orla_cfg = cfg.get("orla") or {}
         if not orla_cfg.get("enabled", True):
             return "Orla is turned off in my config."
+        try:
+            from . import agent_pulse
+
+            agent_pulse.set_status("orla", "working", detail=request[:80])
+        except Exception:
+            pass
         low = request.lower()
         tools_url = str(orla_cfg.get("tools_url") or "http://192.168.50.42:11436")
         action_bits: list[str] = []
@@ -976,6 +987,7 @@ def run_tool(name: str, arguments: dict, cfg: dict, jan_brain, orla_brain=None) 
             action_bits.append(
                 "Upscale and interp tools are queued for Orla next — not fully wired yet."
             )
+        reply = ""
         if orla_brain is not None:
             try:
                 chat = orla_brain.ask(
@@ -987,12 +999,25 @@ def run_tool(name: str, arguments: dict, cfg: dict, jan_brain, orla_brain=None) 
                 log.warning("Orla chat failed: %s", exc)
                 chat = ""
             if chat and action_bits:
-                return f"{' '.join(action_bits)} {chat}"
-            if chat:
-                return chat
-        if action_bits:
-            return " ".join(action_bits)
-        return "Orla isn't reachable right now. Is Ollama running on the main PC?"
+                reply = f"{' '.join(action_bits)} {chat}"
+            elif chat:
+                reply = chat
+        if not reply and action_bits:
+            reply = " ".join(action_bits)
+        if not reply:
+            reply = "Orla isn't reachable right now. Is Ollama running on the main PC?"
+        try:
+            from . import agent_pulse
+
+            agent_pulse.set_status(
+                "orla",
+                "ready" if "isn't reachable" not in reply else "error",
+                detail="",
+                ok="isn't reachable" not in reply,
+            )
+        except Exception:
+            pass
+        return reply
 
     if name == "enable_screensaver":
         from . import display as display_mod
