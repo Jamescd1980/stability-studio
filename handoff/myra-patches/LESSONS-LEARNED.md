@@ -67,3 +67,9 @@ scp handoff/myra-patches/config.yaml myra:~/studio-edge/config.yaml
 ssh myra 'bash ~/studio-edge/restart_edge.sh'
 # restart Orla tools after orla_tools.py changes
 ```
+
+## Git / private repo
+
+- Local commit on main: 96d6f60.
+- Full history push to private failed (missing object 42c9b806…).
+- Orphan snapshot pushed: private/studio-edge-lessons-2026-07-19 (4702a79).
