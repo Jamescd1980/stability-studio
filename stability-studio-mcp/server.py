@@ -30,9 +30,11 @@ from studio.config import catalog_path, load_config
 from studio.engine import GenerationEngine
 from studio.model_scanner import scan_checkpoints, scan_loras, suggest_styles_from_models
 from studio.wan_assets import check_all_video_assets, download_missing
+from studio.hunyuan_assets import check_all_hunyuan_assets, download_missing as download_hunyuan_missing
 from studio.wan_video_loras import (
     check_wan_video_loras as _check_wan_video_loras_status,
     download_wan_video_loras as _fetch_wan_video_loras,
+    suggest_wan_action_lora as _suggest_wan_action_lora,
 )
 from studio.nsfw_image_loras import (
     NSFW_IMAGE_LORA_BUNDLES,
@@ -119,7 +121,16 @@ from studio.kokoro_client import (
 )
 from studio.video_post import (
     interpolate_video as _interpolate_video,
+    polish_wan_best as _polish_wan_best,
     polish_wan_video as _polish_wan_video,
+)
+from studio.wan_preflight import (
+    check_ebsynth as _check_ebsynth,
+    check_wan_prompt as _check_wan_prompt,
+    extract_chain_lastframe as _extract_chain_lastframe,
+    gate_i2v_clip as _gate_i2v_clip,
+    plan_wan_beat as _plan_wan_beat,
+    recommend_polish as _recommend_polish,
 )
 from studio.video_upscale import (
     check_local_post as _check_local_post,
@@ -182,26 +193,45 @@ mcp = FastMCP(
         "Aliases work: 'illustrious'→anime, 'fantasyprime'→fantasy_prime, 'ragnarok'→juggernaut. "
         "Pass checkpoint= to override. For video: call check_comfyui_dependencies(workflow_id) first; "
         "if missing nodes, call install_comfyui_dependencies then restart ComfyUI on the generation host. "
-        "Use generate_video(mode=t2v|i2v|v2v, workflow_id=t2v|i2v_5b|i2v_5b_painter|v2v_5b|v2v_5b_painter|i2v|i2v_gpu) — short ids only. "
+        "Use generate_video(mode=t2v|i2v|v2v, workflow_id=t2v|i2v_5b|i2v_5b_painter|v2v_5b|v2v_5b_painter|i2v|flf2v|i2v_gpu) — short ids only. "
         "Default I2V: i2v_5b (Wan 2.2 TI2V-5B, often censored). User asks for 14B / NSFW motion → "
         "generate_video(mode=i2v, workflow_id=i2v) = Wan 2.2 I2V-A14B MoE HIGH+LOW — NOT generate_video_hero, NOT i2v_5b. "
+        "FLF2V: workflow_id=flf2v + image_path + end_image_path; prefer ~21f for hard contact / dual-face. "
         "Never map '14B' to Wan2GP / generate_video_hero. "
-        "I2V identity: short motion-only prompts; do not re-describe the still; gate first-frame vs source still. "
+        "I2V identity: short motion-only prompts; do not re-describe the still; gate_i2v_clip after gen. "
         "No i2v_5b_painter / PainterI2V when the user needs face/body lock (BJ, portraits) — use workflow_id=i2v. "
         "MoE LoRAs: stack HIGH on high expert + LOW on low expert (Lightning pair + at most one action pair). "
-        "Bundles: female_orgasm, lightning_i2v, orgasm_lightning. Never orgasm HIGH alone on i2v. "
+        "Bundles: female_orgasm, lightning_i2v, orgasm_lightning, oral_insertion, missionary_sex, pov_insertion, doggy_sex, facial_cum. "
+        "Never orgasm HIGH alone on i2v. Keepers: moe_preset=quality (default) or omit; draft=True / moe_preset=fast = Lightning only. "
+        "Wan action-LoRA checklist (REQUIRED before NSFW I2V keepers): "
+        "(1) plan_wan_beat / resolve_wan_action_loras(prompt=…, beat_hint=oral|doggy|…) — pick the action bundle; "
+        "(2) check_wan_prompt(prompt=…); "
+        "(3) if ready=false → download_wan_video_loras(bundle=…); "
+        "(4) generate_video(..., lora_bundle=<id>, moe_preset=quality); "
+        "(5) gate_i2v_clip → human keep → extract_chain_lastframe only if chaining. "
+        "Map: BJ/bob/deepthroat→oral_insertion; doggy→doggy_sex; tip→bury→pov_insertion; "
+        "already-in thrusts→missionary_sex; facial shoot→facial_cum. "
+        "Do not generate hard contact / head-bob / insertion from prompt alone when a bundle exists. "
+        "Polish: recommend_polish first; Saloon dim keepers prefer polish_wan_best(skip_interpolate=true) SeedVR-only. "
+        "check_ebsynth before claiming EBSynth restore. "
         "Wan NSFW: never prompt full penis exit; partial withdraw only; negate deflating/disappearing shaft. "
         "Never prompt female 'cum' — use orgasm/squirting/juices. One Comfy job at a time; free VRAM between heavy runs. "
         "If ok=false do not claim success; after success, verify identity vs source still. "
         "workflow_id=i2v_5b_painter or use_painter_i2v=true for PainterI2V motion (5B path only). "
-        "Optional Wan video LoRAs: check_wan_video_loras / download_wan_video_loras(bundle=female_orgasm|lightning_i2v|smooth_character). "
-        "Pass lora_ids or lora_bundle to generate_video. Call check_wan_assets / download_wan_assets for base models. "
+        "Optional Wan video LoRAs: resolve_wan_action_loras / check_wan_video_loras / download_wan_video_loras(bundle=…). "
+        "generate_video: lora_ids / lora_bundle / lora_weights={id:w} and/or loras=[{file,weight,branch}]; "
+        "moe_preset=quality|fast; draft=True for Lightning probes. "
+        "motion_amplitude is PainterI2V-only (5B) — ignored on MoE i2v. "
+        "smooth_motion=true → quality MoE + may inject smooth_character (face+camera), not a motion smoother. "
+        "Call check_wan_assets / download_wan_assets for Wan base models. "
+        "HunyuanVideo 1.5: check_hunyuan_assets / download_hunyuan_assets (assets only; generate_video routing TBD). "
         "Audio (MOSS-TTS): check_moss_assets → download_moss_assets → generate_audio(mode=speech|sound_effect|voice_design). "
         "Kokoro book TTS (CPU :8090): check_kokoro_backend → generate_speech_kokoro — no GPU lock (AUDIO-KOKORO.md). "
-        "Labor split: ComfyBox (7900 XT) = GPU diffusion (generate_image, Forge refine, Wan video); "
+        "Labor split: LinuxBox/ComfyBox (RTX 5090 CUDA) = GPU diffusion (generate_image, Forge refine, Wan video); "
         "main rig (7900X + 5060 Ti) = CPU-heavy work + local polish (ffmpeg/splice/interp, file ops, "
         "polish_wan_video / AnimeSharp). Generate on ComfyBox; polish and package locally. "
-        "Post-clip (main rig 5060 Ti / 7900X, not Jan): check_local_post → "
+        "Post-clip (main rig 5060 Ti / 7900X, not Jan): check_local_post → recommend_polish → "
+        "polish_wan_best (Saloon: skip_interpolate SeedVR-only; else RIFE→SeedVR2) or "
         "interpolate_video → upscale_video_local / polish_wan_video; "
         "splice via concat_video_clips / splice_pingpong / splice_pose_matched_loop / "
         "splice_crossfade_loop. Generate Wan on comfybox; polish locally. "
@@ -261,6 +291,111 @@ def _parse_lora_ids_arg(value: Any = None) -> list[str] | None:
                 return _parse_lora_ids_arg(parsed)
         return [part.strip() for part in text.split(",") if part.strip()] or None
     return [str(value).strip()] if str(value).strip() else None
+
+
+def _parse_lora_weights_arg(value: Any = None) -> dict[str, float] | None:
+    """Accept dict or JSON object of catalog_id → weight (split HIGH/LOW)."""
+    if value is None or value == "" or value == {}:
+        return None
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        try:
+            value = json.loads(text)
+        except json.JSONDecodeError:
+            return None
+    if not isinstance(value, dict):
+        return None
+    out: dict[str, float] = {}
+    for key, raw in value.items():
+        kid = str(key).strip().lower()
+        if not kid:
+            continue
+        try:
+            out[kid] = float(raw)
+        except (TypeError, ValueError):
+            continue
+    return out or None
+
+
+def _parse_video_loras_arg(value: Any = None) -> list[dict[str, Any]] | None:
+    """Accept list[{file|id, weight, branch}] or JSON string — MoE pass-through."""
+    if value is None or value == "" or value == []:
+        return None
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        try:
+            value = json.loads(text)
+        except json.JSONDecodeError:
+            return None
+    if not isinstance(value, list):
+        return None
+    out: list[dict[str, Any]] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        file_name = str(item.get("file") or item.get("name") or "").strip()
+        lid = str(item.get("id") or "").strip()
+        if not file_name and lid:
+            try:
+                from studio.wan_video_loras import resolve_lora_entry
+
+                entry = resolve_lora_entry(lid)
+                file_name = str(entry["filename"])
+                lid = str(entry["id"])
+                branch = str(item.get("branch") or entry.get("branch") or "both")
+                weight = float(item.get("weight", entry.get("default_weight", 0.6)))
+            except Exception:
+                continue
+        else:
+            branch = str(item.get("branch") or "").strip() or "both"
+            try:
+                weight = float(item.get("weight", 0.6))
+            except (TypeError, ValueError):
+                weight = 0.6
+        if not file_name:
+            continue
+        row: dict[str, Any] = {"file": file_name, "weight": weight, "branch": branch.lower()}
+        if lid:
+            row["id"] = lid
+        out.append(row)
+    return out or None
+
+
+def _resolve_generate_video_loras(
+    *,
+    lora_ids: list[str] | None,
+    lora_bundle: str,
+    lora_weights: dict[str, float] | None,
+    loras: list[dict[str, Any]] | None,
+) -> list[dict[str, Any]] | None:
+    """Merge catalog ids/bundle (+ optional weights) with explicit loras= pass-through."""
+    from studio.wan_video_loras import resolve_lora_list
+
+    catalog: list[dict[str, Any]] = []
+    if lora_ids or lora_bundle or lora_weights:
+        catalog = resolve_lora_list(lora_ids, bundle=lora_bundle or "", weights=lora_weights)
+    custom = loras or []
+    if not catalog and not custom:
+        return None
+    if not custom:
+        return catalog
+    if not catalog:
+        return custom
+    # Catalog first; custom entries override same filename / id.
+    by_key: dict[str, dict[str, Any]] = {}
+    order: list[str] = []
+    for item in catalog + custom:
+        key = str(item.get("id") or item.get("file") or "").lower()
+        if not key:
+            continue
+        if key not in by_key:
+            order.append(key)
+        by_key[key] = item
+    return [by_key[k] for k in order]
 
 
 def _delivery_project_root(project_dir: str = "") -> Path | None:
@@ -452,15 +587,201 @@ def download_wan_assets(
 
 
 @mcp.tool()
-def check_wan_video_loras(lora_ids: str | list[str] = "") -> str:
+def check_hunyuan_assets(workflow_id: str = "") -> str:
     """
-    Check optional Wan 2.2 video LoRAs (motion, face, lighting, camera).
+    Check installed vs missing models for HunyuanVideo 1.5 workflows (T2V / I2V / optional SR).
+
+    Assets only — generate_video routing not wired yet; use ComfyUI template workflows until then.
 
     Args:
-        lora_ids: Catalog id(s): comma-separated string or list (e.g. face_naturalizer). Empty = all.
+        workflow_id: Catalog id (hunyuan_t2v, hunyuan_i2v, hunyuan_sr). Empty = all workflows + routing note.
+    """
+    if workflow_id:
+        from studio.hunyuan_assets import check_workflow_assets
+
+        return json.dumps(check_workflow_assets(_cfg, workflow_id), indent=2)
+    return json.dumps(check_all_hunyuan_assets(_cfg), indent=2)
+
+
+@mcp.tool()
+def download_hunyuan_assets(
+    workflow_id: str = "hunyuan_t2v",
+    include_large: bool = False,
+    include_optional: bool = False,
+    force: bool = False,
+) -> str:
+    """
+    Download missing HunyuanVideo 1.5 models from Hugging Face into Stability Matrix folders.
+
+    Args:
+        workflow_id: hunyuan_t2v (default), hunyuan_i2v, hunyuan_sr (optional 1080p SR).
+        include_large: If true, also download multi-GB diffusion / text encoder files.
+        include_optional: If true, also download optional assets (e.g. hunyuan_sr 1080p model).
+        force: Re-download even when files exist.
+    """
+    results = download_hunyuan_missing(
+        _cfg,
+        workflow_id,
+        include_large=include_large,
+        include_optional=include_optional,
+        force=force,
+    )
+    summary = check_all_hunyuan_assets(_cfg)
+    return json.dumps({"downloads": results, "summary": summary["summary"]}, indent=2)
+
+
+@mcp.tool()
+def check_wan_video_loras(lora_ids: str | list[str] = "") -> str:
+    """
+    Check optional Wan 2.2 video LoRAs (motion, face, lighting, camera, action pairs).
+
+    Prefer resolve_wan_action_loras(prompt=…) first on NSFW beats — it returns the
+    checklist + recommended bundle, then use this tool / download_wan_video_loras to
+    confirm files are on disk before generate_video.
+
+    Args:
+        lora_ids: Catalog id(s): comma-separated string or list (e.g. face_naturalizer,
+            oral_insertion_i2v_high). Empty = all.
     """
     ids = _parse_lora_ids_arg(lora_ids)
     return json.dumps(_check_wan_video_loras_status(_cfg, ids), indent=2)
+
+
+@mcp.tool()
+def resolve_wan_action_loras(prompt: str = "", beat_hint: str = "") -> str:
+    """
+    Preflight checklist: pick the correct Wan MoE *action* LoRA bundle for a beat.
+
+    Call this BEFORE generate_video for NSFW sex/oral/doggy/insert keepers. Returns
+    recommended lora_bundle, install ready/missing, and the agent checklist.
+
+    Beat map: oral/BJ/bob/deepthroat → oral_insertion; doggy → doggy_sex;
+    tip→bury → pov_insertion; already-in thrusts → missionary_sex; facial → facial_cum.
+
+    Args:
+        prompt: Planned I2V motion prompt (short).
+        beat_hint: Optional override — free text or bundle id
+            (oral_insertion|doggy_sex|pov_insertion|missionary_sex|facial_cum).
+    """
+    return json.dumps(
+        _suggest_wan_action_lora(prompt or "", beat_hint=beat_hint or "", cfg=_cfg),
+        indent=2,
+    )
+
+
+@mcp.tool()
+def check_ebsynth() -> str:
+    """Verify jamriska ebsynth.exe is installed (real PatchMatch, not OpenCV paste)."""
+    return json.dumps(_check_ebsynth(), indent=2)
+
+
+@mcp.tool()
+def check_wan_prompt(
+    prompt: str,
+    negative_prompt: str = "",
+    framing: str = "",
+    beat_hint: str = "",
+) -> str:
+    """
+    Hygiene scan for Wan I2V prompts (camera words, multi-verb, female cum, full exit,
+    head-still traps, eye/mouth tags on rear views). Fix high issues before keepers.
+    """
+    return json.dumps(
+        _check_wan_prompt(
+            prompt,
+            negative_prompt=negative_prompt or "",
+            framing=framing or "",
+            beat_hint=beat_hint or "",
+        ),
+        indent=2,
+    )
+
+
+@mcp.tool()
+def plan_wan_beat(
+    beat_hint: str = "",
+    still_notes: str = "",
+    prompt: str = "",
+    hard_contact: bool = False,
+    dual_face: bool = False,
+) -> str:
+    """
+    Map tip-vs-already-in / pose family → LoRA bundle + frames + one-verb template.
+    Call before generate_video for NSFW action keepers (with resolve_wan_action_loras).
+    """
+    return json.dumps(
+        _plan_wan_beat(
+            beat_hint=beat_hint or "",
+            still_notes=still_notes or "",
+            prompt=prompt or "",
+            hard_contact=hard_contact,
+            dual_face=dual_face,
+            cfg=_cfg,
+        ),
+        indent=2,
+    )
+
+
+@mcp.tool()
+def gate_i2v_clip(
+    video_path: str,
+    start_image_path: str = "",
+    work_dir: str = "",
+) -> str:
+    """
+    Gate f0 / mid / last vs optional start still. Fail → do not chain; diagnose first.
+    Human still approves keepers even when pass_candidate.
+    """
+    return json.dumps(
+        _gate_i2v_clip(
+            video_path,
+            start_image_path=start_image_path or "",
+            work_dir=work_dir or "",
+        ),
+        indent=2,
+    )
+
+
+@mcp.tool()
+def extract_chain_lastframe(
+    video_path: str,
+    output_path: str = "",
+    start_image_path: str = "",
+) -> str:
+    """
+    Extract last frame for I2V chaining + usability vs f0/start.
+    Only chain after human keep + usable_for_chain true.
+    """
+    return json.dumps(
+        _extract_chain_lastframe(
+            video_path,
+            output_path=output_path or "",
+            start_image_path=start_image_path or "",
+        ),
+        indent=2,
+    )
+
+
+@mcp.tool()
+def recommend_polish(
+    video_path: str = "",
+    eyes_melted: bool = False,
+    already_looks_good: bool = False,
+    user_prefers_no_rife: bool = True,
+) -> str:
+    """
+    Advise polish path. Saloon default: SeedVR-only @16fps (no RIFE).
+    Skip polish if eyes melted or master already good.
+    """
+    return json.dumps(
+        _recommend_polish(
+            video_path or "",
+            eyes_melted=eyes_melted,
+            already_looks_good=already_looks_good,
+            user_prefers_no_rife=user_prefers_no_rife,
+        ),
+        indent=2,
+    )
 
 
 @mcp.tool()
@@ -474,7 +795,7 @@ def download_wan_video_loras(
 
     Args:
         lora_ids: Catalog id(s): comma-separated string or list. Empty = all (or bundle only if set).
-        bundle: smooth_character | walk_cycle | cinematic_church | motion_boost (merges with lora_ids).
+        bundle: oral_insertion | missionary_sex | pov_insertion | doggy_sex | facial_cum | female_orgasm | lightning_i2v | smooth_character | … (merges with lora_ids). Local-only entries skip HF.
         force: Re-download even when present.
     """
     ids = _parse_lora_ids_arg(lora_ids)
@@ -1165,6 +1486,41 @@ def get_action_combat_playbook(
 
 
 @mcp.tool()
+def get_blender_workflow_playbook() -> str:
+    """
+    Blender MCP on LinuxBox (5090) → pose/depth assets → generate_image_pose_guided.
+
+    Call before combat/pose stills when using Blender instead of OpenPose web editors.
+    Includes GPU exclusivity (Blender vs ComfyUI on the same RTX 5090).
+    """
+    from studio.blender_bridge import get_blender_workflow_playbook as _playbook
+
+    return json.dumps(_playbook(), indent=2)
+
+
+@mcp.tool()
+def register_blender_control_maps(
+    pose_path: str = "",
+    depth_path: str = "",
+    scene_id: str = "",
+) -> str:
+    """
+    Validate Blender-exported control maps on disk before pose-guided generation.
+
+    Args:
+        pose_path: Local path to OpenPose-style skeleton PNG (Windows delivery or UNC).
+        depth_path: Optional depth PNG from Blender.
+        scene_id: Optional id for suggested Game-drive asset naming.
+    """
+    from studio.blender_bridge import register_blender_control_maps as _reg
+
+    return json.dumps(
+        _reg(_cfg, pose_path=pose_path, depth_path=depth_path, scene_id=scene_id),
+        indent=2,
+    )
+
+
+@mcp.tool()
 def plan_image_edit(
     instruction: str,
     food_group: str = "",
@@ -1579,41 +1935,84 @@ def generate_video(
     workflow_id: str = "",
     content_rating: str = "open",
     image_path: str = "",
+    end_image_path: str = "",
     video_path: str = "",
     concat_source: bool = True,
     num_frames: int = 0,
     frame_rate: float = 0,
     lora_ids: str | list[str] = "",
     lora_bundle: str = "",
+    lora_weights: dict[str, float] | str | None = None,
+    loras: list[dict[str, Any]] | str | None = None,
     use_painter_i2v: bool = False,
     motion_amplitude: float = 1.15,
     smooth_motion: bool = False,
+    moe_preset: str = "",
+    draft: bool = False,
 ) -> str:
     """
     Generate video via ComfyUI (remote comfybox when configured).
 
     Routing: user asks for 14B / NSFW motion → workflow_id=i2v (Wan 2.2 MoE HIGH+LOW; keep ComfyUI running).
+    FLF2V (start+end keys): workflow_id=flf2v + image_path + end_image_path; prefer ~21f hard contact.
     Do NOT call generate_video_hero for 14B. Hero/Wan2GP is a separate tool. Do NOT use i2v_5b for uncensored NSFW.
+
+    Keepers (MoE i2v/flf2v): omit moe_preset or moe_preset=quality (no Lightning). draft=True or moe_preset=fast = Lightning probe only.
+    Action LoRAs: lora_bundle=oral_insertion|missionary_sex|pov_insertion|doggy_sex|facial_cum (or lora_ids),
+    or pass-through loras=[{file, weight, branch}] with branch high|low|both. Split weights via lora_weights or per-entry weight.
+
+    REQUIRED preflight for NSFW action beats: plan_wan_beat / resolve_wan_action_loras(prompt=…) →
+    check_wan_prompt → download if missing → pass lora_bundle=. Do not skip when a matching action pair exists
+    (BJ without oral_insertion is a known failure mode). After gen: gate_i2v_clip before chain.
 
     Args:
         prompt: Scene description.
         mode: t2v, i2v, or v2v (video extend from last frame).
         style: Optional image style for prompt prefix/negative defaults.
         negative_prompt: Override negative prompt for Wan text encode nodes.
-        workflow_id: Short catalog id: t2v, i2v_5b, i2v_5b_painter, v2v_5b, v2v_5b_painter, i2v, i2v_wan21_native, i2v_gpu. Empty = auto. Do NOT pass the .json filename. For Wan 14B use i2v (MoE).
+        workflow_id: Short catalog id: t2v, i2v_5b, i2v_5b_painter, v2v_5b, v2v_5b_painter, i2v, flf2v, i2v_wan21_native, i2v_gpu. Empty = auto. Do NOT pass the .json filename. For Wan 14B use i2v (MoE).
         content_rating: open (default) or sfw for optional safety negatives.
-        image_path: Required for i2v — exact local path from list_source_images (never invent D:\\Users\\...).
+        image_path: Required for i2v/flf2v — exact local path from list_source_images (never invent D:\\Users\\...).
+        end_image_path: Required for flf2v — last-frame key still.
         video_path: Required for v2v — local path to source clip to extend.
         concat_source: For v2v — append continuation to source clip (default true).
-        num_frames: Optional frame count override (e.g. 65 for ~4s at 16fps).
+        num_frames: Optional frame count override (e.g. 65 for ~4s at 16fps; flf2v default 21).
         frame_rate: Optional output fps override (e.g. 16).
-        lora_ids: Wan video LoRA id(s): comma-separated string or list (orgasm_i2v_high, …). MoE auto-pairs HIGH/LOW mates.
-        lora_bundle: female_orgasm | lightning_i2v | orgasm_lightning | smooth_character | … — merged with lora_ids.
+        lora_ids: Wan video LoRA id(s): comma-separated string or list (pov_insertion_i2v_high, …). MoE auto-pairs HIGH/LOW mates.
+        lora_bundle: female_orgasm | lightning_i2v | oral_insertion | missionary_sex | pov_insertion | doggy_sex | facial_cum | smooth_character | … — merged with lora_ids.
+        lora_weights: Optional {catalog_id: weight} for split HIGH/LOW (e.g. {"pov_insertion_i2v_high": 0.35, "pov_insertion_i2v_low": 1.0}).
+        loras: Optional pass-through [{file, weight, branch}] and/or {id, weight, branch} — same shape as GenerationEngine.generate_video.
         use_painter_i2v: Inject PainterI2V on 5B path only (or workflow_id=i2v_5b_painter). Ignored on MoE i2v.
-        motion_amplitude: PainterI2V strength 1.0–1.5 (default 1.15). Lower = subtler gait.
-        smooth_motion: For i2v/v2v — gentler preset; on MoE i2v switches to quality (no Lightning) preset.
+        motion_amplitude: PainterI2V strength 1.0–1.5 (default 1.15). MoE i2v gap: ignored on workflow_id=i2v — use prompt/amp discipline + action LoRAs instead.
+        smooth_motion: Gentler 5B Painter path; on MoE i2v forces quality (no Lightning). Surprise: may also inject lora_bundle=smooth_character (face_naturalizer+camera_steady) — not a motion-smooth LoRA.
+        moe_preset: quality|default (keepers, no Lightning) or fast (Lightning). Empty = engine default (quality unless draft/lightning bundle).
+        draft: True = Lightning fast preset probe only. Keepers: leave False.
     """
     ids = _parse_lora_ids_arg(lora_ids)
+    weights = _parse_lora_weights_arg(lora_weights)
+    custom_loras = _parse_video_loras_arg(loras)
+    resolved_loras = _resolve_generate_video_loras(
+        lora_ids=ids,
+        lora_bundle=lora_bundle or "",
+        lora_weights=weights,
+        loras=custom_loras,
+    )
+    # Soft preflight: NSFW action beat with no LoRAs → warn (still runs if agent insists).
+    lora_preflight = _suggest_wan_action_lora(prompt or "", cfg=_cfg)
+    has_loras = bool(resolved_loras) or bool(ids) or bool(lora_bundle) or bool(custom_loras)
+    preflight_warning = None
+    if (
+        (mode or "").lower() == "i2v"
+        and lora_preflight.get("recommended_bundle")
+        and not has_loras
+    ):
+        preflight_warning = (
+            f"Action LoRA checklist skipped: beat looks like "
+            f"{lora_preflight['recommended_bundle']!r} (matched {lora_preflight.get('matched_on')!r}) "
+            "but no lora_bundle/lora_ids/loras were passed. "
+            "Call resolve_wan_action_loras then re-run with lora_bundle=… "
+            "(prompt-only hard contact / bob / insertion often fails)."
+        )
     try:
         result = _engine.generate_video(
             prompt=prompt,
@@ -1623,20 +2022,34 @@ def generate_video(
             workflow_id=workflow_id or None,
             content_rating=content_rating or "open",
             image_path=image_path or None,
+            end_image_path=end_image_path or None,
             video_path=video_path or None,
             concat_source=concat_source,
             num_frames=num_frames or None,
             frame_rate=frame_rate or None,
-            lora_ids=ids,
-            lora_bundle=lora_bundle or "",
+            loras=resolved_loras,
+            lora_ids=None if resolved_loras is not None else ids,
+            lora_bundle="" if resolved_loras is not None else (lora_bundle or ""),
             use_painter_i2v=use_painter_i2v,
             motion_amplitude=motion_amplitude,
             smooth_motion=smooth_motion,
+            moe_preset=moe_preset or None,
+            draft=draft,
         )
+        if isinstance(result, dict) and preflight_warning:
+            result["lora_preflight_warning"] = preflight_warning
+            result["lora_preflight"] = {
+                "recommended_bundle": lora_preflight.get("recommended_bundle"),
+                "matched_on": lora_preflight.get("matched_on"),
+                "ready": lora_preflight.get("ready"),
+                "checklist": lora_preflight.get("checklist"),
+            }
         return json.dumps(result, indent=2)
     except Exception as exc:
         err = humanize_error(exc, context="generate_video")
         err["ok"] = False
+        if preflight_warning:
+            err["lora_preflight_warning"] = preflight_warning
         return json.dumps(err, indent=2)
 
 
@@ -2386,17 +2799,16 @@ def open_delivery_in_explorer(path: str = "") -> str:
 def interpolate_video(
     video_path: str,
     target_fps: float = 24.0,
-    method: str = "minterpolate",
+    method: str = "rife",
     crf: int = 18,
 ) -> str:
     """
-    Upsample clip frame rate with ffmpeg minterpolate (smoother delivery without a bigger Wan model).
-    Runs on the main rig CPU (7900X) — not comfybox.
+    Upsample clip frame rate on the main rig (not comfybox).
 
     Args:
         video_path: Source MP4/WebM path.
         target_fps: Output fps (default 24).
-        method: minterpolate only for now (ffmpeg mi_mode=mci).
+        method: rife (RIFE-ncnn-vulkan quality path, default) or minterpolate (ffmpeg MCI CPU).
         crf: libx264 quality (lower = larger/better; default 18).
     """
     try:
@@ -2418,8 +2830,8 @@ def interpolate_video(
 @mcp.tool()
 def check_local_post() -> str:
     """
-    Check main-rig Wan polish stack: CUDA .venv-post, 5060 Ti, RealESRGAN/AnimeSharp weights.
-    Generation stays on comfybox; use this before upscale_video_local / polish_wan_video.
+    Check main-rig Wan polish stack: .venv-post + AnimeSharp, RIFE-ncnn, SeedVR2 3B FP8.
+    Generation stays on comfybox; use before polish_wan_best / polish_wan_video.
     """
     return json.dumps(_check_local_post(_cfg), indent=2)
 
@@ -2461,9 +2873,11 @@ def polish_wan_video(
     skip_interpolate: bool = False,
     skip_upscale: bool = False,
     crf: int = 17,
+    interpolate_method: str = "minterpolate",
 ) -> str:
     """
-    Full main-rig polish: interpolate (16→24) then CUDA upscale. Use on a locked master cut.
+    Legacy/fast main-rig polish: interpolate then AnimeSharp CUDA upscale.
+    For best free quality use polish_wan_best (RIFE → SeedVR2) instead.
 
     Args:
         video_path: Final spliced Wan MP4.
@@ -2471,6 +2885,7 @@ def polish_wan_video(
         upscale_model: anime_sharp_2x or realesrgan_anime_4x.
         skip_interpolate / skip_upscale: run only one stage if needed.
         crf: encode quality.
+        interpolate_method: minterpolate (default legacy) or rife.
     """
     try:
         result = _polish_wan_video(
@@ -2481,10 +2896,54 @@ def polish_wan_video(
             skip_interpolate=skip_interpolate,
             skip_upscale=skip_upscale,
             crf=crf,
+            interpolate_method=interpolate_method,
         )
         return json.dumps(result, indent=2)
     except Exception as exc:
         err = humanize_error(exc, context="polish_wan_video")
+        err["ok"] = False
+        return json.dumps(err, indent=2)
+
+
+@mcp.tool()
+def polish_wan_best(
+    video_path: str,
+    target_fps: float = 24.0,
+    skip_interpolate: bool = False,
+    skip_upscale: bool = False,
+    crf: int = 17,
+    seedvr2_resolution: int = 1080,
+    seedvr2_batch_size: int = 5,
+    seedvr2_blocks_to_swap: int = 16,
+) -> str:
+    """
+    Best free main-rig polish for Wan: RIFE-ncnn → SeedVR2 3B FP8 (16GB-safe).
+    Use on a locked master cut only. One GPU job at a time.
+
+    Args:
+        video_path: Locked master MP4 (e.g. Saloon keeper).
+        target_fps: RIFE target fps (default 24).
+        skip_interpolate / skip_upscale: run one stage only.
+        crf: encode quality for RIFE re-encode.
+        seedvr2_resolution: short-side target (1080 default; try 1440 if VRAM allows).
+        seedvr2_batch_size: must be 4n+1 (5, 9, 13…).
+        seedvr2_blocks_to_swap: BlockSwap for 16GB (16 default; raise on OOM).
+    """
+    try:
+        result = _polish_wan_best(
+            _cfg,
+            video_path,
+            target_fps=target_fps,
+            skip_interpolate=skip_interpolate,
+            skip_upscale=skip_upscale,
+            crf=crf,
+            seedvr2_resolution=seedvr2_resolution,
+            seedvr2_batch_size=seedvr2_batch_size,
+            seedvr2_blocks_to_swap=seedvr2_blocks_to_swap,
+        )
+        return json.dumps(result, indent=2)
+    except Exception as exc:
+        err = humanize_error(exc, context="polish_wan_best")
         err["ok"] = False
         return json.dumps(err, indent=2)
 

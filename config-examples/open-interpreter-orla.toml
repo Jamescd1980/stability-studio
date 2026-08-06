@@ -1,0 +1,34 @@
+# Open Interpreter + Orla (local Ollama)
+# Desktop app: %APPDATA%/Interpreter/codex-home/config.toml
+# CLI: ~/.openinterpreter/config.toml
+#
+# Re-apply with: python ollama/orla/configure_open_interpreter.py
+# Restart Open Interpreter fully after editing.
+
+[model_providers.ollama]
+base_url = "http://127.0.0.1:11434/v1"
+name = "Ollama (Orla)"
+requires_openai_auth = false
+wire_api = "chat"
+
+# In [interpreter_app], set:
+#   default_profile_id = "custom:orla-ollama"
+# And include a profile like:
+# {
+#   baseURL = "http://127.0.0.1:11434/v1",
+#   codexProfileId = "ollama",
+#   id = "custom:orla-ollama",
+#   modelId = "orla:latest",          # LLM — chat, tools, MCP
+#   name = "Orla (Ollama LLM)",
+#   provider = "local",
+#   providerId = "builtin:local",
+#   useResponsesApi = false,
+#   visionModel = {                   # VLM — only when images attached
+#     baseURL = "http://127.0.0.1:11434/v1",
+#     modelId = "qwen2.5vl:7b",
+#     provider = "local"
+#   },
+#   wireApi = "chat"
+# }
+
+# Append MCP block from open-interpreter-mcp.toml (stability-studio).

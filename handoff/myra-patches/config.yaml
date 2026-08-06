@@ -77,6 +77,13 @@ room_tools:
     max_seconds: 86400
   notes:
     enabled: true
+  recording:
+    enabled: true
+    local_dir: ~/studio-recordings
+    sync_dir: ""
+    max_utterance_s: 60
+    silence_timeout_s: 2.0
+    post_announce_s: 0.45
   read_aloud:
     enabled: true
     books_dir: ~/studio-books
@@ -118,7 +125,7 @@ audio:
   silence_timeout_s: 2.0
   max_utterance_s: 30
 wakeword:
-  threshold: 0.5
+  threshold: 0.35
   # Pi = wake + STT + TTS only. Thinking: Nari (create) / Orla (polish).
   # Train hey_nari / hey_orla on ComfyBox: handoff/wake-train/train_hey_nari_orla.sh
   persona_map:

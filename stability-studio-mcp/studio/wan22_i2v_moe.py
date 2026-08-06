@@ -17,10 +17,10 @@ LOW_UNET = "I2V/Wan2_2-I2V-A14B-LOW_fp8_e4m3fn_scaled_KJ.safetensors"
 VAE_NAME = "wan_2.1_vae.safetensors"
 CLIP_NAME = "umt5_xxl_fp8_e4m3fn_scaled.safetensors"
 
-# Quality (no distill): matches BJ shaft-persistence runs.
+# Quality (no distill): extra steps for face/identity keepers (2026-07-31).
 PRESET_QUALITY: dict[str, Any] = {
-    "steps": 20,
-    "switch_step": 10,
+    "steps": 28,
+    "switch_step": 14,
     "cfg_high": 3.5,
     "cfg_low": 3.5,
     "shift": 8.0,
@@ -43,18 +43,17 @@ PRESET_FAST: dict[str, Any] = {
     "lightning_low_strength": 1.0,
 }
 
-# Balanced default for NSFW + soft-body: lightning for motion, enough steps for face.
+# Default = quality (no distill). Lightning is draft-only via preset "fast".
+# 2026-07-20: Lightning-as-default caused identity melt on chained NSFW I2V.
 PRESET_DEFAULT: dict[str, Any] = {
-    "steps": 12,
-    "switch_step": 6,
-    "cfg_high": 3.0,
-    "cfg_low": 1.5,
+    "steps": 28,
+    "switch_step": 14,
+    "cfg_high": 3.5,
+    "cfg_low": 3.5,
     "shift": 8.0,
     "sampler_name": "uni_pc",
     "scheduler": "simple",
-    "use_lightning": True,
-    "lightning_high_strength": 0.7,
-    "lightning_low_strength": 1.0,
+    "use_lightning": False,
 }
 
 LIGHTNING_HIGH = "wan2.2_i2v_A14b_high_noise_lora_rank64_lightx2v_4step_1022.safetensors"
@@ -114,7 +113,7 @@ def build_wan22_i2v_moe_api(
     use_lightning: bool | None = None,
     lightning_high: str = LIGHTNING_HIGH,
     lightning_low: str = LIGHTNING_LOW,
-    crf: int = 17,
+    crf: int = 14,
 ) -> dict[str, Any]:
     """Build a ComfyUI API-format prompt for Wan 2.2 I2V-A14B MoE."""
     p = dict(PRESETS.get(preset, PRESET_DEFAULT))

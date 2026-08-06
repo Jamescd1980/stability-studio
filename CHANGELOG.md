@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### ComfyBox CUDA 5090 + Blender MCP (2026-08-05)
+
+- **Stability Studio MCP surface ~91 → ~123 tools** (Hunyuan asset tools, Blender bridge, polish/Forge/NSFW expansions, etc.). Cursor “123 tools” = this server’s `@mcp.tool` count; Blender MCP is a **second** server if enabled.
+- LinuxBox: ROCm purged → **CUDA 12.8** ComfyUI `.venv`, `vram_gb: 32`, MoE I2V smoke on RTX 5090; scripts `comfybox_cuda_*.sh`, `comfybox_gpu_backend.sh`
+- HunyuanVideo 1.5: `check_hunyuan_assets` / `download_hunyuan_assets` + `studio/hunyuan_assets.py` (generate routing TBD)
+- Blender on 5090: [BLENDER-MCP.md](BLENDER-MCP.md), `studio/blender_bridge.py`, tools `get_blender_workflow_playbook` / `register_blender_control_maps`
+- Lessons: [LESSONS-COMFYBOX-CUDA.md](LESSONS-COMFYBOX-CUDA.md), [LESSONS-BLENDER-MCP.md](LESSONS-BLENDER-MCP.md)
+- Fix: restore `clear_installed_node_types_cache` in `studio/comfy_deps.py`
+
 ### MCP tools restored (2026-07-17)
 
 - Restored full MCP surface (**77 → 91 tools**): Kokoro, Forge, NSFW LoRAs, action combat, `interpolate_video`, `compile_image_prompt`

@@ -12,24 +12,27 @@ Logic lives in `stability-studio-mcp/studio/hardware_profile.py`.
 | Name | Where | Role |
 |------|-------|------|
 | **Myra** | Pi 5 (`myra` / `192.168.50.230`) | Voice + **Gofor** (`myra-gofor` on Pi Ollama) — sort/funnel, room tools |
-| **Nari** | ComfyBox `192.168.50.57` **8600G CPU** Ollama `:11434` | Create / Forge refine / Wan clip language brain |
-| **nari-prompt** | Same ComfyBox Ollama | Eric's Prompt Enhancers only |
+| **Nari** | LinuxBox/ComfyBox `192.168.50.57` **8600G CPU** Ollama `:11434` | Create / Forge refine / Wan clip language brain |
+| **nari-prompt** | Same LinuxBox Ollama | Eric's Prompt Enhancers only |
 | **Orla** | Windows main rig `192.168.50.42` **7900X CPU** Ollama `:11434` + tools `:11436` | Open/display, upscale, RIFE/interp, **Kokoro / phonetic chapter prep** |
-| **7900 XT** | ComfyBox dGPU | ComfyUI `:8188` / Forge `:7860` diffusion only |
+| **RTX 5090** | LinuxBox dGPU (CUDA) | ComfyUI `:8188` diffusion / Wan (32GB); **Blender MCP** `:9876` (exclusive vs Comfy) |
 | **5060 Ti** | Windows dGPU | Polish GPU jobs (not chat) |
 
 Voice path: **You → Myra (gofor) → ask_nari / ask_orla / local tools**.  
 Hey Jan wake still greets Nari (direct studio). Follow-up listen window skips re-wake.
 
-ComfyBox Ollama: `OLLAMA_NUM_GPU=0` so Nari does not steal 7900 XT VRAM.  
+LinuxBox Ollama: `OLLAMA_NUM_GPU=0` so Nari does not steal 5090 VRAM.  
+SSH: `ssh Linuxbox` (alias `comfybox`) → `192.168.50.57`.  
+Blender MCP: [BLENDER-MCP.md](BLENDER-MCP.md) — Blender on LinuxBox 5090, Cursor `BLENDER_HOST=192.168.50.57:9876`; `~/bin/gpu_backend.sh blender|comfy` for exclusivity.  
+CUDA migration lessons: [LESSONS-COMFYBOX-CUDA.md](LESSONS-COMFYBOX-CUDA.md). Blender lessons: [LESSONS-BLENDER-MCP.md](LESSONS-BLENDER-MCP.md).  
 Modelfiles: `ollama/nari/`, `ollama/myra-gofor/`, `ollama/orla/`.
 
 ### MCP source of truth
 
 - **Windows** `D:\studio-agent\stability-studio-mcp` is the main MCP repo (Cursor/Jan).
-- **ComfyBox** `/mnt/game/studio-agent/stability-studio-mcp` is a **one-way mirror** for backup.
+- **LinuxBox** `/mnt/game/studio-agent/stability-studio-mcp` is a **one-way mirror** for backup.
 - Sync after catalog/code changes: `py -3 scripts/sync_mcp_to_comfybox.py` (writes `SYNCED_FROM_WINDOWS.txt`).
-- Do **not** edit catalog only on ComfyBox.
+- Do **not** edit catalog only on LinuxBox.
 - Voice cast: Myra uses local `handoff/myra-patches/cast/` lists (export via `scripts/general/export_cast_lists.py`); Nari expands scene after IDs are locked.
 
 | Brain | LAN |
@@ -40,7 +43,7 @@ Modelfiles: `ollama/nari/`, `ollama/myra-gofor/`, `ollama/orla/`.
 
 Eric node: `ollama` → `http://127.0.0.1:11434` → `model_name=nari-prompt`
 
-Rule of thumb: **gofor on Pi, generate on the 7900 XT (Nari), polish/display on Windows (Orla).**  
+Rule of thumb: **gofor on Pi, generate on the RTX 5090 (Nari/LinuxBox), polish/display on Windows (Orla).**  
 `get_generation_context` returns `labor_split` with the generation/polish policy.
 
 ## Config overrides (`config.yaml`)

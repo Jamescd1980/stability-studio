@@ -135,6 +135,33 @@ model_families:
       - "Optional LoRAs: check_wan_video_loras / download_wan_video_loras (studio/wan_video_loras.py)"
       - "PainterI2V motion: workflow_id=i2v_5b_painter or use_painter_i2v=true — install_painter_i2v_dependencies first"
 
+  hunyuan_video_15:
+    label: "HunyuanVideo 1.5 (T2V / I2V)"
+    workflow: ui_json_converted
+    prompt_style: "Natural language; Qwen2.5-VL + ByT5 glyph encoder (ComfyUI HunyuanVideo nodes)"
+    note: "Assets via check_hunyuan_assets / download_hunyuan_assets (hunyuan_assets.py). generate_video routing TBD — use ComfyUI template workflows until wired."
+    requires:
+      - role: workflow_json
+        folder: workflows
+        note: "Comfy-Org/workflow_templates — not yet wired in MCP engine"
+      - role: diffusion_model
+        folder: diffusion_models
+      - role: text_encoder
+        folder: text_encoders
+        default: qwen_2.5_vl_7b_fp8_scaled.safetensors
+      - role: glyph_encoder
+        folder: text_encoders
+        default: byt5_small_glyphxl_fp16.safetensors
+      - role: vae
+        folder: vae
+        default: hunyuanvideo15_vae_fp16.safetensors
+    setup_notes:
+      - "Call check_hunyuan_assets(workflow_id=hunyuan_t2v|hunyuan_i2v) before first run"
+      - "RTX 5090 / 32 GB recommended for 720p; store on Game drive (LinuxBox /mnt/game/...)"
+      - "Optional 1080p SR: workflow_id=hunyuan_sr — hunyuanvideo1.5_1080p_sr_distilled_fp16.safetensors"
+      - "Distilled I2V/T2V variants on HF: *_cfg_distilled_fp16, *_step_distilled_fp16, 480p_*"
+    vram_hint_gb: "24–32 for 720p T2V/I2V"
+
 # Style lanes — Nari voice/prompt resolver (finer than food groups).
 # Voice pattern: medium + mood(+lighting) + cast axes + subject/action.
 # Example: "retro anime with cyber lighting of Esil in armor casting at a monster"
@@ -448,23 +475,28 @@ art_food_groups:
 
 # Trained cast LoRAs (Illustrious / waijfu). Pass via generate_image(loras=…).
 # Prefer resolve_character_loras(character=…) so triggers + eye LoRA are included.
+# Fern / Frieren / Darkness: drop-in *.safetensors is now id_v1 content (2026-07-27).
+# Canonical filenames also kept as Fern/Fern_id_v1.safetensors etc. (same bytes).
+# Agents may use Fern/Fern.safetensors OR Fern/Fern_id_v1.safetensors — prefer id_v1 path when explicit.
 # Epoch: final (e008) unsuffixed .safetensors for all Solo Leveling entries below.
 character_loras:
   fern:
-    file: Fern/Fern.safetensors
+    file: Fern/Fern_id_v1.safetensors
     weight: 0.8
     trigger: nb_fern
     preferred_style: waijfu
-    aliases: [nb_fern]
+    version: id_v1
+    aliases: [nb_fern, Fern/Fern.safetensors, Fern.safetensors]
     pair_with:
       - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
         weight: 0.8
   frieren:
-    file: Frieren/Frieren.safetensors
+    file: Frieren/Frieren_id_v1.safetensors
     weight: 0.8
     trigger: nb_frieren
     preferred_style: waijfu
-    aliases: [nb_frieren]
+    version: id_v1
+    aliases: [nb_frieren, Frieren/Frieren.safetensors, Frieren.safetensors]
     pair_with:
       - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
         weight: 0.8
@@ -483,6 +515,17 @@ character_loras:
     trigger: nb_flamme
     preferred_style: waijfu
     aliases: [nb_flamme]
+    pair_with:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.8
+  darkness:
+    file: Darkness/Darkness_id_v1.safetensors
+    weight: 0.8
+    trigger: nbk_darkness
+    preferred_style: waijfu
+    version: id_v1
+    aliases: [nbk_darkness, nb_darkness, darkness, Darkness/Darkness.safetensors, Darkness.safetensors]
+    caption_helpers: "1girl, blonde hair, long hair, blue eyes, large breasts"
     pair_with:
       - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
         weight: 0.8
@@ -1069,6 +1112,21 @@ video_workflows:
       installed; action LoRAs must be HIGH+LOW pairs (e.g. female_orgasm). Do not use i2v_5b
       for uncensored NSFW. Legacy single-UNET Wan 2.1: i2v_wan21_native.
 
+  flf2v:
+    description: "Wan 2.2 MoE First-Last-Frame (FLF2V) — start+end keys, short dual-face/hard contact"
+    file: "workflow-wan22-i2v-a14b-moe-comfyui-native.json"
+    api_builder: wan22_flf2v_moe
+    mode: i2v
+    prompt_nodes:
+      - type: "CLIPTextEncode"
+        role: positive
+      - type: "CLIPTextEncode"
+        role: negative
+    note: >
+      Same HIGH+LOW MoE as i2v but WanFirstLastFrameToVideo. Requires image_path (start)
+      + end_image_path (last key). Prefer num_frames=21 for dual-face / hard contact.
+      Quality MoE only for keepers; one verb. Not for multi-thrust 49f doggy.
+
   i2v_wan21_native:
     description: "Legacy Wan 2.1 single-UNET 14B I2V (native ComfyUI — prefer i2v MoE)"
     file: "workflow-wan21-i2v-14b-comfyui-native.json"
@@ -1100,3 +1158,24 @@ video_workflows:
     file: "workflow-wan21-v2v-upscale-rife.json"
     mode: v2v
     note: "ComfyUI-Frame-Interpolation (RIFE VFI) may be missing on the generation host — install if needed."
+
+  hunyuan_t2v:
+    description: "HunyuanVideo 1.5 720p text-to-video (ComfyUI native — assets only)"
+    note: >
+      Assets via check_hunyuan_assets / download_hunyuan_assets. generate_video routing TBD —
+      use ComfyUI template workflows (Comfy-Org/workflow_templates) until engine wiring lands.
+      Base UNET: hunyuanvideo1.5_720p_t2v_fp16.safetensors.
+
+  hunyuan_i2v:
+    description: "HunyuanVideo 1.5 720p image-to-video (ComfyUI native — assets only)"
+    mode: i2v
+    note: >
+      Assets via check_hunyuan_assets / download_hunyuan_assets. generate_video routing TBD —
+      use ComfyUI template workflows until wired. Base UNET: hunyuanvideo1.5_720p_i2v_fp16.safetensors.
+      Distilled variants on HF when probing speed: hunyuanvideo1.5_720p_i2v_cfg_distilled_fp16.
+
+  hunyuan_sr:
+    description: "HunyuanVideo 1.5 optional 1080p super-resolution (distilled)"
+    note: >
+      Optional second pass — hunyuanvideo1.5_1080p_sr_distilled_fp16.safetensors. Not required for
+      base T2V/I2V. Assets via check_hunyuan_assets(workflow_id=hunyuan_sr).

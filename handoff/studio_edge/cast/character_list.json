@@ -79,7 +79,7 @@
       "series": "frieren",
       "gender": "female",
       "trigger": "nb_fern",
-      "file": "Fern/Fern.safetensors",
+      "file": "Fern/Fern_id_v1.safetensors",
       "weight": 0.8,
       "preferred_style": "waijfu",
       "pair_with": [
@@ -130,7 +130,7 @@
       "series": "frieren",
       "gender": "female",
       "trigger": "nb_frieren",
-      "file": "Frieren/Frieren.safetensors",
+      "file": "Frieren/Frieren_id_v1.safetensors",
       "weight": 0.8,
       "preferred_style": "waijfu",
       "pair_with": [

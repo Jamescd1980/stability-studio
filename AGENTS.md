@@ -11,6 +11,8 @@ Supports:
 - **Images** — SD 1.5 / SDXL / Pony / Flux.2 Klein via `catalog.yaml` style presets and `model_families`
 - **Image editing** — **`edit_image`** (unified), i2i, inpaint, IP-Adapter, ControlNet — see [IMAGE-EDITING.md](IMAGE-EDITING.md)
 - **Video** — Wan T2V/I2V via ComfyUI; **14B NSFW/identity = `workflow_id=i2v`** (Wan 2.2 MoE HIGH+LOW). Draft/SFW = `i2v_5b`. See `stability-studio-mcp/LESSONS-WAN-I2V.md`.
+- **Pose from Blender** — optional second MCP (`blender`); Stability Studio bridge: `get_blender_workflow_playbook` / `register_blender_control_maps` — [BLENDER-MCP.md](BLENDER-MCP.md), [LESSONS-BLENDER-MCP.md](LESSONS-BLENDER-MCP.md)
+- **LinuxBox CUDA 5090** — [HARDWARE.md](HARDWARE.md), [LESSONS-COMFYBOX-CUDA.md](LESSONS-COMFYBOX-CUDA.md)
 
 ## Four art food groups
 
@@ -67,8 +69,10 @@ Generation tools **only work when**:
 | `generate_image_controlnet` | Depth + canny guided T2I |
 | **`setup_pose_control`** / **`check_pose_control_readiness`** | OpenPose XL2 + line preprocessors — see [POSE-CONTROL.md](POSE-CONTROL.md) |
 | **`extract_control_maps`** | OpenPose / Canny / anime lineart previews from a still |
-| **`generate_image_pose_guided`** | I2i + OpenPose CN — identity still + pose PNG from [editor](https://openpose-editor.vercel.app/) |
+| **`generate_image_pose_guided`** | I2i + OpenPose CN — identity still + pose PNG (Blender export or [editor](https://openpose-editor.vercel.app/)) |
+| **`get_blender_workflow_playbook`** / **`register_blender_control_maps`** | Blender MCP → pose/depth maps → stills — [BLENDER-MCP.md](BLENDER-MCP.md) |
 | `list_pose_control_options` | Preprocessor ids + OpenPose editor URLs |
+| `check_hunyuan_assets` / `download_hunyuan_assets` | HunyuanVideo 1.5 weights (generate routing TBD) — [MODEL-FAMILIES.md](MODEL-FAMILIES.md) |
 | `sync_checkpoint_architectures` | Fix catalog vs on-disk checkpoint family |
 | `check_style_assets` / `download_style_assets` | Flux2 / checkpoint manifest |
 | `check_wan_video_loras` / `download_wan_video_loras` | Optional Wan motion/face/lighting LoRAs |

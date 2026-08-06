@@ -14,6 +14,7 @@ from . import image_brief
 from . import intents as intents_mod
 from . import notes as notes_mod
 from . import pose_capture
+from . import recording as recording_mod
 from . import room_tools
 from .brain import JanBrain
 from .config import load_config
@@ -175,6 +176,10 @@ def handle(
             sync_dir=n.get("sync_dir", ""),
         )
         return "Got it, I wrote that down."
+
+    if intent.kind == "record":
+        # Announce + capture happen inside start_recording (speaker hook set in main).
+        return recording_mod.start_recording(cfg, announce=True)
 
     if intent.kind == "generate":
         # Legacy one-shot — prefer brief; still allow direct generate if already packed
@@ -345,7 +350,7 @@ def handle(
     if any(k in low for k in ("why", "how", "explain", "tell me about", "what do you think")):
         return jan.ask(intent.text)
     return (
-        "I can do time, weather, notes, timers, look-ups, and the display. "
+        "I can do time, weather, notes, recordings, timers, look-ups, and the display. "
         "For images, say make an image or Hey Nari. "
         "For display polish, ask Orla."
     )
@@ -370,6 +375,7 @@ def should_open_follow_up(reply: str, intent: intents_mod.Intent, cfg: dict) -> 
         "comfybox_status",
         "hide_display",
         "note",
+        "record",
         "generate",
         "ask_orla",
         "ask_jan",
@@ -520,7 +526,7 @@ def run_follow_up_turns(
             intent.text,
         )
         fast = intent.kind in {
-            "note", "weather", "headlines", "datetime", "web_lookup",
+            "note", "record", "weather", "headlines", "datetime", "web_lookup",
             "screensaver_on", "screensaver_off",
             "comfybox_status", "hide_display",
             "brief_answer", "image_brief",
@@ -613,6 +619,8 @@ def main() -> int:
         log.info("Timer watcher started")
     except Exception as exc:  # noqa: BLE001
         log.warning("Timer watcher skipped: %s", exc)
+    # Recording tool says "Starting recording now" through this hook when ready.
+    recording_mod.set_announce_fn(lambda msg: tts.speak(msg, persona="myra"))
     tts.speak("Myra, Nari, and Orla are listening.", persona="myra")
 
     while running["go"]:
@@ -688,7 +696,7 @@ def main() -> int:
 
             # Instant local shortcuts skip the thinking filler
             fast = intent.kind in {
-                "note", "weather", "headlines", "datetime", "web_lookup",
+                "note", "record", "weather", "headlines", "datetime", "web_lookup",
                 "screensaver_on", "screensaver_off",
                 "comfybox_status", "hide_display",
                 "image_brief", "brief_answer", "recreate", "cast_swap", "cast_batch",

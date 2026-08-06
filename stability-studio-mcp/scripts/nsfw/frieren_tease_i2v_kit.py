@@ -1,13 +1,8 @@
-"""Frieren Tease Stage1–4 Wan I2V prompt kit (v3 — Wan 2.2 MoE 14B).
+"""Frieren Tease Wan I2V prompt kit (v3 — Wan 2.2 MoE 14B).
 
-Language ban: never use cum / female cum for her.
-Soft-body: hair bounce, breast bounce, ass-cheek jiggle when pose allows.
-v3: workflow_id=i2v = Wan 2.2 I2V-A14B MoE HIGH+LOW.
-
-Delivery (one path, character-sorted):
-  Video → D:\\ComfyBox Images and Videos\\Video\\Frieren\\
-  Stills → User Import\\Frieren Sex Sceens\\_refined\\...
-Fails → Windows Recycle Bin (do not leave quarantine trees around).
+ABANDONED (2026-07-20): all Stage2/tease I2V outputs recycled.
+Do not regenerate with current Wan stack — quality does not hold on ride/pump.
+Forge stills in 01_tease remain for in-game / non-video use.
 """
 
 from __future__ import annotations
@@ -17,25 +12,62 @@ from pathlib import Path
 TEASE_DIR = Path(
     r"D:\ComfyBox Images and Videos\User Import\Frieren Sex Sceens\_refined\scene_packs\01_tease"
 )
+GOLD_DIR = Path(
+    r"D:\ComfyBox Images and Videos\User Import\Frieren Sex Sceens\_refined\scene_packs\01_tease_gold"
+)
+GOLD_V2_DIR = Path(
+    r"D:\ComfyBox Images and Videos\User Import\Frieren Sex Sceens\_refined\scene_packs\01_tease_gold_v2"
+)
 KEYS_DIR = Path(
     r"D:\ComfyBox Images and Videos\User Import\Frieren Sex Sceens\_refined\tease_keys"
 )
-# Canonical clip folder — character name only. No nested v3/_review/quarantine.
 VIDEO_DIR = Path(r"D:\ComfyBox Images and Videos\Video\Frieren")
 CLIPS_DIR = VIDEO_DIR
 
-STAGE1 = TEASE_DIR / "01_Frieren_Stage1_forge.png"
 STAGE2 = TEASE_DIR / "02_Frieren_Stage2_forge.png"
+# Legacy path only — not used for video.
 STAGE3 = TEASE_DIR / "03_Frieren_Stage3_forge.png"
-STAGE4 = TEASE_DIR / "04_Frieren_Stage4_forge.png"
-
+STAGE1 = TEASE_DIR / "01_Frieren_Stage1_forge.png"
+STAGE4 = GOLD_DIR / "04_Frieren_Stage4_forge_gold.png"
+HANDS_BOTH = "both hands keep moving"
+EYES_CLOSED_STILL = "eyes closed the entire clip"
+FACE_MIN_CHANGE = "minimal face movement"
+BODY_SOFT = "minimal body movement, soft breast bounce only"
 SOFT_BODY = (
     "bouncing breasts, breast jiggle, twin tails bouncing, hair sway, "
     "ass cheeks jiggling, soft body physics, natural bounce"
 )
+WET_STILL_PROMPT = (
+    "nb_frieren, frieren, nude elf girl, sitting on bed legs spread, "
+    "fingering, wet pussy, light moisture on labia and fingers only, "
+    "other hand squeezing breast, matte skin, natural skin, "
+    "twin tails, red teardrop earrings, soft daylight bedroom, "
+    "no lens flare, no rainbow lights, masterpiece, best quality, "
+    "<lora:Frieren:0.8>"
+)
+COLLAPSE_STILL_PROMPT = (
+    "nb_frieren, frieren, nude elf girl, after orgasm, lying back on bed pillows, "
+    "legs still open, slightly wet pussy, matte skin, breathless, "
+    "breasts settling, twin tails on pillows, soft daylight bedroom, "
+    "no lens flare, masterpiece, best quality, <lora:Frieren:0.8>"
+)
+SQUIRT_STILL_PROMPT = (
+    "nb_frieren, frieren, nude elf girl, sitting on bed legs spread, "
+    "female ejaculation, clear fluid spray from pussy, soaked sheets, "
+    "matte skin, orgasm face, twin tails, soft daylight bedroom, "
+    "no lens flare, no rainbow, masterpiece, best quality, <lora:Frieren:0.8>"
+)
 
-# Eyes + mouth discipline + dual-hand continuity.
-# Soft eye life — do NOT push "lively/huge" or Wan grows doll eyes mid-clip.
+STYLE_LOCK = (
+    "same art style as start frame, same lighting as start frame, "
+    "same color grading, keep render quality of start frame"
+)
+# Rear-view lock — do NOT mention eyes/mouth (that invents a face).
+HEAD_FORWARD = (
+    "head facing forward away from camera the entire clip, "
+    "back of head only, face not visible, "
+    "no looking over shoulder, no turning head, no face to camera"
+)
 EYE_LOCK = (
     "same eye size as start frame, keep Frieren eye shape, "
     "clear teal irises, subtle specular catchlights, sharp pupils, "
@@ -45,185 +77,116 @@ MOUTH_OK = (
     "full plump lips, soft full mouth, lips lightly parted, "
     "soft breathing, quiet moan"
 )
-# Asymmetric pace: sensual breast hand vs faster fingering (Wan freezes the quieter hand).
-# Keep fingering clearly faster than breast hand, but not frantic — post slowdown ~15–25% OK.
-HANDS_BOTH = (
-    "both hands keep moving the entire clip, never freeze either hand: "
-    "left hand moderate rhythmic fingering, fingers thrusting in and out at a steady unhurried pace, "
-    "right hand very slow sensual soft squeezing of her breast in place, gentle lingering knead"
-)
 
 NEG = (
     "cum, semen, male ejaculation, text overlay, watermark, logo, "
+    "cartoon, chibi, western cartoon, simplified shading, flat cel shading, "
+    "cheap anime, low detail, plastic skin, oversaturated, "
+    "looking over shoulder, looking at viewer, face to camera, "
+    "turning head, profile face, inventing face, face morph, "
     "stiff hair, frozen breasts, frozen hands, one hand frozen, "
-    "morphing hands, extra fingers, "
+    "morphing hands, fused fingers, fingers melting together, extra fingers, "
     "talking, speaking, mouthing words, lip sync, chewing, "
     "exaggerated mouth movement, wide open talking mouth, "
     "jittery, morphing, flickering, melting face, melting body, "
     "melting eyes, deformed eyes, crossed eyes, empty eyes, blank eyes, "
     "asymmetric eyes, blurry eyes, mushy pupils, "
     "oversized eyes, enlarged eyes, huge eyes, doll eyes, bug eyes, "
+    "ahegao, orgasm face morph, "
+    "head shaking, head thrashing, body thrashing, jerky motion, "
+    "violent shaking, back arching hard, hip thrusting hard, "
     "thin line mouth, tiny mouth, small mouth, lipless, "
-    "deformed face, deformed body, warping, liquid body, "
-    "grabbing breast hard, yanking breast, dragging breast across body, "
-    "pulling breast sideways, mauling breast, "
-    "rainbow light, chromatic aberration, lens flare, prism light, "
-    "green light leak, blue light leak, neon glow, iridescent artifacts, "
-    "color fringing, holographic glare, oily skin bloom, "
-    "bad anatomy, lowres, blurry"
+    "bending dildo, floppy dildo, soft toy, rubber bend, "
+    "legs thrashing, kicking legs, wild leg movement, "
+    "picking up dildo, holding dildo in hand, "
+    "single ponytail, hair style change, twin tails merging"
 )
 
-# Subtle wet still (genital/fingers only) — avoid full-body oil sheen
-WET_STILL_PROMPT = (
-    "nb_frieren, frieren, nude elf girl, sitting on bed legs spread, "
-    "fingering, wet pussy, light moisture on labia and fingers only, "
-    "other hand squeezing breast, matte skin, natural skin, "
-    "twin tails, red teardrop earrings, soft daylight bedroom, "
-    "no lens flare, no rainbow lights, masterpiece, best quality, "
-    "<lora:Frieren:0.8>"
-)
-
-COLLAPSE_STILL_PROMPT = (
-    "nb_frieren, frieren, nude elf girl, after orgasm, lying back on bed pillows, "
-    "legs still open, slightly wet pussy, matte skin, breathless, "
-    "breasts settling, twin tails on pillows, soft daylight bedroom, "
-    "no lens flare, masterpiece, best quality, <lora:Frieren:0.8>"
-)
-
-SQUIRT_STILL_PROMPT = (
-    "nb_frieren, frieren, nude elf girl, sitting on bed legs spread, "
-    "female ejaculation, clear fluid spray from pussy, soaked sheets, "
-    "matte skin, orgasm face, twin tails, soft daylight bedroom, "
-    "no lens flare, no rainbow, masterpiece, best quality, <lora:Frieren:0.8>"
-)
-
+# Stage2 only: s2_dildo → s2_build → s2_pump → s2_slam. ONE beat at a time.
 BEATS = {
-    "s1a_play": {
-        "image": STAGE1,  # forge master — not the overcooked eyes still
-        "prompt": (
-            f"{HANDS_BOTH}, "
-            "gentle breast bounce, twin tails swaying, subtle hip movement, "
-            f"{EYE_LOCK}, {MOUTH_OK}, "
-            "steady camera, natural daylight"
-        ),
-        "num_frames": 65,
-        "workflow": "i2v",
-        # Face naturalizer off — glassy eyes. No Illustrious eye LoRA on Wan path.
-        "loras": "",
-        "smooth_motion": False,
-        "motion_amplitude": 1.12,
-    },
-    # Prompt-tuned A/B from forge still (does not overwrite s1a_play keeper).
-    "s1a_play_prompt": {
-        "image": STAGE1,
-        "prompt": (
-            f"{HANDS_BOTH}, "
-            "gentle breast bounce, twin tails swaying, subtle hip movement, "
-            f"{EYE_LOCK}, {MOUTH_OK}, "
-            "steady camera, natural daylight"
-        ),
-        "num_frames": 65,
-        "workflow": "i2v",
-        "loras": "",
-        "smooth_motion": False,
-        "motion_amplitude": 1.12,
-    },
-    "s1b_wet": {
-        "image": STAGE1,
-        "prompt": (
-            f"{HANDS_BOTH}, "
-            "wet pussy, glistening juices on fingers, "
-            "gentle breast bounce, hair sway, "
-            f"{EYE_LOCK}, {MOUTH_OK}, "
-            "steady camera, natural daylight"
-        ),
-        "num_frames": 49,
-        "workflow": "i2v",
-        "loras": "",
-        "smooth_motion": False,
-        "motion_amplitude": 1.12,
-    },
-    "s1c_shudder": {
-        "image": STAGE1,
-        "prompt": (
-            "she is having an orgasm, body shudders and shivers, thighs trembling, "
-            "back arching, breasts shuddering, twin tails whipping, "
-            "fingering hand keeps rubbing clit at a quick pace, "
-            f"{EYE_LOCK}, eyes half-lidded in pleasure, {MOUTH_OK}, "
-            "steady camera"
-        ),
-        "num_frames": 49,
-        "workflow": "i2v",
-        "loras": "orgasm_i2v_high,orgasm_i2v_low",
-        "lora_bundle": "female_orgasm",
-        "smooth_motion": False,
-        "motion_amplitude": 1.15,
-    },
-    "s1d_squirt": {
-        "image": STAGE1,
-        "prompt": (
-            "female ejaculation, squirting clear fluid from pussy, "
-            "strong orgasm shudder, breasts bouncing, soaked sheets, "
-            f"{EYE_LOCK}, {MOUTH_OK}, steady camera"
-        ),
-        "num_frames": 33,
-        "workflow": "i2v",
-        "loras": "orgasm_i2v_high,orgasm_i2v_low",
-        "lora_bundle": "female_orgasm",
-        "smooth_motion": False,
-        "motion_amplitude": 1.15,
-    },
-    "s1d_collapse": {
-        "image": STAGE1,
-        "prompt": (
-            "after orgasm, body goes limp, falling back onto bed pillows, "
-            "breasts settling, hair falling with her, legs still open, "
-            "wet pussy glistening, "
-            f"{EYE_LOCK}, {MOUTH_OK}, steady camera"
-        ),
-        "num_frames": 49,
-        "workflow": "i2v",
-        "loras": "",
-        "smooth_motion": False,
-        "motion_amplitude": 1.1,
-    },
-    "s2_ride": {
+    "s2_dildo": {
+        # Clip 1 — keeper quality bar. Head forward = no invented face.
         "image": STAGE2,
         "prompt": (
-            "riding dildo, hip bounce, ass cheeks jiggling, breast bounce, "
-            "twin tails bouncing, slow ride up and down, "
-            f"{EYE_LOCK}, {MOUTH_OK}, steady camera"
+            "nsfw, nude elf girl kneeling facing away, same pose as start frame, "
+            f"{STYLE_LOCK}, {HEAD_FORWARD}, "
+            "twin tails stay as two separate tails matching start frame, "
+            "thick purple dildo standing upright on the rug under her crotch, "
+            "dildo stays planted on the floor, never picked up, never held in hand, "
+            "very slight slow hip bounce, soft breast bounce, "
+            "twin tails swaying, hands stay on the floor matching start frame, "
+            "legs and knees planted, no thrashing, "
+            "steady camera, bright window backlight"
         ),
         "num_frames": 65,
         "workflow": "i2v",
         "loras": "",
         "smooth_motion": False,
-        "motion_amplitude": 1.12,
+        "motion_amplitude": 0.75,
     },
-    "s3_hand_dildo": {
-        "image": STAGE3,
+    "s2_build": {
+        # ~3s soft continue — forge still.
+        "image": STAGE2,
         "prompt": (
-            "hand thrusting dildo continuously, ass cheeks jiggling, hip movement, "
-            "twin tails swaying, looking back over shoulder, "
-            f"{EYE_LOCK}, {MOUTH_OK}, steady camera"
+            "nsfw, nude elf girl kneeling facing away, same pose as start frame, "
+            f"{STYLE_LOCK}, {HEAD_FORWARD}, "
+            "twin tails stay as two separate tails matching start frame, "
+            "thick purple dildo standing upright on the rug under her crotch, "
+            "dildo stays planted on the floor, never picked up, never held in hand, "
+            "very slight slow hip bounce, soft breast bounce, "
+            "twin tails swaying, hands stay on the floor matching start frame, "
+            "legs and knees planted, no thrashing, "
+            "steady camera, bright window backlight"
         ),
-        "num_frames": 65,
+        "num_frames": 49,
         "workflow": "i2v",
         "loras": "",
         "smooth_motion": False,
-        "motion_amplitude": 1.12,
+        "motion_amplitude": 0.75,
     },
-    "s4_dual_ride": {
-        "image": STAGE4,
+    "s2_pump": {
+        # After approved s2_build — modest lift then settle (keeper amp). No "almost exits".
+        "image": CLIPS_DIR / "s2_build_lastframe.png",
         "prompt": (
-            "riding dildo, slow hip bounce, ass cheeks jiggling, breast bounce, "
-            "twin tails bouncing, dual toys inserted, "
-            f"{EYE_LOCK}, {MOUTH_OK}, steady camera"
+            "nsfw, nude elf girl kneeling facing away, same pose as start frame, "
+            f"{STYLE_LOCK}, {HEAD_FORWARD}, "
+            "twin tails stay as two separate tails matching start frame, "
+            "thick purple dildo planted upright on the rug under her crotch, "
+            "dildo stays fixed on the floor, never picked up, never held in hand, never bends, "
+            "slow modest hip lift a little higher, then gently lowers back down, "
+            "small vertical hip motion only, keep contact with the dildo, "
+            "soft breast bounce, twin tails swaying, "
+            "hands stay on the floor bracing, knees planted, no thrashing, "
+            "steady camera, bright window backlight"
+        ),
+        "num_frames": 49,
+        "workflow": "i2v",
+        "loras": "",
+        "smooth_motion": False,
+        "motion_amplitude": 0.75,
+    },
+    "s2_slam": {
+        # Later climax — only after pump is approved. Face may appear when head tilts back.
+        "image": CLIPS_DIR / "s2_pump_lastframe.png",
+        "prompt": (
+            "nsfw, nude elf girl kneeling over a thick purple dildo planted on the rug, "
+            f"{STYLE_LOCK}, "
+            "dildo stays fixed upright on the floor the entire clip, never held in hand, "
+            "she lowers her hips and sits down firmly onto the dildo, "
+            "then stays fully seated without bouncing, "
+            "tilts her head back looking upward, chin lifted, "
+            "soft quiet moan, twin tails falling back, "
+            "soft breast bounce then settle, "
+            "hands stay on the floor bracing, no thrashing, "
+            "steady camera, bright window backlight"
         ),
         "num_frames": 65,
         "workflow": "i2v",
         "loras": "",
         "smooth_motion": False,
-        "motion_amplitude": 1.12,
+        "motion_amplitude": 0.78,
     },
 }
+
+VIDEO_ALLOWED_BEATS = frozenset(BEATS)
+VIDEO_ALLOWED_STAGES = (2,)

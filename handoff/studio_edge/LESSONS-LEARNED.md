@@ -40,7 +40,10 @@ Example: looking back over shoulder, hands and knees, man grabbing hips, `shovin
 | fingering her pussy | gently rubbing her clit |
 | dildo + type/color/size | sex toy |
 | vibrator = small wired vibe only | vibrator as generic dildo |
-| View / man's POV | camera / DSLR (spawns props) |
+| View / man's POV (couples only) | camera / DSLR (spawns props) |
+| solo negatives: `extra people`, `male hand`, `1boy`… | `View from mans POV` on solo (spawns partner hands) |
+
+**Fern tease smoke:** only Stage3 kept (`_fern_gold_smoke/tease/03_…`) for WAN sit-on-dildo; Stages 1/2/4 recycled (man's hand leak).
 
 Rules live in `.cursor/rules/nsfw-sex-prompting.mdc` and `prompt_sex_lexicon.py` (Nari expand + soft→blunt rewrites).
 
@@ -67,3 +70,9 @@ scp handoff/myra-patches/config.yaml myra:~/studio-edge/config.yaml
 ssh myra 'bash ~/studio-edge/restart_edge.sh'
 # restart Orla tools after orla_tools.py changes
 ```
+
+## Git / private repo
+
+- Local commit on main: 96d6f60.
+- Full history push to private failed (missing object 42c9b806…).
+- Orphan snapshot pushed: private/studio-edge-lessons-2026-07-19 (4702a79).

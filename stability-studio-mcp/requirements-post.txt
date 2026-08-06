@@ -11,3 +11,6 @@ numpy>=1.26
 Pillow>=10.0
 safetensors>=0.4
 einops>=0.7
+PyYAML>=6.0
+# Best-free polish (RIFE binary + SeedVR2) lives under tools/ — see docs/POLISH_BEST_FREE.md
+# SeedVR2 uses its own venv at tools/seedvr2_videoupscaler/.venv

@@ -96,10 +96,27 @@ def comfy_custom_nodes_dir(cfg: dict[str, Any]) -> Path:
     return comfy_root / "custom_nodes"
 
 
+_INSTALLED_NODE_TYPES_CACHE: dict[str, set[str]] = {}
+
+
+def clear_installed_node_types_cache(comfy_url: str | None = None) -> None:
+    """Drop cached /object_info node type sets (full get_generation_context)."""
+    if comfy_url:
+        _INSTALLED_NODE_TYPES_CACHE.pop(comfy_url.rstrip("/"), None)
+    else:
+        _INSTALLED_NODE_TYPES_CACHE.clear()
+
+
 def fetch_installed_node_types(comfy_url: str, timeout: int = 15) -> set[str]:
-    r = requests.get(f"{comfy_url.rstrip('/')}/object_info", timeout=timeout)
+    key = comfy_url.rstrip("/")
+    cached = _INSTALLED_NODE_TYPES_CACHE.get(key)
+    if cached is not None:
+        return set(cached)
+    r = requests.get(f"{key}/object_info", timeout=timeout)
     r.raise_for_status()
-    return set(r.json().keys())
+    types = set(r.json().keys())
+    _INSTALLED_NODE_TYPES_CACHE[key] = types
+    return set(types)
 
 
 def required_node_types_for_workflow(ui_workflow: dict[str, Any]) -> set[str]:

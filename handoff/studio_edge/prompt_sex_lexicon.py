@@ -27,6 +27,22 @@ CAMERA_PROP_NEGATIVE = (
     "tripod, photographer, holding camera"
 )
 
+# Solo masturbation / dildo scenes — man's hand/arm often leaks without these
+SOLO_NEGATIVE = (
+    "extra people, multiple girls, 2girls, 1boy, 2boys, multiple boys, "
+    "man, male, male hand, male arm, disembodied hand, another person, "
+    "couple, hetero, penis, cock, pov hand, grabbing from behind"
+)
+
+# Partnered sex — do NOT apply SOLO_NEGATIVE (mans POV alone is NOT enough —
+# solo + "View from mans POV" still needs solo negatives or a man's hand leaks)
+COUPLE_HINT_RE = (
+    r"\b(?:1boy|2boys|couple|hetero|cowgirl|missionary|"
+    r"shoving his cock|fucks her|man behind her|man grabs|"
+    r"naked man|a man |deepthroat|blowjob|facefuck|"
+    r"vaginal (?:sex|penetration)|anal (?:sex|penetration))\b"
+)
+
 # Soft → blunt replacements applied to expanded prompts / VLM tags
 SOFT_TO_EXPLICIT = (
     (r"\bgently rubbing (?:her )?clit\b", "fingering her pussy"),

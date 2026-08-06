@@ -563,6 +563,17 @@ TOOL_DEFINITIONS: list[dict] = [
     {
         "type": "function",
         "function": {
+            "name": "start_recording",
+            "description": (
+                "Start a microphone voice recording. Use when the user says make a recording, "
+                "start recording, or record this. Announces when ready, then captures until silence."
+            ),
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "read_notes",
             "description": "Read the most recent local notes aloud/summarize path.",
             "parameters": {
@@ -1075,6 +1086,13 @@ def run_tool(name: str, arguments: dict, cfg: dict, jan_brain, orla_brain=None) 
             notes_cfg.get("sync_dir", "") or "",
         )
         return "Got it. I wrote that down." if path else "I couldn't save the note."
+
+    if name == "start_recording":
+        if not room.get("recording", {}).get("enabled", True):
+            return "Recording is turned off in my config."
+        from . import recording as recording_mod
+
+        return recording_mod.start_recording(cfg, announce=True)
 
     if name == "read_notes":
         if not room.get("notes", {}).get("enabled", True):

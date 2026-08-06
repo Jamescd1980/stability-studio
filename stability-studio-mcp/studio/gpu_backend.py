@@ -248,7 +248,13 @@ def inspect_gpu_backend(cfg: dict[str, Any], *, comfyui_running: bool | None = N
     if not any(b["backend"] == "wan2gp" for b in blocks):
         allowed.append("wan2gp")
 
-    if vram_free is not None and vram_free < float(g["min_free_vram_gb_comfyui"]):
+    # Local nvidia-smi is Orla. When ComfyUI is remote (ComfyBox), local VRAM
+    # must not gate ComfyUI jobs — only gate local Wan2GP.
+    if (
+        comfy_local
+        and vram_free is not None
+        and vram_free < float(g["min_free_vram_gb_comfyui"])
+    ):
         if "comfyui" in allowed:
             allowed.remove("comfyui")
             blocks.append(

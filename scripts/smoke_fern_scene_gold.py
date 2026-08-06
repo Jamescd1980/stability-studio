@@ -31,9 +31,9 @@ STEPS, CFG = 36, 6.5
 
 FERN_LORA = "Fern/Fern.safetensors"
 FERN_WEIGHT = 0.9
+# No LensFlare — sparkly halo / light-leak wrecks bedroom stills
 GOLD_LORAS = [
     ("Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors", 0.75),
-    ("LensFlare_LightLeak_IL.safetensors", 0.45),
     ("ILDetailerV2.safetensors", 0.65),
 ]
 
@@ -46,7 +46,7 @@ PACK_SCENES: dict[str, list[tuple[str, str]]] = {
             "newest, highres, ultra-detailed, soft warm daylight, bedroom, "
             "white sheets, wooden headboard, window with sheer curtains, "
             "hardwood floor, perfect eyes, eye focus, anime++, bold outline, "
-            "cel-shaded coloring, looking at viewer, solo focus, 1girl, nb_fern, Fern, "
+            "cel-shaded coloring, looking at viewer, 1girl, solo, nb_fern, Fern, "
             "long purple hair, purple eyes, bangs, pale skin, naked, sitting on the "
             "edge of the bed, one hand fondling her breast, one hand fingering her "
             "pussy, blushing, slight smile, wet pussy",
@@ -57,7 +57,7 @@ PACK_SCENES: dict[str, list[tuple[str, str]]] = {
             "newest, highres, ultra-detailed, soft daylight bedroom, rumpled white "
             "sheets, pillows, window light, nightstand with lamp, perfect eyes, "
             "anime++, bold outline, cel-shaded coloring, looking at viewer, "
-            "solo focus, 1girl, nb_fern, Fern, long purple hair, purple eyes, "
+            "1girl, solo, nb_fern, Fern, long purple hair, purple eyes, "
             "naked, kneeling on the bed, legs spread, both hands spreading her "
             "pussy, fingering her pussy, flushed cheeks, horny expression",
         ),
@@ -67,7 +67,7 @@ PACK_SCENES: dict[str, list[tuple[str, str]]] = {
             "newest, highres, ultra-detailed, bright bedroom, wooden floor, white rug, "
             "bed in background, window with curtains, soft daylight, perfect eyes, "
             "anime++, bold outline, cel-shaded coloring, from behind, looking back "
-            "over her shoulder, solo focus, 1girl, nb_fern, Fern, long purple hair, "
+            "over her shoulder, 1girl, solo, nb_fern, Fern, long purple hair, "
             "purple eyes, naked, on her hands and knees, ass up, inserting a thick "
             "purple dildo into her pussy, fucking herself with a dildo",
         ),
@@ -76,7 +76,7 @@ PACK_SCENES: dict[str, list[tuple[str, str]]] = {
             "masterpiece, best quality, amazing quality, very aesthetic, absurdres, "
             "newest, highres, ultra-detailed, bedroom soft side light, dark wood "
             "furniture, green curtains, bed centered, perfect eyes, anime++, bold "
-            "outline, cel-shaded coloring, View from mans POV, solo focus, 1girl, "
+            "outline, cel-shaded coloring, looking at viewer, 1girl, solo, "
             "nb_fern, Fern, long purple hair, purple eyes, naked, on her back on the "
             "bed, legs spread toward viewer, fingering her pussy, mouth open, "
             "look of pleasure",
@@ -87,19 +87,24 @@ PACK_SCENES: dict[str, list[tuple[str, str]]] = {
             "01_cowgirl_preinsert",
             "masterpiece, best quality, amazing quality, very aesthetic, absurdres, "
             "newest, highres, ultra-detailed, bedroom soft daylight, white sheets, "
-            "perfect eyes, anime++, bold outline, cel-shaded coloring, looking at "
-            "viewer, 1girl, nb_fern, Fern, long purple hair, purple eyes, naked, "
-            "straddling a naked man on the bed, cowgirl, holding his cock against "
-            "her pussy, about to sit down, man lying on his back",
+            "wooden headboard, window light, perfect eyes, eye focus, anime++, "
+            "bold outline, cel-shaded coloring, View from mans POV, solo focus, "
+            "1girl, 1boy, nb_fern, Fern, long purple hair, purple eyes, naked, "
+            "straddling a naked man lying on his back, cowgirl position, she grips "
+            "his huge thick erect cock in her hand, large penis, thick shaft, "
+            "veiny cock, oversized cock pressed against her pussy lips, about to "
+            "sit down and insert, man under her, hetero, flushed cheeks",
         ),
         (
             "02_cowgirl_ride",
             "masterpiece, best quality, amazing quality, very aesthetic, absurdres, "
             "newest, highres, ultra-detailed, bedroom soft daylight, white sheets, "
-            "perfect eyes, anime++, bold outline, cel-shaded coloring, looking at "
-            "viewer, 1girl, nb_fern, Fern, long purple hair, purple eyes, naked, "
-            "cowgirl, straddling cock, vaginal penetration, riding, hands on his "
-            "chest, flushed cheeks, look of pleasure",
+            "window light, plant by window, perfect eyes, eye focus, anime++, "
+            "bold outline, cel-shaded coloring, View from mans POV, solo focus, "
+            "1girl, 1boy, nb_fern, Fern, long purple hair, purple eyes, naked, "
+            "cowgirl, riding cock, straddling man, vaginal penetration, vaginal sex, "
+            "his cock deep in her pussy, hands on his chest, looking at viewer, "
+            "flushed cheeks, look of pleasure, hetero",
         ),
     ],
     "missionary": [
@@ -141,16 +146,39 @@ PACK_SCENES: dict[str, list[tuple[str, str]]] = {
     ],
 }
 
-NEG = (
+NEG_BASE = (
     "worst quality, low quality, bad quality, lowres, blurry, jpeg artifacts, "
     "sketch, censored, watermark, signature, text, bad anatomy, bad hands, "
     "extra fingers, plastic skin, camera, dslr, camcorder, lens, smartphone, "
     "blonde hair, yellow eyes, white hair, elf ears, nb_frieren, Frieren, "
-    "cum, semen, excessive bodily fluids"
+    "cum, semen, excessive bodily fluids, "
+    "lens flare, light leak, prism light, rainbow light, sparkle, glitter, "
+    "halo, glowing aura, bloom, chromatic aberration"
 )
+# Solo packs: block partner leak (man's hand/arm)
+NEG_SOLO = (
+    NEG_BASE
+    + ", extra people, multiple girls, 2girls, 1boy, 2boys, multiple boys, "
+    "man, male, male hand, male arm, disembodied hand, another person, "
+    "couple, hetero, penis, cock, pov hand, grabbing from behind"
+)
+# Couple 1girl+1boy: block gangbang / DP extras
+NEG_COUPLE = (
+    NEG_BASE
+    + ", 2girls, multiple girls, 2boys, 3boys, multiple boys, gangbang, "
+    "group sex, double penetration, two penises, three penises, "
+    "disembodied penis, floating penis"
+)
+SOLO_PACKS = {"tease"}  # masturbation / dildo — no partner
 
 
-def build_wf(prompt: str) -> dict:
+def build_wf(prompt: str, *, solo: bool = False, couple: bool = False) -> dict:
+    if solo:
+        neg = NEG_SOLO
+    elif couple:
+        neg = NEG_COUPLE
+    else:
+        neg = NEG_BASE
     wf: dict = {
         "4": {
             "class_type": "CheckpointLoaderSimple",
@@ -166,7 +194,7 @@ def build_wf(prompt: str) -> dict:
         },
         "7": {
             "class_type": "CLIPTextEncode",
-            "inputs": {"text": NEG, "clip": ["4", 1]},
+            "inputs": {"text": neg, "clip": ["4", 1]},
         },
         "3": {
             "class_type": "KSampler",
@@ -257,8 +285,19 @@ def main() -> int:
         choices=sorted(PACK_SCENES.keys()),
         help="Scene group to smoke",
     )
+    ap.add_argument(
+        "--only",
+        default="",
+        help="Comma-separated stem prefixes to run (e.g. 01_cowgirl_preinsert)",
+    )
     args = ap.parse_args()
     scenes = PACK_SCENES[args.pack]
+    if args.only.strip():
+        want = {s.strip() for s in args.only.split(",") if s.strip()}
+        scenes = [(stem, p) for stem, p in scenes if stem in want]
+        if not scenes:
+            print(f"No scenes matched --only {want!r}")
+            return 2
     out = OUT_ROOT / f"01_{args.pack}" if args.pack == "tease" else OUT_ROOT / args.pack
     # stable names
     out = OUT_ROOT / args.pack
@@ -269,7 +308,13 @@ def main() -> int:
     for stem, prompt in scenes:
         print(f"\n=== {stem} ===")
         print("  ", prompt[:140], "...")
-        name = queue_and_wait(build_wf(prompt))
+        name = queue_and_wait(
+            build_wf(
+                prompt,
+                solo=args.pack in SOLO_PACKS,
+                couple=args.pack not in SOLO_PACKS,
+            )
+        )
         if not name:
             print("  FAIL")
             results.append((stem, None))

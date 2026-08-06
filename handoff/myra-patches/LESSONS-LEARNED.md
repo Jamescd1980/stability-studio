@@ -40,7 +40,10 @@ Example: looking back over shoulder, hands and knees, man grabbing hips, `shovin
 | fingering her pussy | gently rubbing her clit |
 | dildo + type/color/size | sex toy |
 | vibrator = small wired vibe only | vibrator as generic dildo |
-| View / man's POV | camera / DSLR (spawns props) |
+| View / man's POV (couples only) | camera / DSLR (spawns props) |
+| solo negatives: `extra people`, `male hand`, `1boy`… | `View from mans POV` on solo (spawns partner hands) |
+
+**Fern tease smoke:** only Stage3 kept (`_fern_gold_smoke/tease/03_…`) for WAN sit-on-dildo; Stages 1/2/4 recycled (man's hand leak).
 
 Rules live in `.cursor/rules/nsfw-sex-prompting.mdc` and `prompt_sex_lexicon.py` (Nari expand + soft→blunt rewrites).
 

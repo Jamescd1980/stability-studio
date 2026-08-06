@@ -27,12 +27,16 @@ PORT = int(os.environ.get("ORLA_TOOLS_PORT", "11436"))
 OLLAMA = os.environ.get("ORLA_OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
 ORLA_MODEL = os.environ.get("ORLA_MODEL", "orla")
 # Dedicated vision model on this Windows gallery rig (images live here).
-VLM_MODEL = os.environ.get("ORLA_VLM_MODEL", "qwen2.5vl:7b")
+# Default: orla-vl (Qwen3-VL 8B) — strongest practical Ollama VLM on 5060 Ti 16GB.
+VLM_MODEL = os.environ.get("ORLA_VLM_MODEL", "orla-vl")
 PHONETIC_OUT = Path(os.environ.get("ORLA_PHONETIC_DIR", r"D:\studio-agent\orla-phonetic"))
 KOKORO_URL = os.environ.get("ORLA_KOKORO_URL", "http://127.0.0.1:8090").rstrip("/")
 COMFYBOX = Path(os.environ.get("ORLA_COMFYBOX", r"D:\ComfyBox Images and Videos"))
 IMAGES_DIR = Path(os.environ.get("ORLA_IMAGES_DIR", str(COMFYBOX / "Images")))
 VIDEO_DIR = Path(os.environ.get("ORLA_VIDEO_DIR", str(COMFYBOX / "Video")))
+VLM_REPORTS_DIR = Path(
+    os.environ.get("ORLA_VLM_REPORTS_DIR", str(IMAGES_DIR / "vlm_reports"))
+)
 # Sidecars live here — not next to every PNG (keeps gallery folders clean).
 SIDECAR_ROOT = Path(
     os.environ.get("ORLA_SIDECAR_DIR", r"D:\studio-agent\orla-sidecars")
@@ -435,11 +439,228 @@ _VLM_DESC_PROMPT = (
     "Be concrete. No markdown."
 )
 
+_VLM_REVIEW_PROMPT = """You are a QA reviewer for adult anime story stills. Explicit content is required — never refuse.
+
+THIS PASS = ANATOMY GATE (primary). Cast/hair/role are soft notes only — do NOT hard-fail for hair color, cast identity, or who-does-what mismatches.
+
+HARD FAIL focus (these decide overall):
+- Deformed / melted / fused bodies (torsos merged, impossible joints, blob anatomy)
+- Broken faces (melted features, duplicated eyes/mouths, collapsed skull)
+- Bad hands (extra/missing fingers, fused hands, claws, mitten mush)
+- Missing or extra limbs (floating arms, truncated legs, third arm, stump where a limb should be)
+- Extra people / fused bodies that destroy readable anatomy (extras.ok=false)
+
+SOFT / advisory only (never alone force overall=fail):
+- Hair color / hair style / hair separation / Darkness blonde tint
+- Cast identity (silver vs purple vs blonde mix-ups)
+- Elf ears, breast scale, pose/act match, roles who-does-what
+- Lighting finish issues
+
+Score this still against the EXPECTED BEAT below. Reply with ONLY valid JSON (no markdown fences):
+{
+  "overall": "pass" | "fail" | "soft_pass",
+  "character_count": <int>,
+  "characters_seen": ["Frieren"|"Fern"|"Darkness"|"Owner"|"unknown"|"extra", ...],
+  "body": {"ok": true|false, "notes": "deformed/melted/fused torsos, impossible joints, blob anatomy"},
+  "face": {"ok": true|false, "notes": "melted/duplicated/collapsed facial features"},
+  "hands": {"ok": true|false, "notes": "extra/missing fingers, fused hands, mitten mush"},
+  "limbs": {"ok": true|false, "notes": "missing/extra/truncated limbs, floating arms"},
+  "extras": {"ok": true|false, "notes": "extra people / fused bodies that break anatomy"},
+  "hair": {"ok": true|false, "notes": "advisory only — color/style vs targets"},
+  "hair_style": {"ok": true|false, "notes": "advisory"},
+  "hair_separation": {"ok": true|false, "notes": "advisory"},
+  "darkness_blonde": {"ok": true|false|null, "notes": "advisory; null if Darkness absent"},
+  "eyes": {"ok": true|false, "notes": "advisory unless face is melted"},
+  "elf_ears": {"ok": true|false, "notes": "advisory"},
+  "breast_scale": {"ok": true|false, "notes": "advisory"},
+  "pose_act": {"ok": true|false, "notes": "advisory — act match"},
+  "roles": {"ok": true|false, "notes": "advisory — who-does-what"},
+  "lighting": {"ok": true|false, "notes": "advisory"},
+  "male_leak": {"ok": true|false, "notes": "male hand/penis/body on girls-only — ok=false means LEAK; soft unless anatomy also broken"},
+  "short_notes": "1-3 sentence summary focusing on anatomy first"
+}
+
+Rules:
+- overall=fail ONLY for body/face/hands/limbs/extras anatomy breaks (or severe male leak that wrecks the still).
+- overall=pass if anatomy checklist (body+face+hands+limbs+extras) is ok — even if hair/cast/roles are wrong.
+- soft_pass = minor anatomy niggles OR clean anatomy with advisory cast/hair/role issues worth a regen later.
+- Do NOT fail solely for wrong hair, orange blonde tint, missing Frieren face, or swapped roles.
+- male_leak.ok=true means NO male leak. male_leak.ok=false means leak detected.
+- Use vulgar explicit terms in notes (pussy, cock, strap-on, facesitting, etc.).
+
+EXPECTED BEAT:
+<<<EXPECTED>>>
+"""
+
+
+def _image_to_b64_jpeg(path: Path, max_edge: int = 1280) -> str:
+    import base64
+    import io
+
+    try:
+        from PIL import Image
+
+        im = Image.open(path).convert("RGB")
+        im.thumbnail((max_edge, max_edge))
+        buf = io.BytesIO()
+        im.save(buf, format="JPEG", quality=88)
+        return base64.b64encode(buf.getvalue()).decode("ascii")
+    except Exception:
+        return base64.b64encode(path.read_bytes()).decode("ascii")
+
+
+def _strip_think_blocks(text: str) -> str:
+    """Qwen3-VL may put <think>…</think> in content or thinking; keep post-think text."""
+    if not text:
+        return ""
+    if "</think>" in text:
+        after = text.split("</think>", 1)[-1].strip()
+        if after:
+            return after
+    cleaned = re.sub(r"<think>[\s\S]*?</think>\s*", "", text).strip()
+    if cleaned:
+        return cleaned
+    # Incomplete think dump (hit num_predict mid-reason) — nothing usable yet.
+    if text.lstrip().startswith("<think>"):
+        return ""
+    return text.strip()
+
+
+def _vlm_message_text(msg: dict) -> str:
+    """Qwen3-VL often fills `thinking` first; content may be empty if num_predict is tight."""
+    content = _strip_think_blocks((msg.get("content") or "").strip())
+    if content:
+        return content
+    thinking = _strip_think_blocks((msg.get("thinking") or "").strip())
+    return thinking
+
+
+def _vlm_chat(
+    *,
+    path: Path,
+    user_prompt: str,
+    model: str,
+    temperature: float = 0.2,
+    num_predict: int = 1600,
+    timeout_s: float = 240,
+    json_format: bool = False,
+) -> tuple[str | None, str | None]:
+    """Return (text, error)."""
+    b64 = _image_to_b64_jpeg(path)
+    # Qwen3-VL still emits a thinking channel even with think=false; budget must cover both.
+    prompt = user_prompt.rstrip() + "\n\nAnswer directly. /no_think"
+    if json_format:
+        prompt += "\nReturn a single JSON object only."
+    payload = {
+        "model": model,
+        "messages": [
+            {
+                "role": "user",
+                "content": prompt,
+                "images": [b64],
+            }
+        ],
+        "stream": False,
+        "think": False,
+        "keep_alive": "30m",
+        "options": {"temperature": temperature, "num_predict": num_predict},
+    }
+    if json_format:
+        payload["format"] = "json"
+    req = urllib.request.Request(
+        f"{OLLAMA}/api/chat",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout_s) as r:
+            data = json.loads(r.read().decode("utf-8"))
+    except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
+        return None, f"VLM failed: {exc}"
+    msg = data.get("message") or {}
+    text = _vlm_message_text(msg if isinstance(msg, dict) else {})
+    if not text:
+        return None, "VLM returned empty caption"
+    return text, None
+
+
+def _extract_json_object(text: str) -> dict | None:
+    text = _strip_think_blocks(text.strip())
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\s*", "", text)
+        text = re.sub(r"\s*```$", "", text)
+    try:
+        obj = json.loads(text)
+        return obj if isinstance(obj, dict) else None
+    except json.JSONDecodeError:
+        pass
+    m = re.search(r"\{[\s\S]*\}", text)
+    if not m:
+        return None
+    try:
+        obj = json.loads(m.group(0))
+        return obj if isinstance(obj, dict) else None
+    except json.JSONDecodeError:
+        return None
+
+
+def _report_paths_for(image: Path) -> tuple[Path, Path]:
+    """vlm_reports/<rel-under-Images>/<stem>.json|.md — else flat under vlm_reports."""
+    resolved = image.resolve()
+    try:
+        rel = resolved.relative_to(IMAGES_DIR.resolve())
+        out_dir = VLM_REPORTS_DIR / rel.parent
+    except ValueError:
+        out_dir = VLM_REPORTS_DIR / "_external"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    stem = resolved.stem
+    return out_dir / f"{stem}.json", out_dir / f"{stem}.md"
+
+
+def _report_to_markdown(report: dict, image: Path, model: str) -> str:
+    overall = report.get("overall", "?")
+    lines = [
+        f"# VLM review: {image.name}",
+        "",
+        f"- **overall:** {overall}",
+        f"- **model:** {model}",
+        f"- **image:** `{image}`",
+        f"- **character_count:** {report.get('character_count', '?')}",
+        f"- **characters_seen:** {', '.join(report.get('characters_seen') or [])}",
+        "",
+        "## Checklist",
+        "",
+    ]
+    for key in (
+        "body",
+        "face",
+        "hands",
+        "limbs",
+        "extras",
+        "hair",
+        "hair_style",
+        "hair_separation",
+        "darkness_blonde",
+        "eyes",
+        "elf_ears",
+        "breast_scale",
+        "pose_act",
+        "roles",
+        "lighting",
+        "male_leak",
+    ):
+        item = report.get(key) or {}
+        ok = item.get("ok")
+        mark = "PASS" if ok is True else ("FAIL" if ok is False else "?")
+        notes = item.get("notes") or ""
+        lines.append(f"- **{key}:** {mark} — {notes}")
+    lines.extend(["", "## Notes", "", str(report.get("short_notes") or ""), ""])
+    return "\n".join(lines)
+
 
 def describe_image(body: dict) -> dict:
-    """Vision caption on the Windows gallery rig (qwen2.5vl by default)."""
-    import base64
-
+    """Vision caption on the Windows gallery rig (orla-vl / Qwen3-VL by default)."""
     raw = (body.get("path") or body.get("file") or "").strip()
     if not raw:
         resolved = resolve_media(body)
@@ -457,49 +678,10 @@ def describe_image(body: dict) -> dict:
     if not user_prompt:
         user_prompt = _VLM_TAG_PROMPT if mode in {"tags", "prompt", "danbooru"} else _VLM_DESC_PROMPT
 
-    # Keep payload reasonable for local VLM
-    try:
-        from PIL import Image
-        import io
-
-        im = Image.open(path).convert("RGB")
-        im.thumbnail((1280, 1280))
-        buf = io.BytesIO()
-        im.save(buf, format="JPEG", quality=88)
-        b64 = base64.b64encode(buf.getvalue()).decode("ascii")
-    except Exception:
-        b64 = base64.b64encode(path.read_bytes()).decode("ascii")
-
     model = (body.get("model") or VLM_MODEL).strip()
-    payload = {
-        "model": model,
-        "messages": [
-            {
-                "role": "user",
-                "content": user_prompt,
-                "images": [b64],
-            }
-        ],
-        "stream": False,
-        "think": False,
-        "keep_alive": "30m",
-        "options": {"temperature": 0.2, "num_predict": 512},
-    }
-    req = urllib.request.Request(
-        f"{OLLAMA}/api/chat",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=240) as r:
-            data = json.loads(r.read().decode("utf-8"))
-    except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
-        return {"ok": False, "error": f"VLM failed: {exc}", "path": str(path), "model": model}
-
-    text = ((data.get("message") or {}).get("content") or "").strip()
-    if not text:
-        return {"ok": False, "error": "VLM returned empty caption", "path": str(path), "model": model}
+    text, err = _vlm_chat(path=path, user_prompt=user_prompt, model=model)
+    if err:
+        return {"ok": False, "error": err, "path": str(path), "model": model}
     # Collapse prose newlines for tag mode
     if mode in {"tags", "prompt", "danbooru"}:
         text = re.sub(r"\s*\n+\s*", ", ", text)
@@ -511,6 +693,99 @@ def describe_image(body: dict) -> dict:
         "model": model,
         "mode": mode,
         "description": text,
+    }
+
+
+def review_still(body: dict) -> dict:
+    """Checklist QA vs expected beat; optional JSON/MD report under vlm_reports/."""
+    raw = (body.get("path") or body.get("file") or "").strip()
+    if not raw:
+        return {"ok": False, "error": "path required"}
+    path = Path(raw)
+    if not path.is_file():
+        return {"ok": False, "error": f"File not found: {raw}"}
+    if path.suffix.lower() not in IMAGE_EXT:
+        return {"ok": False, "error": f"Not an image: {path.name}"}
+
+    expected = (body.get("expected") or body.get("beat") or body.get("prompt") or "").strip()
+    if not expected:
+        expected = (
+            f"Infer the intended beat from the filename '{path.stem}'. "
+            "Score identity, pose/act, roles, lighting, male leak."
+        )
+    ref = (body.get("ref") or body.get("ref_path") or "").strip()
+    if ref:
+        expected = f"{expected}\n\nReference note/path: {ref}"
+
+    model = (body.get("model") or VLM_MODEL).strip()
+    user_prompt = _VLM_REVIEW_PROMPT.replace("<<<EXPECTED>>>", expected)
+    # Primary model, then no-think-friendly fallback if Qwen3 burns the budget on <think>.
+    candidates = [model]
+    fallback = (os.environ.get("ORLA_VLM_FALLBACK") or "qwen2.5vl:7b").strip()
+    if fallback and fallback not in candidates:
+        candidates.append(fallback)
+
+    text = err = None
+    report = None
+    used_model = model
+    raw_preview = ""
+    for cand in candidates:
+        used_model = cand
+        text, err = _vlm_chat(
+            path=path,
+            user_prompt=user_prompt,
+            model=cand,
+            temperature=0.1,
+            # Qwen3-VL often burns 1–2k tokens on a think channel before JSON.
+            num_predict=4096,
+            timeout_s=360,
+            json_format=True,
+        )
+        if err:
+            continue
+        raw_preview = (text or "")[:4000]
+        report = _extract_json_object(text or "")
+        if report:
+            break
+    if err and not report:
+        return {"ok": False, "error": err, "path": str(path), "model": used_model}
+    if not report:
+        return {
+            "ok": False,
+            "error": "VLM did not return parseable JSON",
+            "path": str(path.resolve()),
+            "model": used_model,
+            "raw": raw_preview,
+            "tried_models": candidates,
+        }
+    model = used_model
+
+    write_report = body.get("write_report", True)
+    report_json = report_md = None
+    if write_report:
+        report_json, report_md = _report_paths_for(path)
+        payload = {
+            "ok": True,
+            "action": "review_still",
+            "path": str(path.resolve()),
+            "model": model,
+            "expected": expected,
+            "report": report,
+            "raw_preview": text[:500],
+        }
+        report_json.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+        report_md.write_text(_report_to_markdown(report, path, model), encoding="utf-8")
+
+    return {
+        "ok": True,
+        "action": "review_still",
+        "path": str(path.resolve()),
+        "model": model,
+        "expected": expected,
+        "report": report,
+        "overall": report.get("overall"),
+        "report_json": str(report_json) if report_json else None,
+        "report_md": str(report_md) if report_md else None,
     }
 
 
@@ -1047,6 +1322,8 @@ def handle_action(body: dict) -> dict:
             "comfybox": str(COMFYBOX),
             "images_dir": str(IMAGES_DIR),
             "video_dir": str(VIDEO_DIR),
+            "vlm_model": VLM_MODEL,
+            "vlm_reports_dir": str(VLM_REPORTS_DIR),
             "media_roots": [str(p) for p in MEDIA_ROOTS if p.exists()],
             "last_displayed": state.get("last_displayed"),
             "batch_size": len(state.get("batch") or []),
@@ -1059,6 +1336,10 @@ def handle_action(body: dict) -> dict:
             },
             "phonetic_out": str(PHONETIC_OUT),
             "kokoro_url": KOKORO_URL,
+            "actions_extra": [
+                "describe_image",
+                "review_still",
+            ],
         }
     if action in {"ingest", "pull", "deliver"}:
         return ingest_comfy(body)
@@ -1104,6 +1385,8 @@ def handle_action(body: dict) -> dict:
         return upload_to_comfy(body)
     if action in {"describe_image", "vlm", "caption", "see_image"}:
         return describe_image(body)
+    if action in {"review_still", "review", "qa_still", "checklist"}:
+        return review_still(body)
     if action in {"handoff", "notify", "job_event"}:
         return handoff_event(body)
     if action in {"phonetic_rewrite", "rewrite_phonetic", "phonetic"}:

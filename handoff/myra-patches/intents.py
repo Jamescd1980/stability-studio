@@ -12,6 +12,11 @@ NOTE_TRIGGERS = (
     "write this down", "take a note", "make a note", "note that",
     "remember this", "remember that", "jot this down", "add a note",
 )
+RECORD_TRIGGERS = (
+    "make a recording", "make recording", "start a recording", "start recording",
+    "begin recording", "begin a recording", "record this", "record a take",
+    "record that", "take a recording", "start the recording",
+)
 GENERATE_TRIGGERS = (
     "generate", "render", "draw ", "make an image", "make a picture",
     "create an image", "create a picture", "paint ", "generate an image",
@@ -168,7 +173,7 @@ COMFYBOX_HIDE_TRIGGERS = (
 
 @dataclass
 class Intent:
-    kind: str            # note | generate | image_brief | recreate | cast_swap | cast_batch | web_lookup | pose | weather | headlines | datetime | read | ask_jan | ask_orla | search | reference | screensaver_on | screensaver_off | comfybox_status | hide_display | conversation
+    kind: str            # note | record | generate | image_brief | recreate | cast_swap | cast_batch | web_lookup | pose | weather | headlines | datetime | read | ask_jan | ask_orla | search | reference | screensaver_on | screensaver_off | comfybox_status | hide_display | conversation
     text: str            # cleaned payload (command stripped)
     raw: str
     persona: str = "myra"  # myra | jan | orla — set by wake word
@@ -226,6 +231,9 @@ def classify(text: str, persona: str = "myra") -> Intent:
 
     if any(t in low for t in NOTE_TRIGGERS):
         return Intent("note", _strip_prefix(raw, NOTE_TRIGGERS), raw, persona=persona)
+
+    if any(t in low for t in RECORD_TRIGGERS):
+        return Intent("record", _strip_prefix(raw, RECORD_TRIGGERS), raw, persona=persona)
 
     # Phonetic rewrite is Orla's job — catch before plain "read chapter".
     if any(t in low for t in PHONETIC_REWRITE_TRIGGERS) and "chapter" in low:

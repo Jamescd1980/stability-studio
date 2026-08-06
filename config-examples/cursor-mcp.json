@@ -1,9 +1,24 @@
 {
   "mcpServers": {
     "stability-studio": {
-      "command": "python",
-      "args": ["<PROJECT_ROOT>/stability-studio-mcp/server.py"],
-      "env": {}
+      "command": "C:\\Path\\To\\Python\\python.exe",
+      "args": ["D:\\studio-agent\\stability-studio-mcp\\server.py"],
+      "cwd": "D:\\studio-agent\\stability-studio-mcp",
+      "env": {
+        "PYTHONUNBUFFERED": "1",
+        "PYTHONPATH": "D:\\studio-agent\\stability-studio-mcp",
+        "STABILITY_STUDIO_COMFYUI_URL": "http://YOUR_COMFY_HOST:8188"
+      }
+    },
+    "blender": {
+      "command": "cmd",
+      "args": ["/c", "uvx", "--python", "3.11", "blender-mcp"],
+      "env": {
+        "BLENDER_HOST": "YOUR_BLENDER_HOST",
+        "BLENDER_PORT": "9876",
+        "DISABLE_TELEMETRY": "true",
+        "UV_PYTHON_PREFERENCE": "only-managed"
+      }
     }
   }
 }

@@ -21,8 +21,10 @@ import requests
 from . import cast_resolve
 from .prompt_sex_lexicon import (
     CAMERA_PROP_NEGATIVE,
+    COUPLE_HINT_RE,
     SEX_PROMPT_DIRECTIVE,
     SOFT_TO_EXPLICIT,
+    SOLO_NEGATIVE,
 )
 
 log = logging.getLogger("studio_edge.generate")
@@ -269,6 +271,19 @@ def _harden_sex_prompt(text: str) -> str:
     return re.sub(r",\s*,", ", ", out).strip(" ,")
 
 
+def _apply_scene_negatives(negative: str, hint: str) -> str:
+    """Solo masturbation/dildo: block extra people + male hands; always ban camera props."""
+    neg = negative or ""
+    low = (hint or "").lower()
+    soloish = bool(re.search(r"\b(?:solo|1girl|masturbat|dildo|fingering)\b", low))
+    coupled = bool(re.search(COUPLE_HINT_RE, low, flags=re.I))
+    if soloish and not coupled and SOLO_NEGATIVE.lower() not in neg.lower():
+        neg = f"{neg}, {SOLO_NEGATIVE}" if neg else SOLO_NEGATIVE
+    if CAMERA_PROP_NEGATIVE.lower() not in neg.lower():
+        neg = f"{neg}, {CAMERA_PROP_NEGATIVE}" if neg else CAMERA_PROP_NEGATIVE
+    return neg
+
+
 def _orla_action(cfg: dict, body: dict, *, timeout: float = 30) -> dict:
     orla_cfg = cfg.get("orla") or {}
     tools_url = str(orla_cfg.get("tools_url") or "http://192.168.50.42:11436").rstrip("/")
@@ -442,17 +457,12 @@ def generate_via_comfyui(
         prompt = build_fallback_prompt(description, cast, scene_hint=description)
     prompt = _harden_sex_prompt(prompt)
     hint = f"{description} {positive_prompt or ''}".lower()
-    # Solo beach / portrait: suppress crowd + unsolicited fluids
+    # Unsolicited fluids unless asked
     if not re.search(r"\b(?:cum|semen|creampie|aftersex|bukkake)\b", hint):
         negative = (
             f"{negative}, cum, semen, excessive bodily fluids, aftersex"
         )
-    if re.search(r"\b(?:beach|solo|1girl)\b", hint) and not re.search(
-        r"\b(?:couple|2boys|multiple boys|threesome|group)\b", hint
-    ):
-        negative = f"{negative}, 2boys, multiple boys, crowd, extra people"
-    if CAMERA_PROP_NEGATIVE.lower() not in negative.lower():
-        negative = f"{negative}, {CAMERA_PROP_NEGATIVE}"
+    negative = _apply_scene_negatives(negative, hint)
     use_loras = list(loras or [])
     prompt, negative, use_loras, q_over = apply_quality(
         prompt=prompt,
@@ -932,8 +942,7 @@ def generate_via_openpose(
         "default_negative",
         "lowres, bad anatomy, worst quality, watermark, signature, text",
     )
-    if CAMERA_PROP_NEGATIVE.lower() not in negative.lower():
-        negative = f"{negative}, {CAMERA_PROP_NEGATIVE}"
+    negative = _apply_scene_negatives(negative, f"{asked} {prompt}")
     use_loras = list(loras or [])
     prompt, negative, use_loras, q_over = apply_quality(
         prompt=prompt,
@@ -1092,8 +1101,7 @@ def approximate_via_img2img(
         "default_negative",
         "lowres, bad anatomy, worst quality, watermark, signature, text",
     )
-    if CAMERA_PROP_NEGATIVE.lower() not in negative.lower():
-        negative = f"{negative}, {CAMERA_PROP_NEGATIVE}"
+    negative = _apply_scene_negatives(negative, f"{adjust} {prompt}")
     use_loras = list(loras or [])
     prompt, negative, use_loras, q_over = apply_quality(
         prompt=prompt,
