@@ -165,7 +165,69 @@ def download_moss_models(
     return results
 
 
-def media_paths(cfg: dict[str, Any]) -> dict[str, str]:
+_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".jfif", ".bmp"}
+
+
+def source_image_dirs(cfg: dict[str, Any]) -> list[Path]:
+    """Folders where James commonly drops stills for I2V / edits (Windows desktop + delivery)."""
+    from studio.output_paths import delivery_dir
+
+    dirs: list[Path] = []
+    desktop = Path.home() / "Desktop" / "New Images"
+    if desktop.is_dir():
+        dirs.append(desktop)
+    delivery = delivery_dir(cfg)
+    if delivery is not None:
+        for sub in ("User Import", "Images", ""):
+            p = delivery / sub if sub else delivery
+            if p.is_dir() and p not in dirs:
+                dirs.append(p)
+    # Local SM ComfyUI input is rarely the right place when comfyui.url is remote.
+    return dirs
+
+
+def list_source_images(
+    cfg: dict[str, Any],
+    query: str = "",
+    max_files: int = 40,
+) -> dict[str, Any]:
+    """
+    Scan known source folders for stills. Use this when image_path is unknown —
+    do not invent paths like D:\\Users\\... or guess Video/Images subfolders.
+    """
+    q = (query or "").strip().lower()
+    found: list[dict[str, str]] = []
+    scanned: list[str] = []
+    for root in source_image_dirs(cfg):
+        scanned.append(str(root))
+        try:
+            for path in sorted(root.iterdir(), key=lambda p: p.name.lower()):
+                if not path.is_file() or path.suffix.lower() not in _IMAGE_EXTS:
+                    continue
+                if q and q not in path.name.lower():
+                    continue
+                found.append({"name": path.name, "path": str(path)})
+                if len(found) >= max_files:
+                    break
+        except OSError:
+            continue
+        if len(found) >= max_files:
+            break
+    return {
+        "query": query or None,
+        "scanned_dirs": scanned,
+        "count": len(found),
+        "files": found,
+        "hint": (
+            "Pass files[].path exactly to generate_video / edit_image. "
+            "Never rewrite C:\\Users\\... to D:\\Users\\.... "
+            "Delivery outputs go under delivery Images/Video; user drops often live in "
+            "Desktop\\New Images or delivery\\User Import."
+        ),
+    }
+
+
+def media_paths(cfg: dict[str, Any]) -> dict[str, Any]:
     """Canonical local paths for images, audio, and video outputs."""
     from studio.output_paths import delivery_dir, delivery_temp_dir
     from studio.project_layout import project_paths
@@ -177,23 +239,49 @@ def media_paths(cfg: dict[str, Any]) -> dict[str, str]:
     wan2gp = Path(cfg.get("wan2gp", {}).get("root") or (data / "Packages" / "Wan2GP"))
     delivery = delivery_dir(cfg)
     temp = delivery_temp_dir(cfg)
-    paths = {
+    comfy_url = str((cfg.get("comfyui") or {}).get("url") or "")
+    paths: dict[str, Any] = {
         "mcp_outputs": str(mcp_root / "outputs"),
         "comfyui_output": str(comfy / "output"),
         "comfyui_input": str(comfy / "input"),
         "comfyui_audio": str(comfy / "output" / "audio"),
+        "comfyui_url": comfy_url,
         "wan2gp_outputs": str(temp or delivery or (wan2gp / "outputs")),
         "wan2gp_ckpts": str(wan2gp / "ckpts"),
         "moss_models": str(comfy / "models" / "moss-tts"),
         "stability_matrix_models": str(cfg["stability_matrix"]["models"]),
         "stability_matrix_workflows": str(cfg["stability_matrix"]["workflows"]),
+        "source_image_dirs": [str(p) for p in source_image_dirs(cfg)],
+        "agent_path_notes": (
+            "ComfyUI is usually remote (comfybox). Local comfyui_input is NOT where James "
+            "keeps source stills. Use list_source_images(query=...) to find files. "
+            "James Desktop stills: %USERPROFILE%\\Desktop\\New Images. "
+            "User drops in delivery: delivery/User Import. "
+            "Never invent D:\\Users\\<you>\\... — Windows profile is on C:. "
+            "Do not guess delivery/Video or delivery/Images for *inputs*."
+        ),
     }
     if delivery is not None:
         paths["delivery"] = str(delivery)
+        paths["user_import"] = str(delivery / "User Import")
         paths["moss_audio_delivery"] = str(temp or delivery)
         paths["wan2gp_video_delivery"] = str(temp or delivery)
+        # Prefer remote comfybox dump folders when delivery is the shared Windows tree.
+        images = delivery / "Images"
+        video = delivery / "Video"
+        if images.is_dir():
+            paths["comfyui_output"] = str(images)
+            paths["comfybox_images"] = str(images)
+        if video.is_dir():
+            paths["comfybox_videos"] = str(video)
     layout = project_paths(cfg)
     if layout is not None:
         for key, path in layout.items():
             paths[f"project_{key}"] = str(path)
+        if "images" in layout:
+            paths["comfybox_images"] = str(layout["images"])
+            paths["comfyui_output"] = str(layout["images"])
+        if "clips" in layout:
+            paths["comfybox_videos"] = str(layout["clips"])
+            paths["wan2gp_video_delivery"] = str(layout["clips"])
     return paths

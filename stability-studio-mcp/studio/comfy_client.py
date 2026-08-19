@@ -189,11 +189,39 @@ class ComfyUIClient:
             "pending": len(q.get("queue_pending", [])),
         }
 
-    def download_file(self, file_info: dict[str, Any], dest_dir: Path) -> Path:
+    def download_file(
+        self,
+        file_info: dict[str, Any],
+        dest_dir: Path,
+        *,
+        cfg: dict[str, Any] | None = None,
+    ) -> Path:
+        """Download via ComfyUI /view; on 404 fall back to SSH from the Game drive."""
         dest_dir.mkdir(parents=True, exist_ok=True)
+        filename = str(file_info.get("filename") or "output.bin")
+        out = dest_dir / Path(filename).name
         url = self.view_url(file_info)
-        r = requests.get(url, timeout=120)
-        r.raise_for_status()
-        out = dest_dir / file_info["filename"]
-        out.write_bytes(r.content)
-        return out
+        try:
+            r = requests.get(url, timeout=120)
+            if r.status_code == 404 and cfg is not None:
+                from studio.comfy_remote_fetch import fetch_comfy_output_via_ssh
+
+                return fetch_comfy_output_via_ssh(cfg, file_info, dest_dir)
+            r.raise_for_status()
+            out.write_bytes(r.content)
+            return out
+        except requests.HTTPError as exc:
+            if cfg is not None and exc.response is not None and exc.response.status_code == 404:
+                from studio.comfy_remote_fetch import fetch_comfy_output_via_ssh
+
+                return fetch_comfy_output_via_ssh(cfg, file_info, dest_dir)
+            raise
+        except requests.RequestException:
+            if cfg is not None:
+                from studio.comfy_remote_fetch import fetch_comfy_output_via_ssh
+
+                try:
+                    return fetch_comfy_output_via_ssh(cfg, file_info, dest_dir)
+                except Exception:
+                    raise
+            raise

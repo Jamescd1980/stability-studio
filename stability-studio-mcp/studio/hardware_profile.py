@@ -11,9 +11,14 @@ ANATOMY_NEGATIVE_HINT = (
     "mutated hands, distorted limbs, blurry, low quality"
 )
 
+# Stills only — "detailed face / symmetrical eyes" on Wan I2V redraws eyes every
+# frame and melts lookback / rolled-eye / dual-face NSFW keepers.
 ANATOMY_POSITIVE_HINT = (
     "natural hands, anatomically correct, detailed face, symmetrical eyes"
 )
+
+# Video: hands/anatomy only. Never inject eye/face redraw cues into I2V/T2V.
+ANATOMY_POSITIVE_HINT_VIDEO = "natural hands, anatomically correct"
 
 
 def _hardware_config(cfg: dict[str, Any]) -> dict[str, Any]:
@@ -124,9 +129,11 @@ def build_generation_limits(vram_gb: float, cfg: dict[str, Any]) -> dict[str, An
         video_i2v = {
             "workflow_id": "i2v_5b",
             "model_hint": "wan2.2_ti2v_5B_fp16 + wan2.2_vae",
-            "max_width": 832,
-            "max_height": 480,
-            "max_frames": 81,
+            # Quality-first (7900 XT 20GB): 720² was melting dual-face NSFW eyes.
+            # Prefer short clips at higher res; splice/loop for length.
+            "max_width": 960,
+            "max_height": 960,
+            "max_frames": 65,
             "frame_rate": 16,
         }
         tier = "24gb"
@@ -139,11 +146,14 @@ def build_generation_limits(vram_gb: float, cfg: dict[str, Any]) -> dict[str, An
             "frame_rate": 24,
         }
         video_i2v = {
-            "max_width": 832,
-            "max_height": 1216,
+            # RTX 5090 32GB — quality-first keepers; raise after smoke tests.
+            "workflow_id": "i2v",
+            "model_hint": "Wan 2.2 I2V-A14B MoE HIGH+LOW fp8",
+            "max_width": 1080,
+            "max_height": 1080,
             "max_frames": 81,
             "frame_rate": 16,
-            "quantization": "bf16",
+            "quantization": "fp8",
             "load_device": "main_device",
             "force_offload": False,
         }
@@ -159,9 +169,20 @@ def build_generation_limits(vram_gb: float, cfg: dict[str, Any]) -> dict[str, An
         )
     if prefer_prompt_quality:
         notes.append(
-            f"Include anatomy cues in prompts, e.g. {ANATOMY_POSITIVE_HINT!r}; "
-            f"negatives like {ANATOMY_NEGATIVE_HINT!r}."
+            f"Stills may include {ANATOMY_POSITIVE_HINT!r}; "
+            f"video uses {ANATOMY_POSITIVE_HINT_VIDEO!r} only (no eye redraw). "
+            f"Negatives like {ANATOMY_NEGATIVE_HINT!r}."
         )
+
+    # Optional config.yaml hardware.video_i2v / video_t2v / image overrides.
+    for key, bucket in (
+        ("image", image),
+        ("video_t2v", video_t2v),
+        ("video_i2v", video_i2v),
+    ):
+        override = hw.get(key)
+        if isinstance(override, dict):
+            bucket.update(override)
 
     return {
         "tier": tier,
@@ -203,6 +224,30 @@ def build_hardware_profile(cfg: dict[str, Any], comfy: ComfyUIClient | None) -> 
     return {
         "hardware_profile": profile,
         "generation_limits": limits,
+        "labor_split": {
+            "comfybox": {
+                "role": "GPU-heavy diffusion",
+                "host": "generation host :8188 ComfyUI / :7860 Forge (exclusive)",
+                "tasks": [
+                    "generate_image",
+                    "refine_image_forge / generate_image_forge",
+                    "generate_video (i2v/t2v/v2v)",
+                ],
+            },
+            "main_rig": {
+                "role": "CPU-heavy + local polish GPU",
+                "host": "local polish GPU",
+                "tasks": [
+                    "ffmpeg splice/concat",
+                    "interpolate_video (method=rife | minterpolate)",
+                    "polish_wan_best (RIFE → SeedVR2 3B FP8)",
+                    "upscale_video_local / polish_wan_video (AnimeSharp fallback)",
+                    "file ops, downloads, catalog edits, MCP orchestration",
+                ],
+            },
+            "rule": "Generate on the generation host; polish and package on the local rig.",
+            "doc": "HARDWARE.md#division-of-labor-main-rig-vs-comfybox",
+        },
     }
 
 

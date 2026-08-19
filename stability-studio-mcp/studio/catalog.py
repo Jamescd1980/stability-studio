@@ -38,6 +38,16 @@ class StyleCatalog:
         with self.catalog_path.open(encoding="utf-8") as f:
             return yaml.safe_load(f) or {}
 
+    def reload(self) -> dict[str, Any]:
+        """Re-read catalog.yaml from disk (character_loras / styles edits without MCP restart)."""
+        self._data = self._load()
+        return {
+            "ok": True,
+            "path": str(self.catalog_path),
+            "styles": len(self.styles),
+            "character_loras": len(self.character_loras),
+        }
+
     def save(self) -> None:
         with self.catalog_path.open("w", encoding="utf-8") as f:
             yaml.dump(self._data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
@@ -57,6 +67,18 @@ class StyleCatalog:
     @property
     def art_food_groups(self) -> dict[str, Any]:
         return self._data.get("art_food_groups", {})
+
+    @property
+    def style_lanes(self) -> dict[str, Any]:
+        return self._data.get("style_lanes", {})
+
+    @property
+    def look_profiles(self) -> dict[str, Any]:
+        return self._data.get("look_profiles", {})
+
+    @property
+    def character_loras(self) -> dict[str, Any]:
+        return self._data.get("character_loras", {})
 
     def resolve_family(self, family_id: str) -> dict[str, Any]:
         """Return merged family metadata (handles extends)."""
@@ -359,6 +381,21 @@ class StyleCatalog:
             "model_families_doc": "See MODEL-FAMILIES.md in repo root for full agent guide",
             "art_food_groups": self.art_food_groups or {},
             "art_food_groups_doc": "Pass food_group=anime|fantasy|cyberpunk|photoreal to edit_image. See IMAGE-EDITING.md.",
+            "style_lanes": self.style_lanes or {},
+            "style_lanes_doc": (
+                "Finer than food groups: media (cartoon/anime_modern/anime_retro/cgi/…) "
+                "+ mood (traditional/gothic/cyber/dark_fantasy/gold_standard) "
+                "+ cast axes (subject/grouping/content). Maps to styles, look_profiles, checkpoint_roles A/B/C."
+            ),
+            "look_profiles": self.look_profiles or {},
+            "look_profiles_doc": "Named LoRA/neg stacks (illustrious_detail_hero = recreate_003 bar).",
+            "character_loras": self.character_loras or {},
+            "character_loras_doc": (
+                "Trained cast LoRAs: Frieren (fern|frieren|ubel|flamme) + Solo Leveling "
+                "(cha_hae_in|jinah_sung|akari_shimizu|esil_radiru|gina|han_semi|han_song_yi|"
+                "joo_hee|kanae_tawata|lee_bora|park_heejin). "
+                "Call resolve_character_loras(character=...) then generate_image(style=waijfu, loras=..., prompt with trigger)."
+            ),
             "checkpoint_architecture_checks": arch_checks,
             "checkpoint_architecture_mismatches": arch_mismatches,
             "styles": self.list_styles(),
@@ -398,6 +435,10 @@ class StyleCatalog:
             "jan_quickstart": {
                 "before_any_gpu": "check_gpu_backend",
                 "before_image": "get_generation_context -> pick style id -> generate_image",
+                "character_still": (
+                    "resolve_character_loras(character=fern|jinah_sung|cha_hae_in|…) -> "
+                    "generate_image(style=waijfu, loras=<result.loras>, prompt includes trigger)"
+                ),
                 "before_draft_video": "check_gpu_backend(intent=comfyui) -> generate_video(mode=i2v, workflow_id=i2v_5b)",
                 "comfyui_url": self.cfg.get("comfyui", {}).get("url"),
             },

@@ -1,4 +1,4 @@
-"""Exclusive GPU backend policy — ComfyUI vs Wan2GP on ≤16 GB (and offline agents)."""
+"""Exclusive GPU backend policy — ComfyUI vs Wan2GP (and offline agents)."""
 
 from __future__ import annotations
 
@@ -8,6 +8,9 @@ import subprocess
 import time
 from pathlib import Path
 from typing import Any, Literal
+from urllib.parse import urlparse
+
+import requests
 
 BackendName = Literal["comfyui", "wan2gp", "idle"]
 
@@ -91,6 +94,39 @@ def _port_open(host: str, port: int, timeout: float = 0.4) -> bool:
         return False
 
 
+def _comfy_url_parts(cfg: dict[str, Any]) -> tuple[str, int, bool]:
+    """Return (host, port, is_local) for configured ComfyUI."""
+    raw = str((cfg.get("comfyui") or {}).get("url") or "http://127.0.0.1:8188")
+    parsed = urlparse(raw)
+    host = parsed.hostname or "127.0.0.1"
+    port = int(parsed.port or 8188)
+    is_local = host in {"127.0.0.1", "localhost", "::1"}
+    return host, port, is_local
+
+
+def comfyui_is_reachable(cfg: dict[str, Any], timeout: float = 2.0) -> bool:
+    """True if configured ComfyUI (local or remote comfybox) answers."""
+    raw = str((cfg.get("comfyui") or {}).get("url") or "http://127.0.0.1:8188").rstrip("/")
+    try:
+        r = requests.get(f"{raw}/system_stats", timeout=timeout)
+        return r.ok
+    except requests.RequestException:
+        host, port, _ = _comfy_url_parts(cfg)
+        return _port_open(host, port, timeout=min(timeout, 0.8))
+
+
+def _stop_comfyui_hint(cfg: dict[str, Any]) -> str:
+    host, _port, is_local = _comfy_url_parts(cfg)
+    if is_local:
+        return "Stop local ComfyUI (Stability Matrix → ComfyUI → Stop) before Wan2GP hero."
+    ssh = str((cfg.get("forge") or {}).get("ssh_host") or "comfybox")
+    return (
+        f"ComfyUI is on {host} (remote). To free the GPU for Wan2GP hero only: "
+        f"ssh {ssh} '~/bin/gpu_backend.sh stop' — do NOT use Windows Stability Matrix. "
+        "For normal 14B / draft I2V keep ComfyUI up and use generate_video(workflow_id=i2v|i2v_5b)."
+    )
+
+
 def _pid_on_port_windows(port: int) -> int | None:
     try:
         out = subprocess.run(
@@ -154,13 +190,16 @@ def _vram_free_gb() -> float | None:
 def inspect_gpu_backend(cfg: dict[str, Any], *, comfyui_running: bool | None = None) -> dict[str, Any]:
     """Snapshot ComfyUI / Wan2GP / lock / VRAM for agents (Jan, LM Studio, Cursor)."""
     g = _gpu_config(cfg)
-    comfy_port = int(g["comfyui_port"])
+    comfy_host, comfy_port, comfy_local = _comfy_url_parts(cfg)
+    # Prefer configured port; fall back to gpu_backend.comfyui_port
+    comfy_port = int(g.get("comfyui_port") or comfy_port)
     ui_port = int(g["wan2gp_ui_port"])
     mcp_port = int(g["wan2gp_mcp_port"])
 
     if comfyui_running is None:
-        comfyui_running = _port_open("127.0.0.1", comfy_port)
+        comfyui_running = comfyui_is_reachable(cfg)
 
+    # Wan2GP UI/MCP are local Windows processes on this desktop
     wan2gp_ui = _port_open("127.0.0.1", ui_port)
     wan2gp_mcp = _port_open("127.0.0.1", mcp_port)
     ui_pid = _pid_on_port_windows(ui_port) if wan2gp_ui else None
@@ -169,6 +208,7 @@ def inspect_gpu_backend(cfg: dict[str, Any], *, comfyui_running: bool | None = N
     lock = _read_lock(cfg)
     vram_free = _vram_free_gb()
     tier = (cfg.get("_generation_tier") or "")  # optional injection
+    vram_gb = float((cfg.get("hardware") or {}).get("vram_gb") or 0)
 
     allowed: list[str] = []
     blocks: list[dict[str, str]] = []
@@ -192,14 +232,14 @@ def inspect_gpu_backend(cfg: dict[str, Any], *, comfyui_running: bool | None = N
             blocks.append(
                 {
                     "backend": "comfyui",
-                    "reason": "Wan2GP Gradio UI is running — stop it before ComfyUI GPU generation on 16 GB.",
+                    "reason": "Wan2GP Gradio UI is running locally — stop it before ComfyUI GPU jobs.",
                 }
             )
         if comfyui_running and g["require_comfyui_stopped_for_hero"]:
             blocks.append(
                 {
                     "backend": "wan2gp",
-                    "reason": "ComfyUI is running — stop ComfyUI from Stability Matrix before hero Wan2GP.",
+                    "reason": _stop_comfyui_hint(cfg),
                 }
             )
 
@@ -208,7 +248,13 @@ def inspect_gpu_backend(cfg: dict[str, Any], *, comfyui_running: bool | None = N
     if not any(b["backend"] == "wan2gp" for b in blocks):
         allowed.append("wan2gp")
 
-    if vram_free is not None and vram_free < float(g["min_free_vram_gb_comfyui"]):
+    # Local nvidia-smi is Orla. When ComfyUI is remote (ComfyBox), local VRAM
+    # must not gate ComfyUI jobs — only gate local Wan2GP.
+    if (
+        comfy_local
+        and vram_free is not None
+        and vram_free < float(g["min_free_vram_gb_comfyui"])
+    ):
         if "comfyui" in allowed:
             allowed.remove("comfyui")
             blocks.append(
@@ -227,15 +273,31 @@ def inspect_gpu_backend(cfg: dict[str, Any], *, comfyui_running: bool | None = N
                 }
             )
 
-    recommendation = "One GPU backend at a time on 16 GB."
+    recommendation = (
+        "One GPU video backend at a time. "
+        "14B / draft I2V → generate_video on ComfyUI (i2v or i2v_5b). "
+        "Wan2GP hero only when the user explicitly asks for hero / lip-sync / Wan2GP."
+    )
+    if vram_gb >= 20:
+        recommendation = (
+            f"Comfybox ~{vram_gb:.0f}GB: prefer ComfyUI generate_video "
+            "(i2v_5b default; workflow_id=i2v for Wan 14B). "
+            "Do not call generate_video_hero unless user says hero/Wan2GP/lip-sync."
+        )
     if "wan2gp" in allowed and not wan2gp_mcp and not wan2gp_ui:
-        recommendation = "Start Wan2GP MCP via generate_video_hero (auto) or Stability Matrix → Wan2GP → MCP mode."
+        recommendation += " Wan2GP MCP can auto-start via generate_video_hero when needed."
     elif blocks:
         recommendation = blocks[0]["reason"]
 
     return {
         "enforce_exclusive": bool(g["enforce_exclusive"]),
-        "comfyui": {"running": comfyui_running, "port": comfy_port},
+        "comfyui": {
+            "running": comfyui_running,
+            "host": comfy_host,
+            "port": comfy_port,
+            "local": comfy_local,
+            "url": str((cfg.get("comfyui") or {}).get("url") or ""),
+        },
         "wan2gp": {
             "ui_running": wan2gp_ui,
             "ui_port": ui_port,
@@ -246,12 +308,18 @@ def inspect_gpu_backend(cfg: dict[str, Any], *, comfyui_running: bool | None = N
         },
         "lock": lock,
         "vram_free_gb": vram_free,
+        "hardware_vram_gb": vram_gb or None,
         "allowed_backends": allowed,
         "blocks": blocks,
         "recommendation": recommendation,
+        "routing_note": (
+            "User said '14B' → generate_video(mode=i2v, workflow_id=i2v) on ComfyUI. "
+            "generate_video_hero is Wan2GP only — not the 14B ComfyUI path."
+        ),
         "offline_agent_note": (
             "Call check_gpu_backend before generate_video / generate_video_hero / generate_audio. "
-            "Jan and LM Studio must not run ComfyUI and Wan2GP video concurrently."
+            "Do not run ComfyUI video and Wan2GP hero concurrently. "
+            "Never tell the user to stop Windows Stability Matrix for remote comfybox ComfyUI."
         ),
     }
 
