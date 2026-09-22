@@ -10,7 +10,9 @@ Supports:
 
 - **Images** — SD 1.5 / SDXL / Pony / Flux.2 Klein via `catalog.yaml` style presets and `model_families`
 - **Image editing** — **`edit_image`** (unified), i2i, inpaint, IP-Adapter, ControlNet — see [IMAGE-EDITING.md](IMAGE-EDITING.md)
-- **Video** — Wan T2V/I2V via converted Stability Matrix workflows (`workflow_id=t2v` recommended)
+- **Video** — Wan T2V/I2V via ComfyUI; **14B NSFW/identity = `workflow_id=i2v`** (Wan 2.2 MoE HIGH+LOW). Draft/SFW = `i2v_5b`. See `stability-studio-mcp/LESSONS-WAN-I2V.md`.
+- **Pose from Blender** — optional second MCP (`blender`); Stability Studio bridge: `get_blender_workflow_playbook` / `register_blender_control_maps` — [BLENDER-MCP.md](BLENDER-MCP.md), [LESSONS-BLENDER-MCP.md](LESSONS-BLENDER-MCP.md)
+- **GENERATION_HOST CUDA 5090** — [HARDWARE.md](HARDWARE.md), [LESSONS-COMFYBOX-CUDA.md](LESSONS-COMFYBOX-CUDA.md)
 
 ## Four art food groups
 
@@ -67,13 +69,19 @@ Generation tools **only work when**:
 | `generate_image_controlnet` | Depth + canny guided T2I |
 | **`setup_pose_control`** / **`check_pose_control_readiness`** | OpenPose XL2 + line preprocessors — see [POSE-CONTROL.md](POSE-CONTROL.md) |
 | **`extract_control_maps`** | OpenPose / Canny / anime lineart previews from a still |
-| **`generate_image_pose_guided`** | I2i + OpenPose CN — identity still + pose PNG from [editor](https://openpose-editor.vercel.app/) |
+| **`generate_image_pose_guided`** | I2i + OpenPose CN — identity still + pose PNG (Blender export or [editor](https://openpose-editor.vercel.app/)) |
+| **`get_blender_workflow_playbook`** / **`register_blender_control_maps`** | Blender MCP → pose/depth maps → stills — [BLENDER-MCP.md](BLENDER-MCP.md) |
 | `list_pose_control_options` | Preprocessor ids + OpenPose editor URLs |
+| `check_hunyuan_assets` / `download_hunyuan_assets` | HunyuanVideo 1.5 weights (generate routing TBD) — [MODEL-FAMILIES.md](MODEL-FAMILIES.md) |
 | `sync_checkpoint_architectures` | Fix catalog vs on-disk checkpoint family |
 | `check_style_assets` / `download_style_assets` | Flux2 / checkpoint manifest |
 | `check_wan_video_loras` / `download_wan_video_loras` | Optional Wan motion/face/lighting LoRAs |
 | `check_painter_i2v_dependencies` / `install_painter_i2v_dependencies` | PainterI2V motion node |
-| `generate_video` | `mode=t2v|i2v|v2v`; auto **`applied_safety_caps`** on ≤16 GB; **`smooth_motion=false`** recommended |
+| `generate_video` | `mode=t2v|i2v|v2v` — **`mode=v2v` = extend from last frame only**, not latent clean. Caps on ≤16 GB; **`smooth_motion=false`** recommended |
+| `list_video_workflows` | Catalog ids incl. **`v2v_upscale`** (true latent clean graph — ComfyUI UI / not wired into `generate_video` yet) |
+| `check_comfyui_dependencies` / `install_comfyui_dependencies` | Node packs for a `workflow_id` (e.g. `v2v_upscale`) — on GenerationHost prefer SSH into `~/ComfyUI/custom_nodes` |
+| `recommend_polish` / `polish_wan_best` | Main-rig post. Saloon / no-RIFE: `skip_interpolate=true` (SeedVR-only). **Gate vs master** — SeedVR can look worse (SS02 2026-08-20); keep original if so |
+| `check_local_post` | RIFE-ncnn + SeedVR2 readiness on the 5060 Ti polish rig |
 | `plan_storyboard_scene` | **Hero** storyboard plan (Wan2GP + MOSS + splice) — see STORYBOARD-QUICKSTART.md |
 | `check_storyboard_readiness` | MOSS + Wan2GP hero + GPU + `outputs.delivery` layout |
 | **Storyboard module** | `studio/storyboard_cli.py` — reusable plan/check/splice |
@@ -119,6 +127,9 @@ Call **`get_generation_context`** and read `hardware_profile`, `generation_limit
 - **Flux2:** `miracle_nsfw` — companion assets via `download_style_assets`
 - **Video T2V:** `workflow_id=t2v` — Wan 2.1 1.3B; **81 frames max** on 16 GB (validated 2026-06-11)
 - **Video I2V draft:** `mode=i2v` + `image_path` → **`i2v_5b`** / **`i2v_5b_painter`**; **65 frames max** on 16 GB
+- **Video I2V 14B / NSFW:** `workflow_id=i2v` — Wan 2.2 A14B MoE; LoRA pairs (`female_orgasm`, Lightning); one job at a time; gate first frame vs still
+- **Video V2V naming:** `mode=v2v` / `v2v_5b*` = **extend** (last-frame I2V + optional concat). **Latent clean** = catalog `v2v_upscale` (Wan 1.3B denoise ~0.1, mute RIFE). Do not call `generate_video(mode=v2v)` to “clean” a keeper.
+- **Polish (main rig):** `recommend_polish` → often SeedVR-only; **always A/B vs original** — reject if softer (Saloon SS02 SeedVR 2026-08-20)
 - **Video I2V hero:** **`generate_video_hero`** — Wan2GP Enhanced Lightning v2; **49 frames @ 832×480** validated (2026-06-12) — `outputs/wan2gp_bow_hero_result.json`
 - **Bow from still:** hero → `generate_video_hero`; draft → `i2v_5b_painter` `motion_amplitude=1.1`, 49 frames
 

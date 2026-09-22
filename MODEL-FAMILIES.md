@@ -12,6 +12,7 @@ This document explains **what each model architecture needs**, how ComfyUI workf
 4. Before writing prompts (Jan Prompt Lab): **`get_prompt_style(style=ilustmix)`** or **`get_prompt_style(platform=pony)`** — compact grammar vs full context.
 5. For **Flux2** (`miracle_nsfw`): **`check_style_assets(style="miracle_nsfw")`** → if missing, **`download_style_assets(style="miracle_nsfw", link_unet=true)`**.
 5. For **Wan video**: **`check_wan_assets(workflow_id="i2v_5b")`** → **`download_wan_assets(..., include_large=true)`** if needed.
+5b. For **HunyuanVideo 1.5** (assets only): **`check_hunyuan_assets(workflow_id="hunyuan_t2v")`** → **`download_hunyuan_assets(..., include_large=true)`** — `generate_video` routing TBD; use ComfyUI templates until wired.
 6. **Image edits:** **`setup_image_editing()`** → **`edit_image(..., food_group=...)`** — see [IMAGE-EDITING.md](IMAGE-EDITING.md).
 7. Generate with **`generate_image(style=...)`** or **`generate_video(...)`** using catalog style/workflow ids only.
 
@@ -179,6 +180,40 @@ Optional I2V: `workflow_id=i2v_5b_painter`, `lora_bundle=walk_cycle|cinematic_ch
 
 ---
 
+### HunyuanVideo 1.5 (`architecture: hunyuan_video_15`)
+
+Not an image style — registered under `catalog.yaml` → `video_workflows`. **ComfyUI native**; target host **GENERATION_HOST RTX 5090 / 32 GB** with models on the **Game drive**.
+
+| Item | Value |
+|------|--------|
+| **Status** | Asset check/download wired; **`generate_video` routing TBD** — use ComfyUI template workflows until engine wiring lands |
+| **T2V** | `workflow_id=hunyuan_t2v` — `hunyuanvideo1.5_720p_t2v_fp16.safetensors` |
+| **I2V** | `workflow_id=hunyuan_i2v` — `hunyuanvideo1.5_720p_i2v_fp16.safetensors` |
+| **Optional SR** | `workflow_id=hunyuan_sr` — `hunyuanvideo1.5_1080p_sr_distilled_fp16.safetensors` |
+| **Text encoders** | `qwen_2.5_vl_7b_fp8_scaled.safetensors`, `byt5_small_glyphxl_fp16.safetensors` |
+| **VAE** | `hunyuanvideo15_vae_fp16.safetensors` |
+| **HF repo** | [Comfy-Org/HunyuanVideo_1.5_repackaged](https://huggingface.co/Comfy-Org/HunyuanVideo_1.5_repackaged) |
+| **Templates** | [Comfy-Org/workflow_templates](https://github.com/Comfy-Org/workflow_templates/tree/main/templates) |
+
+Tools: `check_hunyuan_assets`, `download_hunyuan_assets`.
+
+Distilled / lower-res variants on HF when probing speed: `*_cfg_distilled_fp16`, `*_step_distilled_fp16`, `480p_*` — see manifest in `studio/hunyuan_assets.py`.
+
+**GENERATION_HOST storage (Game drive):**
+
+```
+<MODELS_MOUNT>/StabilityMatrix-win-x64/Data/Models/TextEncoders/qwen_2.5_vl_7b_fp8_scaled.safetensors
+<MODELS_MOUNT>/StabilityMatrix-win-x64/Data/Models/TextEncoders/byt5_small_glyphxl_fp16.safetensors
+<MODELS_MOUNT>/StabilityMatrix-win-x64/Data/Models/VAE/hunyuanvideo15_vae_fp16.safetensors
+<MODELS_MOUNT>/StabilityMatrix-win-x64/Data/Models/DiffusionModels/hunyuanvideo1.5_720p_t2v_fp16.safetensors
+<MODELS_MOUNT>/StabilityMatrix-win-x64/Data/Models/DiffusionModels/hunyuanvideo1.5_720p_i2v_fp16.safetensors
+<MODELS_MOUNT>/StabilityMatrix-win-x64/Data/Models/DiffusionModels/hunyuanvideo1.5_1080p_sr_distilled_fp16.safetensors  # optional SR
+```
+
+Download via MCP: `download_hunyuan_assets(workflow_id="hunyuan_t2v", include_large=true)` (repeat for `hunyuan_i2v`; add `include_optional=true` for SR).
+
+---
+
 ## Style → architecture map (catalog)
 
 | Style ids | Architecture |
@@ -202,6 +237,8 @@ Per-style overrides (checkpoint, prompts, steps) remain in each style block unde
 | `download_style_assets(style=...)` | Fetch Flux2 text encoder/VAE; link UNet |
 | `check_wan_assets` | Wan video asset manifest |
 | `download_wan_assets` | Fetch Wan models from Hugging Face |
+| `check_hunyuan_assets` | HunyuanVideo 1.5 asset manifest (routing TBD) |
+| `download_hunyuan_assets` | Fetch HunyuanVideo 1.5 models from Hugging Face |
 
 ---
 
@@ -214,7 +251,7 @@ Per-style overrides (checkpoint, prompts, steps) remain in each style block unde
 | Flux2 workflow builder | `workflow_builder.py` → `build_flux2_klein_txt2img_workflow` |
 | Routing by architecture | `stability-studio-mcp/studio/engine.py` |
 | Image asset checks / downloads | `stability-studio-mcp/studio/style_assets.py` |
-| Video asset checks / downloads | `stability-studio-mcp/studio/wan_assets.py` |
+| Video asset checks / downloads | `stability-studio-mcp/studio/wan_assets.py`, `studio/hunyuan_assets.py` |
 | Video UI JSON conversion | `stability-studio-mcp/studio/workflow_converter.py` |
 
 When adding a new model family: extend `model_families` in `catalog.yaml`, add workflow routing in `engine.py`, and add asset manifest entries in `style_assets.py` if companion downloads are needed.

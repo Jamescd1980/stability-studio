@@ -1,27 +1,28 @@
 # Stability Studio
 
-Local image and video generation for **Stability Matrix** + **ComfyUI**, exposed as an [MCP](https://modelcontextprotocol.io/) server for **Cursor**, **Open Interpreter**, and other agents.
+Local image and video generation for **Stability Matrix** + **ComfyUI**, exposed as an [MCP](https://modelcontextprotocol.io/) server for **Cursor**, **Open Interpreter**, **Jan**, and other agents.
 
-Talk in plain language — *"anime portrait"*, *"juggernaut cinematic"* — the server picks checkpoints, builds workflows, and queues generation on your GPU.
+Talk in plain language — the server picks checkpoints, builds workflows, and queues work on your GPU.
+
+**Published tool count: 138** (see [TOOLS.md](TOOLS.md)). That is the number registered in `stability-studio-mcp/server.py` in this commit — not a vibe.
 
 ## Features
 
-- **Image generation** — SD 1.5, SDXL, Pony, Flux.2 Klein via style presets and **`model_families`**
-- **Image editing** — unified **`edit_image`**, four art food groups (anime / fantasy / cyberpunk / photoreal) — [IMAGE-EDITING.md](IMAGE-EDITING.md)
-- **Video generation** — Wan T2V/I2V from saved Stability Matrix workflow JSON (default I2V: **`i2v_5b`**)
-- **Style catalog** — aliases, LoRAs, prompt prefixes in `catalog.yaml`
-- **Workflow converter** — UI-format ComfyUI workflows → API prompts with Wan model/T5 remapping
-- **Agent-ready** — MCP tools + Cursor rules + Open Interpreter skill examples
+- **Images** — SD 1.5 / SDXL / Pony / Flux.2 via `catalog.yaml` styles and `model_families`
+- **Editing** — unified `edit_image` + food groups (anime / fantasy / cyberpunk / photoreal)
+- **Video** — Wan T2V / I2V (default draft `i2v_5b`; identity/keeper path `workflow_id=i2v` MoE)
+- **Health / GPU lock** — `check_gpu_backend`, queue status, unload create-brain before heavy jobs
+- **Onboarding** — `get_onboarding_context` for guided setup
 
 ## Requirements
 
-- [Stability Matrix](https://github.com/LykosAI/StabilityMatrix) with **ComfyUI** package
+- [Stability Matrix](https://github.com/LykosAI/StabilityMatrix) with **ComfyUI**
 - Python 3.11+
-- Models per workflow (SDXL checkpoints for images; Wan + umt5 for video — see docs)
+- Models per workflow (see [WAN-ASSETS.md](WAN-ASSETS.md), [MODEL-FAMILIES.md](MODEL-FAMILIES.md))
 
 ## Quick start
 
-**Not a one-click installer** — an MCP workflow that lets your AI assistant drive ComfyUI for you.
+Not a one-click installer — MCP that lets an assistant drive ComfyUI.
 
 ```powershell
 git clone https://github.com/Jamescd1980/stability-studio.git
@@ -29,102 +30,93 @@ cd stability-studio
 .\install.ps1
 ```
 
-Copy **workflow JSON** into Stability Matrix before video/MOSS: see [`stability-studio-mcp/workflows/README.md`](stability-studio-mcp/workflows/README.md) (or `bundled-workflows/`).
-
-1. Copy `.cursor/mcp.json.example` → `.cursor/mcp.json` if Cursor does not auto-detect Python  
-2. Open this folder in **Cursor** (or configure **Open Interpreter** — see docs below)  
-3. Tell the agent: **"Help me set up Stability Studio"** — it reads the **[onboarding pack](onboarding/README.md)**  
-4. When ready: launch **ComfyUI** from Stability Matrix; complete Tier 1 (images) before video  
+1. Copy `.cursor/mcp.json.example` → `.cursor/mcp.json` if needed  
+2. Open in Cursor (or wire Open Interpreter / Jan)  
+3. Ask: **“Help me set up Stability Studio”** → agent should call **`get_onboarding_context`**  
+4. Launch ComfyUI; finish image tier before video  
 
 | Audience | Start here |
 |----------|------------|
-| Less technical + AI assistant | [onboarding/README.md](onboarding/README.md) |
-| Developers / power users | [CURSOR-INTEGRATION.md](CURSOR-INTEGRATION.md) |
-| Storyboard example | [STORYBOARD-QUICKSTART.md](STORYBOARD-QUICKSTART.md) |
+| New / less technical | [onboarding/README.md](onboarding/README.md) + `get_onboarding_context` |
+| Every generate turn | `get_generation_context` |
+| Full tool inventory | [TOOLS.md](TOOLS.md) |
+| Agents | [AGENTS.md](AGENTS.md) |
 
-## MCP tools
+## How agents should use tools
+
+**Do not bind all 138 tools into a small local model (Jan, etc.).** Prefer the **core allowlist** in [TOOLS.md](TOOLS.md) (~24 tools): context → generate/edit/video → health/lock → assets/docs.
+
+| Group | Purpose |
+|-------|---------|
+| **Context** | Discover styles, limits, readiness |
+| **Generate** | T2I / naming |
+| **Edit** | `edit_image` and setup |
+| **Video** | Wan generate + asset checks |
+| **Health / lock** | GPU exclusivity — call before heavy work |
+| **Assets / docs** | Downloads and studio docs |
+
+Advanced tools (Forge refine, pose/ControlNet, storyboard, polish/splice, delivery browsers, audio, Blender) stay available to Cursor / power profiles — discover via context tools, don’t dump them into every client.
+
+## Core MCP tools (cheat sheet)
 
 | Tool | Description |
 |------|-------------|
-| `get_generation_context` | **`model_families`**, **`style_readiness`**, styles, GPU limits, Wan assets |
-| `check_style_assets` / `download_style_assets` | Flux2 / image model manifest (companion downloads) |
-| `list_styles` / `list_checkpoints` / `list_loras` | Library scan |
-| `list_video_workflows` | `t2v`, `i2v_5b`, `i2v`, … |
-| `check_backends` | ComfyUI / InvokeAI reachability |
-| `check_wan_assets` / `download_wan_assets` | Wan model manifest check and Hugging Face download |
-| `check_comfyui_dependencies` | Missing custom nodes for video |
-| `install_comfyui_dependencies` | Clone known node packs |
-| `edit_image` | Unified natural-language edit (`food_group=anime\|fantasy\|cyberpunk\|photoreal`) |
-| `setup_image_editing` | One-shot edit stack (IP-Adapter + ControlNet SDXL/SD1.5 + segmentation) |
+| `get_onboarding_context` | **Start here** — tiers, VRAM routing, checklist |
+| `get_generation_context` | Styles, `model_families`, GPU limits, readiness |
+| `list_styles` / `list_video_workflows` | Catalog |
 | `generate_image` | Style-aware T2I |
-| `list_art_food_groups` | Four art food groups + default styles |
-| `generate_video` | Wan T2V/I2V (ComfyUI draft); **`image_path`** required for I2V |
-| `generate_video_hero` | Wan2GP Lightning v2 hero I2V (headless MCP) |
-| `check_gpu_backend` | ComfyUI vs Wan2GP policy (required before GPU tools offline) |
-| `get_onboarding_context` | **Start here** — tiers, questions, VRAM rules, install checklist |
-| `plan_storyboard_scene` | Hero I2V + MOSS + splice plan from a short script (no GPU) |
-| `check_storyboard_readiness` | MOSS + Wan2GP + GPU + project layout for storyboards |
+| `edit_image` | Natural-language edit (`food_group=…`) |
+| `setup_image_editing` / `check_image_editing_readiness` | Edit stack |
+| `generate_video` | Wan `t2v` / `i2v` / `v2v` (extend ≠ latent clean) |
+| `check_wan_assets` / `download_wan_assets` | Wan weights |
+| `check_comfyui_dependencies` / `install_comfyui_dependencies` | Custom nodes |
+| `check_gpu_backend` | **Required** before competing GPU backends |
+| `comfy_queue_status` | Queue / busy check |
+| `unload_nari_for_gpu` | Free create-brain VRAM before Wan/Forge peaks |
+| `list_studio_docs` / `read_studio_doc` | Lessons and guides |
 
-**Storyboard (Rin example):** [STORYBOARD-QUICKSTART.md](STORYBOARD-QUICKSTART.md) — Wan2GP hero + MOSS + `generate_storyboard.py` (**v1.0.0-beta**)
+Full alphabetical list + groups: **[TOOLS.md](TOOLS.md)**.
+
+## Companion: heat monitor
+
+Desk overlay for generation-host GPU heat and create-brain device placement (iGPU vs discrete GPU):
+
+→ [comfybox-heat-monitor](https://github.com/Jamescd1980/comfybox-heat-monitor)
 
 ## Documentation
 
-| [STORYBOARD-QUICKSTART.md](STORYBOARD-QUICKSTART.md) | Linked hero clips + MOSS + splice (Rin example) |
 | Doc | Audience |
 |-----|----------|
-| [CURSOR-INTEGRATION.md](CURSOR-INTEGRATION.md) | Cursor setup, local vs cloud agents |
-| [OPEN-INTERPRETER-INTEGRATION.md](OPEN-INTERPRETER-INTEGRATION.md) | OI + LM Studio, troubleshooting, lessons learned |
-| [AGENTS.md](AGENTS.md) | AI agent instructions (all platforms) |
-| [HARDWARE.md](HARDWARE.md) | GPU tiers and generation limits |
-| [MODEL-FAMILIES.md](MODEL-FAMILIES.md) | SD 1.5 / SDXL / Pony / Flux2 / Wan — samplers, files, agent checklist |
-| [IMAGE-EDITING.md](IMAGE-EDITING.md) | Edit tools, decision tree, lessons learned, roadmap |
-| [IP-ADAPTER-SETUP.md](IP-ADAPTER-SETUP.md) | IP-Adapter + ControlNet automated setup |
-| [WAN-ASSETS.md](WAN-ASSETS.md) | Wan model manifest and downloads |
-| [GITHUB.md](GITHUB.md) | Publish / zip checklist |
-| [stability-studio-mcp/README.md](stability-studio-mcp/README.md) | Package-level detail |
+| [TOOLS.md](TOOLS.md) | **Published tool inventory (source of truth for counts)** |
+| [AGENTS.md](AGENTS.md) | Agent instructions |
+| [HARDWARE.md](HARDWARE.md) | GPU tiers / labor split (scrubbed hostnames) |
+| [IMAGE-EDITING.md](IMAGE-EDITING.md) | Edit playbook |
+| [MODEL-FAMILIES.md](MODEL-FAMILIES.md) | Checkpoint families |
+| [WAN-ASSETS.md](WAN-ASSETS.md) | Wan downloads |
+| [CURSOR-INTEGRATION.md](CURSOR-INTEGRATION.md) | Cursor |
+| [OPEN-INTERPRETER-INTEGRATION.md](OPEN-INTERPRETER-INTEGRATION.md) | Open Interpreter |
+| [GITHUB.md](GITHUB.md) | Public vs private publish rules |
+| [stability-studio-mcp/README.md](stability-studio-mcp/README.md) | Package detail |
 
 ## Project structure
 
 ```
-studio-agent/
-  .cursor/mcp.json.example      # Copy → mcp.json (gitignored)
-  .cursor/rules/                # Agent rules for generation
-  config-examples/              # OI TOML, Cursor JSON, OI skill
-  bundled-workflows/            # Wan/MOSS JSON → copy to SM Data/Workflows/
+stability-studio/
+  .cursor/mcp.json.example
+  config-examples/
+  onboarding/
   stability-studio-mcp/
-    server.py                   # MCP entry
-    catalog.yaml                # Styles + video workflow ids
-    config.yaml.example         # Path template (copy → config.yaml)
-    workflows/                  # Same workflow JSON + README
-    studio/                     # Engine, ComfyUI client, converter
+    server.py              # MCP entry — 138 @mcp.tool handlers
+    catalog.yaml
+    config.yaml.example
+    studio/
+    workflows/
+  TOOLS.md                 # Inventory matching server.py
+  README.md
 ```
 
-## Wan2GP + storyboard (Rin reference)
-
-Linked hero sequences: walk → bow → lunge with MOSS dialogue and ffmpeg splice.
-
-```powershell
-# Plan manifest (no GPU)
-python stability-studio-mcp/scripts/storyboard/generate_storyboard.py plan --title rin --script-file beats.txt
-
-# MCP: check_storyboard_readiness → generate_video_hero (×3) → generate_audio → splice
-python stability-studio-mcp/scripts/storyboard/generate_storyboard.py splice
-```
-
-Full walkthrough: **[STORYBOARD-QUICKSTART.md](STORYBOARD-QUICKSTART.md)** · Release notes: **[RELEASE.md](RELEASE.md)**
-
-## Status
-
-| Feature | Status |
-|---------|--------|
-| Image (`generate_image`) | ✅ Working |
-| Video `t2v` (Wan 2.1) | ✅ 81 frames max @ 16 fps on 16 GB |
-| Video `i2v_5b` | ✅ Default draft I2V — 65 frames max on 16 GB |
-| **Hero I2V (Wan2GP)** | ✅ `generate_video_hero` — 49f @ 832×480 (~125 s on 16 GB) |
-| **Storyboard CLI** | ✅ `studio/storyboard_cli.py` + `generate_storyboard.py` |
-| Video `i2v` (14B) | ✅ Legacy; explicit `workflow_id=i2v` |
-| InvokeAI image fallback | Optional |
+Machine-local `config.yaml`, delivery folders, and ops LAN notes stay **out** of this public hub ([Private-Studio](https://github.com/Jamescd1980/Private-Studio) / local only).
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+See repository license file if present; otherwise treat as source-available for personal / studio use unless otherwise noted.

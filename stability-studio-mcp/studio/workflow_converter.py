@@ -15,6 +15,10 @@ SKIP_NODE_TYPES: frozenset[str] = frozenset(
         "Note",
         "MarkdownNote",
         "Fast Groups Bypasser (rgthree)",
+        # Frontend-only mode changers — not in /object_info; mute RIFE/Sage in the
+        # saved graph (mode=4) or use catalog v2v_clean instead of UI Fast Muter.
+        "Fast Muter (rgthree)",
+        "Fast Groups Muter (rgthree)",
         "Reroute",
     }
 )
@@ -578,7 +582,7 @@ def _pick_wan22_vae_name(choices: list[str]) -> str | None:
 
 
 def _remap_wan_vae_loader(api: dict[str, Any], object_info: dict[str, Any]) -> None:
-    """Ensure native Wan 2.2 workflows decode with wan2.2_vae, not legacy Wan 2.1 VAE."""
+    """Match VAE to the native Wan graph: 2.2 TI2V → wan2.2_vae; Wan 2.1 I2V → keep 2.1 VAE."""
     class_type = "VAELoader"
     if class_type not in object_info:
         return
@@ -586,17 +590,50 @@ def _remap_wan_vae_loader(api: dict[str, Any], object_info: dict[str, Any]) -> N
     choices = _combo_choices(spec)
     if not choices:
         return
-    picked = _pick_wan22_vae_name(choices)
-    if not picked:
+
+    uses_wan22_latent = any(
+        n.get("class_type") == "Wan22ImageToVideoLatent" for n in api.values()
+    )
+    uses_wan21_i2v = any(n.get("class_type") == "WanImageToVideo" for n in api.values())
+    unet_names = [
+        str((n.get("inputs") or {}).get("unet_name", "")).lower()
+        for n in api.values()
+        if n.get("class_type") == "UNETLoader"
+    ]
+    unet_is_21 = any("wan2.1" in u or "wan_2.1" in u for u in unet_names)
+
+    # Only force Wan 2.2 VAE onto TI2V-5B style graphs.
+    if uses_wan22_latent and not uses_wan21_i2v:
+        picked = _pick_wan22_vae_name(choices)
+        if not picked:
+            return
+        for node in api.values():
+            if node.get("class_type") != class_type:
+                continue
+            current = str(node.get("inputs", {}).get("vae_name", ""))
+            current_base = _combo_basename(current).lower()
+            if current in choices and ("wan2.2" in current_base or "wan_2.2" in current_base):
+                continue
+            node.setdefault("inputs", {})["vae_name"] = picked
         return
-    for node in api.values():
-        if node.get("class_type") != class_type:
-            continue
-        current = str(node.get("inputs", {}).get("vae_name", ""))
-        current_base = _combo_basename(current).lower()
-        if current in choices and ("wan2.2" in current_base or "wan_2.2" in current_base):
-            continue
-        node.setdefault("inputs", {})["vae_name"] = picked
+
+    # Wan 2.1 14B I2V: prefer an installed 2.1 VAE; never rewrite to 2.2.
+    if uses_wan21_i2v or unet_is_21:
+        wan21 = [
+            c
+            for c in choices
+            if ("wan2.1" in _combo_basename(c).lower() or "wan_2.1" in _combo_basename(c).lower())
+            and "2.2" not in _combo_basename(c).lower()
+        ]
+        picked21 = wan21[0] if wan21 else None
+        for node in api.values():
+            if node.get("class_type") != class_type:
+                continue
+            current = str(node.get("inputs", {}).get("vae_name", ""))
+            if current in choices:
+                continue
+            if picked21:
+                node.setdefault("inputs", {})["vae_name"] = picked21
 
 
 def _pick_wan_native_clip_name(choices: list[str]) -> str | None:

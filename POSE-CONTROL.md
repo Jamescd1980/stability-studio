@@ -2,7 +2,16 @@
 
 Guides for **structural** edits: pose, hands, fingers — without replacing the whole frame.
 
-## OpenPose editors (custom pose + size)
+## Preferred: Blender MCP (GENERATION_HOST 5090)
+
+See **[BLENDER-MCP.md](BLENDER-MCP.md)**. Agent playbook: Stability Studio tool `get_blender_workflow_playbook()`.
+
+1. `~/bin/gpu_backend.sh blender` (stops ComfyUI)
+2. Pose / export skeleton PNG → `assets/blender/pose/`
+3. `~/bin/gpu_backend.sh comfy`
+4. `generate_image_pose_guided(..., pose_image_path=..., preprocess_pose=false)`
+
+## OpenPose editors (fallback)
 
 Export a **pose skeleton PNG** at your target resolution (e.g. 832×480 for Rin clips):
 
