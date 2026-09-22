@@ -63,13 +63,6 @@ WORKFLOW_ASSETS: dict[str, list[dict[str, str]]] = {
     ],
     "i2v": [
         {
-            "filename": "Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors",
-            "folder": "loras",
-            "repo": "lightx2v/Wan2.1-I2V-14B-480P-StepDistill-CfgDistill-Lightx2v",
-            "path": "loras/Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors",
-            "size_hint": "~739 MB",
-        },
-        {
             "filename": "Wan2_2-I2V-A14B-HIGH_fp8_e4m3fn_scaled_KJ.safetensors",
             "folder": "diffusion_models",
             "repo": "Kijai/WanVideo_comfy_fp8_scaled",
@@ -84,12 +77,45 @@ WORKFLOW_ASSETS: dict[str, list[dict[str, str]]] = {
             "size_hint": "~14 GB",
         },
         {
-            "filename": "Wan2_1_VAE_bf16.safetensors",
+            "filename": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+            "folder": "text_encoders",
+            "repo": "Comfy-Org/Wan_2.1_ComfyUI_repackaged",
+            "path": "split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+            "size_hint": "~6 GB",
+        },
+        {
+            "filename": "wan_2.1_vae.safetensors",
             "folder": "vae",
-            "repo": "Kijai/WanVideo_comfy",
-            "path": "Wan2_1_VAE_bf16.safetensors",
+            "repo": "Comfy-Org/Wan_2.1_ComfyUI_repackaged",
+            "path": "split_files/vae/wan_2.1_vae.safetensors",
             "size_hint": "~254 MB",
-            "alt_local": "wan_2.1_vae.safetensors",
+            "alt_local": "Wan2_1_VAE_bf16.safetensors",
+        },
+        {
+            "filename": "wan2.2_i2v_A14b_high_noise_lora_rank64_lightx2v_4step_1022.safetensors",
+            "folder": "loras",
+            "repo": "lightx2v/Wan2.2-Distill-Loras",
+            "path": "wan2.2_i2v_A14b_high_noise_lora_rank64_lightx2v_4step_1022.safetensors",
+            "size_hint": "~300 MB",
+        },
+        {
+            "filename": "wan2.2_i2v_A14b_low_noise_lora_rank64_lightx2v_4step_1022.safetensors",
+            "folder": "loras",
+            "repo": "lightx2v/Wan2.2-Distill-Loras",
+            "path": "wan2.2_i2v_A14b_low_noise_lora_rank64_lightx2v_4step_1022.safetensors",
+            "size_hint": "~300 MB",
+        },
+    ],
+    "i2v_wan21_native": [
+        {
+            "filename": "wan2.1_i2v_480p_14B_bf16.safetensors",
+            "folder": "diffusion_models",
+            "note": "Legacy single-UNET Wan 2.1 I2V — prefer workflow_id=i2v (Wan 2.2 MoE).",
+        },
+        {
+            "filename": "wan_2.1_vae.safetensors",
+            "folder": "vae",
+            "alt_local": "Wan2_1_VAE_bf16.safetensors",
         },
     ],
     "i2v_wan21": [
@@ -201,7 +227,7 @@ def check_workflow_assets(cfg: dict[str, Any], workflow_id: str) -> dict[str, An
 
 
 def check_all_video_assets(cfg: dict[str, Any]) -> dict[str, Any]:
-    workflows = ["t2v", "i2v_5b", "v2v_5b", "i2v_gpu", "i2v", "i2v_wan21"]
+    workflows = ["t2v", "i2v_5b", "v2v_5b", "i2v_gpu", "i2v", "i2v_wan21_native", "i2v_wan21"]
     by_workflow = {wid: check_workflow_assets(cfg, wid) for wid in workflows}
     return {
         "v2v_note": V2V_NOTE,

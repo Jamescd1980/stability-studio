@@ -15,6 +15,24 @@ Reference integration: **Open Interpreter** + **local LLM (LM Studio / Ollama)**
 | `<OI_CONFIG_DIR>` | Open Interpreter config dir (`codex-home` under the app's Roaming data folder) |
 | `<COMFYUI_URL>` | Default `http://127.0.0.1:8188` |
 | `<LM_STUDIO_URL>` | Default `http://127.0.0.1:1234/v1` |
+| `<OLLAMA_URL>` | Default `http://127.0.0.1:11434/v1` |
+
+### DeskHost (local Ollama) — recommended dual-model profile
+
+On this machine, Open Interpreter is wired to **DeskHost** via Ollama’s OpenAI-compatible API:
+
+| Role | Model | Use |
+|------|-------|-----|
+| LLM | `orla:latest` | Chat, coding, tools, MCP |
+| VLM | `qwen2.5vl:7b` | Attached images / screenshots only |
+
+- Desktop: `%APPDATA%/Interpreter/codex-home/config.toml` — profile `custom:orla-ollama` with nested `visionModel`
+- CLI: `~/.openinterpreter/config.toml`
+- Re-apply: `python ollama/orla/configure_open_interpreter.py`
+- Example snippet: `config-examples/open-interpreter-orla.toml`
+- Fully quit and relaunch Open Interpreter after changing profiles
+
+Image **generation** still uses Stability Studio MCP → ComfyUI. The VLM only **reads** images.
 
 ---
 

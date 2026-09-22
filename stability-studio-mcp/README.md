@@ -44,11 +44,31 @@ Maintenance CLIs: `scripts/download_wan_assets.py`, `scripts/check_asset_updates
 
 ## MCP tools
 
-See root `README.md` for the full tool table.
+**Published count: 138** — full inventory and Jan-safe core allowlist: [../TOOLS.md](../TOOLS.md).
+
+Root [../README.md](../README.md) has the short cheat sheet. Call `get_onboarding_context` / `get_generation_context` before browsing the full surface.
+
 
 ## Video prerequisites
 
-### I2V (default — `i2v_5b`)
+### I2V 14B NSFW / identity — `i2v` (Wan 2.2 MoE)
+
+Dual HIGH+LOW experts via `studio.wan22_i2v_moe` (see `LESSONS-WAN-I2V.md`).
+
+| File | Folder |
+|------|--------|
+| `Wan2_2-I2V-A14B-HIGH_fp8_…_KJ.safetensors` | `DiffusionModels/I2V/` |
+| `Wan2_2-I2V-A14B-LOW_fp8_…_KJ.safetensors` | `DiffusionModels/I2V/` |
+| `umt5_xxl_fp8_e4m3fn_scaled.safetensors` | `TextEncoders/` |
+| `wan_2.1_vae.safetensors` | `VAE/` |
+| LightX2V distill HIGH+LOW | `Lora/` (`download_wan22_lightning_loras.py`) |
+
+```powershell
+python scripts/download_wan_assets.py --workflow i2v --include-large
+python scripts/download_wan22_lightning_loras.py
+```
+
+### I2V draft (default — `i2v_5b`)
 
 | File | Folder |
 |------|--------|

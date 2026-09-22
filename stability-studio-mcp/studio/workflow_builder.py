@@ -398,6 +398,7 @@ def inject_i2v_ui_workflow(
             "WanVaceToVideo",
             "WanVideoEmptyEmbeds",
             "Wan22ImageToVideoLatent",
+            "WanImageToVideo",
             "PainterI2V",
         }:
             if isinstance(widgets, list) and len(widgets) > 2:
@@ -958,6 +959,10 @@ def build_advanced_inpaint_workflow(
 
     Uses InpaintModelConditioning (not VAEEncodeForInpaint) and IPAdapter attn_mask
     so the reference only affects the masked region.
+
+    ``denoising_strength`` is honored with or without a mask (clamped to 0.01–1.0).
+    Outside the mask stays locked via noise_mask; lower denoise preserves seeded
+    clay/silhouette structure inside the mask.
     """
     if seed is None:
         seed = random.randint(0, 2**32 - 1)
@@ -1044,6 +1049,11 @@ def build_advanced_inpaint_workflow(
     ksampler_positive: list[str | int]
     ksampler_negative: list[str | int]
 
+    # Respect caller denoise for masked AND unmasked paths.
+    # (Previously masked inpaint forced denoise=1.0, which ignored seeded clay /
+    # silhouette structure and made locked-plate fills melt.)
+    denoise = max(0.01, min(1.0, float(denoising_strength)))
+
     if mask_node is not None:
         workflow["14"] = {
             "class_type": "InpaintModelConditioning",
@@ -1059,7 +1069,6 @@ def build_advanced_inpaint_workflow(
         ksampler_positive = ["14", 0]
         ksampler_negative = ["14", 1]
         latent_image = ["14", 2]
-        denoise = 1.0
     else:
         workflow["11"] = {
             "class_type": "VAEEncode",
@@ -1068,7 +1077,6 @@ def build_advanced_inpaint_workflow(
         ksampler_positive = positive_node
         ksampler_negative = negative_node
         latent_image = ["11", 0]
-        denoise = float(denoising_strength)
 
     current_model = last_model
 

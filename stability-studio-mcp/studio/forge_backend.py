@@ -91,7 +91,7 @@ def inspect_forge_backend(cfg: dict[str, Any]) -> dict[str, Any]:
             "refine_image_forge -> switch_stills_backend(comfy) -> generate_video."
         ),
         "video_note": (
-            "Default clip: workflow_id=i2v_5b (Wan 2.2 5B). "
+            "Default draft clip: workflow_id=i2v_5b (Wan 2.2 5B). NSFW/14B: workflow_id=i2v (MoE). "
             "Wan 14B (i2v / i2v_gpu) is optional on 20GB — slow/OOM-prone; prefer 5B."
         ),
     }
@@ -223,6 +223,10 @@ def _adetailer_payload(
     ad_prompt: str = "",
     ad_negative: str = "",
     denoise: float = 0.4,
+    ad_model: str = "face_yolov8n.pt",
+    dilate_erode: int = 4,
+    mask_blur: int = 4,
+    mask_padding: int = 32,
 ) -> dict[str, Any]:
     if not enabled:
         return {}
@@ -232,17 +236,17 @@ def _adetailer_payload(
                 True,
                 False,
                 {
-                    "ad_model": "face_yolov8n.pt",
+                    "ad_model": ad_model or "face_yolov8n.pt",
                     "ad_tab_enable": True,
                     "ad_prompt": ad_prompt or "",
                     "ad_negative_prompt": ad_negative
                     or "blurry face, deformed face, bad anatomy",
                     "ad_confidence": 0.25,
-                    "ad_dilate_erode": 4,
-                    "ad_mask_blur": 4,
+                    "ad_dilate_erode": dilate_erode,
+                    "ad_mask_blur": mask_blur,
                     "ad_denoising_strength": denoise,
                     "ad_inpaint_only_masked": True,
-                    "ad_inpaint_only_masked_padding": 32,
+                    "ad_inpaint_only_masked_padding": mask_padding,
                 },
             ]
         }
@@ -349,6 +353,11 @@ def refine_image_forge(
     sampler_name: str = "Euler a",
     adetailer: bool = True,
     ad_prompt: str = "",
+    ad_negative: str = "",
+    ad_model: str = "face_yolov8n.pt",
+    ad_denoising_strength: float = 0.4,
+    ad_dilate_erode: int = 4,
+    ad_mask_padding: int = 32,
     resize_mode: int = 0,
 ) -> dict[str, Any]:
     """img2img refine via Forge (ADetailer optional). Requires Forge running."""
@@ -401,7 +410,15 @@ def refine_image_forge(
         "resize_mode": resize_mode,
         "batch_size": 1,
     }
-    always = _adetailer_payload(enabled=adetailer, ad_prompt=ad_prompt)
+    always = _adetailer_payload(
+        enabled=adetailer,
+        ad_prompt=ad_prompt,
+        ad_negative=ad_negative,
+        denoise=ad_denoising_strength,
+        ad_model=ad_model,
+        dilate_erode=ad_dilate_erode,
+        mask_padding=ad_mask_padding,
+    )
     if always:
         payload["alwayson_scripts"] = always
 
@@ -417,6 +434,7 @@ def refine_image_forge(
         "checkpoint": checkpoint or None,
         "denoising_strength": denoising_strength,
         "adetailer": adetailer,
+        "ad_model": ad_model if adetailer else None,
         "saved_files": saved,
         "info": data.get("info"),
     }

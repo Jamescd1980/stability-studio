@@ -135,12 +135,392 @@ model_families:
       - "Optional LoRAs: check_wan_video_loras / download_wan_video_loras (studio/wan_video_loras.py)"
       - "PainterI2V motion: workflow_id=i2v_5b_painter or use_painter_i2v=true — install_painter_i2v_dependencies first"
 
+  hunyuan_video_15:
+    label: "HunyuanVideo 1.5 (T2V / I2V)"
+    workflow: ui_json_converted
+    prompt_style: "Natural language; Qwen2.5-VL + ByT5 glyph encoder (ComfyUI HunyuanVideo nodes)"
+    note: "Assets via check_hunyuan_assets / download_hunyuan_assets (hunyuan_assets.py). generate_video routing TBD — use ComfyUI template workflows until wired."
+    requires:
+      - role: workflow_json
+        folder: workflows
+        note: "Comfy-Org/workflow_templates — not yet wired in MCP engine"
+      - role: diffusion_model
+        folder: diffusion_models
+      - role: text_encoder
+        folder: text_encoders
+        default: qwen_2.5_vl_7b_fp8_scaled.safetensors
+      - role: glyph_encoder
+        folder: text_encoders
+        default: byt5_small_glyphxl_fp16.safetensors
+      - role: vae
+        folder: vae
+        default: hunyuanvideo15_vae_fp16.safetensors
+    setup_notes:
+      - "Call check_hunyuan_assets(workflow_id=hunyuan_t2v|hunyuan_i2v) before first run"
+      - "RTX 5090 / 32 GB recommended for 720p; store on Game drive (GENERATION_HOST <MODELS_MOUNT>/...)"
+      - "Optional 1080p SR: workflow_id=hunyuan_sr — hunyuanvideo1.5_1080p_sr_distilled_fp16.safetensors"
+      - "Distilled I2V/T2V variants on HF: *_cfg_distilled_fp16, *_step_distilled_fp16, 480p_*"
+    vram_hint_gb: "24–32 for 720p T2V/I2V"
+
+# Style lanes — CreateBrain voice/prompt resolver (finer than food groups).
+# Voice pattern: medium + mood(+lighting) + cast axes + subject/action.
+# Example: "retro anime with cyber lighting of Esil in armor casting at a monster"
+#   → medium=anime_retro, mood=cyber, subject=female, grouping=solo, content=action
+# Food groups stay the coarse MCP switch; lanes pick checkpoint / LoRA / neg defaults.
+style_lanes:
+  howto: >
+    Parse the ask into medium → mood → cast axes, then apply the matching recipe.
+    "Anime" alone is too coarse — always prefer a medium substyle when the user hints one.
+    Merge rule when medium and mood disagree on checkpoint:
+      (1) If mood is cyber/gold_standard/dark_fantasy and names a default_style, use that
+          checkpoint and keep the medium's prompt_tail + negative_extra (recreate_005 pattern).
+      (2) Otherwise use medium.default_style and apply mood prompt_tail / loras / negatives.
+    Cast axes pick checkpoint role (A/B women+NSFW vs C groups) when the user doesn't name a style id.
+    Monster/opponent in frame does NOT force grouping=group — still solo hero vs foe unless
+    multiple named cast members.
+
+  media:
+    cartoon_american:
+      label: American cartoon
+      food_group: anime
+      aliases: [cartoon, western cartoon, disney-ish, toon]
+      default_style: dynavision_3d
+      look_profile: null
+      prompt_tail: "american cartoon style, clean cel shading, bold outlines, expressive faces"
+      negative_extra: "photorealistic, 3d render, japanese anime eyes, moe, detailed skin pores"
+      notes: Western toon / satirical — not Japanese anime grammar.
+
+    anime_modern:
+      label: Modern anime
+      food_group: anime
+      aliases: [anime, modern anime, current anime, tv anime]
+      default_style: ilustmix
+      look_profile: illustrious_detail_hero
+      prompt_tail: "modern anime illustration, clean linework, contemporary coloring"
+      negative_extra: "1990s anime, grainy film, watercolor bleed, western cartoon, photorealistic"
+      notes: Default Illustrious lane when user just says anime.
+
+    anime_retro:
+      label: Retro anime (80s/90s)
+      food_group: anime
+      aliases: [retro anime, 80s anime, 90s anime, classic anime, old anime]
+      default_style: aom2
+      look_profile: traditional_jp_anime
+      prompt_tail: >
+        1990s anime style, cel animation, film grain, soft gradients, classic anime coloring,
+        hand-painted backgrounds
+      negative_extra: >
+        modern anime, 2020s style, hyper detailed skin, 3d cgi, western cartoon,
+        oversharp, AI sheen, plastic skin
+      notes: recreate_004 lean — traditional Japanese anime look.
+
+    anime_dark:
+      label: Dark anime
+      food_group: anime
+      aliases: [dark anime, grim anime]
+      default_style: waijfu
+      look_profile: dark_gothic_anime
+      prompt_tail: "dark anime, high contrast, deep shadows, moody atmosphere"
+      negative_extra: "bright pastel, sunny day, soft moe, watercolor wash, flat lighting"
+      notes: recreate_001/002 lean — often pairs with gothic mood.
+
+    cgi:
+      label: CGI / stylized 3D
+      food_group: fantasy
+      aliases: [cgi, 3d, pixar, stylized 3d]
+      default_style: dynavision_3d
+      look_profile: null
+      prompt_tail: "stylized 3D CGI render, subsurface skin, soft global illumination"
+      negative_extra: "2d anime, flat cel, sketch, watercolor, photorealistic photo"
+      notes: DynaVision lane — not 2D anime.
+
+    watercolor:
+      label: Watercolor illustration
+      food_group: fantasy
+      aliases: [watercolor, watercolour, painted]
+      default_style: merged_dreams
+      look_profile: traditional_jp_anime
+      prompt_tail: "watercolor illustration, soft pigment bleed, paper texture, painterly"
+      negative_extra: "hard cel lines, neon cyberpunk, photorealistic, plastic skin, 3d cgi"
+      notes: Overlaps recreate_004 traditional finish when soft/painterly.
+
+  moods:
+    traditional:
+      label: Traditional lighting / color
+      aliases: [traditional, classic lighting, natural light]
+      prompt_tail: "natural lighting, balanced colors, clear read, soft ambient light"
+      negative_extra: "neon, cyberpunk glow, lens flare spam, rainbow light leak, harsh rim"
+      loras: []
+      notes: Neutral — lets medium carry the look.
+
+    gothic:
+      label: Gothic
+      aliases: [gothic, goth, goth girl]
+      prompt_tail: "gothic atmosphere, cool shadows, muted palette, dark elegance"
+      negative_extra: "bright neon pink, sunny beach, pastel candy colors, cheerful lighting"
+      loras:
+        - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+          weight: 0.75
+      look_profile: dark_gothic_anime
+      notes: recreate_001/002 — goth girl lean.
+
+    cyber:
+      label: Cyber lighting and color
+      aliases: [cyber, cyberpunk lighting, neon, synthwave]
+      food_group_hint: cyberpunk
+      default_style: n4mik4
+      prompt_tail: >
+        cyberpunk lighting, neon rim light, magenta and cyan accents, wet streets glow,
+        volumetric neon haze
+      negative_extra: "daylight pastoral, watercolor wash, medieval torch only, flat anime cel"
+      loras: []
+      look_profile: anime_cyber
+      notes: recreate_005 — anime medium + cyber mood often uses n4mik4.
+
+    dark_fantasy:
+      label: Dark fantasy action
+      aliases: [dark fantasy, grimdark, monster fight]
+      food_group_hint: fantasy
+      default_style: fantasy_prime
+      prompt_tail: >
+        dark fantasy, dramatic volumetric light, blood and grit optional, epic combat staging,
+        monster scale contrast
+      negative_extra: "cute chibi, slice of life, bright school anime, soft pastel"
+      loras:
+        - file: New_Fantasy_CoreV5_-_ILL.safetensors
+          weight: 0.55
+          optional: true
+      notes: Fragarach / monster fights — mood for action, not a medium.
+
+    gold_standard:
+      label: Gold standard finish (recreate_003 bar)
+      aliases: [gold standard, detail hero, park heejin bar, recreate 003]
+      default_style: waijfu
+      look_profile: illustrious_detail_hero
+      prompt_tail: "highly detailed, intricate, sharp focus, absurdres, perfect eyes, eye_focus"
+      negative_extra: >
+        plastic skin, soft face, muddy shading, flat color, oversmoothed,
+        anatomical artifact, deformed crotch
+      notes: Finish quality bar — apply when user wants hero still polish.
+
+  cast_axes:
+    subject:
+      - id: woman
+        aliases: [woman, girl, female, 1girl]
+      - id: man
+        aliases: [man, boy, male, 1boy]
+      - id: mixed
+        aliases: [mixed, couple, both]
+    grouping:
+      - id: solo
+        aliases: [solo, alone, single, 1girl, 1boy]
+      - id: pair
+        aliases: [pair, duo, two people, 2girls, 2boys]
+      - id: group
+        aliases: [group, crowd, multiple people, party]
+    content:
+      - id: nsfw
+        aliases: [nsfw, nude, explicit, sex, erotic]
+      - id: action
+        aliases: [action, fight, combat, spell, battle, shooting]
+      - id: portrait
+        aliases: [portrait, beauty shot, face focus, sfw portrait]
+
+  # Informal checkpoint roles (your A / B / C lean).
+  checkpoint_roles:
+    A_women_nsfw:
+      label: Checkpoint A — women / NSFW lean
+      styles: [waijfu, ilustmix]
+      prefer_when: { subject: [woman], grouping: [solo, pair], content: [nsfw, portrait] }
+      notes: Illustrious family solo-female keepers.
+    B_women_nsfw:
+      label: Checkpoint B — women / NSFW alternate
+      styles: [pony, miracle_nsfw]
+      prefer_when: { subject: [woman], grouping: [solo], content: [nsfw] }
+      notes: Pony grammar or Flux NSFW when Illustrious isn't the ask.
+    C_groups:
+      label: Checkpoint C — multiple people / groups
+      styles: [animagine_xl, perfection_25d, n4mik4]
+      prefer_when: { grouping: [pair, group] }
+      notes: Prefer when cast is crowd / multi-character staging.
+
+  # Voice → recipe cheat sheet (recreate map)
+  recreate_map:
+    recreate_001: { media: anime_dark, mood: gothic, notes: goth girl lean }
+    recreate_002: { media: anime_dark, mood: gothic, notes: darker anime / goth }
+    recreate_003: { media: anime_modern, mood: gold_standard, notes: detail hero bar }
+    recreate_004: { media: anime_retro, mood: traditional, notes: traditional JP anime / watercolor }
+    recreate_005: { media: anime_modern, mood: cyber, notes: anime + cyber lighting }
+
+# Location / room LoRAs (Illustrious) — generative prior, not pixel lock.
+# Still use locked plate + mask fill + hardlock for VN-identical BG.
+location_loras:
+  casting_couch:
+    file: casting_couch_IL.safetensors
+    trigger: nbk_castingcouch
+    weight: 0.85
+    preferred_style: waijfu
+    locked_plate: "D:/GenerationHost Images and Videos/assets/blender/sets/casting_couch/plates/camWide_empty_wood.png"
+    note: >
+      Wood-slat casting couch room (EMPTY-ONLY train). Prompt trigger + weight 0.85–0.9 for empty BG.
+      Do not put characters in the location dataset. Owner report (Invoke): stacking with a character
+      deforms fingers/feet — keep off character keepers or ≤0.3 and Forge-clean digits. Prefer locked
+      plate + mask fill. Color-split on finals: warm oak walls vs cooler floor.
+      Dataset README under assets/Darkness/casting_couch_lora_dataset/.
+  tj_rooms:
+    file: tj_rooms_IL.safetensors
+    trigger: tj_office
+    weight: 0.7
+    preferred_style: waijfu
+    note: >
+      House rooms LoRA (2026-08-11). OUR Blender empties only, 6-angle orbit,
+      locked house_palette.json. Triggers: tj_office tj_locker tj_hallway
+      tj_concession tj_lobby tj_editing tj_reel tj_house tj_break tj_fernroom
+      tj_ward tj_armory tj_range tj_comingsoon tj_castingcouch tj_loft.
+      emptyblur = blur copies. Runtime only — do not bake. loft is the only
+      window+bed room. Dataset: assets/house/tj_rooms_lora_dataset/.
+  emptyblur:
+    file: emptyblur_IL.safetensors
+    trigger: emptyblur
+    weight: 0.65
+    preferred_style: waijfu
+    locked_plate: "D:/GenerationHost Images and Videos/assets/blender/sets/casting_couch/plates/bj_cam_empty_plate_v6.png"
+    locked_plate_blur: "D:/GenerationHost Images and Videos/assets/blender/sets/casting_couch/plates/bj_cam_empty_plate_v6_blur.png"
+    note: >
+      House empty/blur BG LoRA (2026-08-11). Trained on OUR empty plates only.
+      Captions never say window/bed/couch/office. Runtime only — do not bake.
+      Prompt: emptyblur, blurry background, depth of field, simple background, plain wall.
+      Do not stack casting_couch_IL on BJ. Dataset: assets/house/emptyblur_lora_dataset/.
+  casting_couch_bj_pov:
+    file: casting_couch_bj_pov_IL.safetensors
+    trigger: nbk_ccbjpov
+    weight: 0.75
+    preferred_style: waijfu
+    locked_plate: "D:/GenerationHost Images and Videos/assets/blender/sets/casting_couch/plates/bj_cam_empty_plate_v6.png"
+    locked_plate_blur: "D:/GenerationHost Images and Videos/assets/blender/sets/casting_couch/plates/bj_cam_empty_plate_v6_blur.png"
+    note: >
+      Phase-2 composition LoRA ONLY (pose/framing). Owner 2026-08-11: stacking
+      casting_couch_IL on BJ = couch soup + windows + beds. Room LoRA stays OFF
+      on character shots. Do not prompt couch / office / bedroom / window.
+      BG = pre-blurred v6 plate (i2i seed or composite). Pixels outside the
+      character must not invent furniture. Dataset: assets/Darkness/casting_couch_bj_pov_lora_dataset/.
+
+# Lighting Concept Sliders (Illustrious) — no trigger word; stack via loras=[...].
+# Prefer with waijfu / waijfu_house when nuke-sun / flat bright rooms appear.
+lighting_sliders:
+  darkness_fin3:
+    file: Darkness_sliderFin3.safetensors
+    weight: 0.7
+    note: >
+      Primary darkness slider for ComfyUI/agent graphs. Higher = darker (0.4–1.2); negative brightens.
+      Owner: does NOT work reliably in Invoke — use dim prompt tags there instead.
+  darkness_slider2:
+    file: Darkness_Slider2.safetensors
+    weight: 0.6
+    note: "Alt darkness slider (Slider2). Comfy only; same polarity as Fin3. Not for Invoke."
+  s1_dramatic:
+    file: S1_Dramatic_Lighting_Illustrious_V2.safetensors
+    weight: 0.65
+    note: "Dramatic lighting (also baked into waijfu_house_v1). Skip stacking when using waijfu_house."
+
+# Named look profiles — concrete LoRA stacks referenced by style_lanes.
+# Target bar: D:\Test Images and Videos\_recreations\recreate_003_studio_agent_00009_.png
+look_profiles:
+  illustrious_detail_hero:
+    label: Illustrious detail hero (recreate_003 bar)
+    food_group: anime
+    style: waijfu
+    reference_still: "D:\\Test Images and Videos\\_recreations\\recreate_003_studio_agent_00009_.png"
+    notes: >
+      recreate_003 recipe: waijfu_alpha + Eyes + ILDetailerV2 + a lighting LoRA.
+      Use for hero stills when flat “pure anime” isn’t enough.
+    loras:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.75
+      - file: ILDetailerV2.safetensors
+        weight: 0.65
+      - file: LensFlare_LightLeak_IL.safetensors
+        weight: 0.35
+        optional: true
+    prompt_tail: "highly detailed, intricate, sharp focus, absurdres, highres, perfect eyes, eye_focus"
+    negative_extra: >
+      plastic skin, soft face, blurry face, muddy shading, flat color, oversmoothed,
+      extra flesh, flesh blob, anatomical artifact, deformed crotch, fused thighs,
+      floating skin flap, mutated genitals, bad pussy
+  frieren_soft_bedroom:
+    label: Frieren soft bedroom (tease / Stage1)
+    food_group: anime
+    style: waijfu
+    reference_still: "D:\\GenerationHost Images and Videos\\User Import\\Frieren Sex Sceens\\_refined\\scene_packs\\01_tease\\01_Frieren_Stage1_forge.png"
+    notes: Soft daylight NSFW bedroom — detail stack without harsh sun/prism.
+    loras:
+      - file: Frieren/Frieren.safetensors
+        weight: 0.8
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.75
+      - file: ILDetailerV2.safetensors
+        weight: 0.6
+    prompt_tail: >
+      soft diffused daylight, gentle shadows, matte skin, micro hair detail,
+      detailed hands, sharp iris, subtle catchlights, highly detailed, sharp focus
+    negative_extra: >
+      harsh spotlight, hard shadows, prism light, lens flare, neon, rainbow light,
+      plastic skin, soft face, extra flesh, flesh blob, anatomical artifact,
+      deformed crotch, fused thighs, floating skin flap, wet skin overlay,
+      star pupils, oversized eyes, thin line mouth
+
+  dark_gothic_anime:
+    label: Dark gothic anime (recreate_001/002 lean)
+    food_group: anime
+    style: waijfu
+    notes: Goth / dark anime — cool shadows, muted palette, Illustrious detail without sunny flare.
+    loras:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.75
+      - file: ILDetailerV2.safetensors
+        weight: 0.55
+    prompt_tail: >
+      dark anime, gothic atmosphere, cool shadows, muted palette, sharp iris,
+      highly detailed, sharp focus
+    negative_extra: >
+      bright pastel, sunny day, soft moe, neon cyberpunk, watercolor bleed,
+      plastic skin, muddy shading, anatomical artifact
+
+  traditional_jp_anime:
+    label: Traditional JP anime / watercolor (recreate_004 lean)
+    food_group: anime
+    style: aom2
+    notes: Classic cel / soft painted look — keep prompts simpler on AOM2.
+    loras: []
+    prompt_tail: >
+      1990s anime style, cel animation, soft gradients, hand-painted backgrounds,
+      classic anime coloring
+    negative_extra: >
+      modern anime, hyper detailed pores, 3d cgi, neon cyberpunk, western cartoon,
+      plastic skin, AI sheen
+
+  anime_cyber:
+    label: Anime + cyber lighting (recreate_005 lean)
+    food_group: cyberpunk
+    style: n4mik4
+    notes: Modern anime subject grammar with neon / cyber palette on n4mik4.
+    loras:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.65
+        optional: true
+    prompt_tail: >
+      anime character, cyberpunk lighting, neon rim light, magenta and cyan accents,
+      highly detailed, sharp focus
+    negative_extra: >
+      pastoral daylight, watercolor wash, medieval only, flat cel no lighting,
+      muddy neon, oversaturated rainbow
+
 # Four art "food groups" — pass food_group= to edit_image / generate_image
 art_food_groups:
   anime:
     label: Anime
     default_style: ilustmix
-    styles: [anime, ilustmix, animagine_xl, aom2, waijfu, homochi, perfection_25d, noobai_vpred, anime_v160]
+    styles: [anime, ilustmix, animagine_xl, aom2, waijfu, waijfu_house, homochi, perfection_25d, noobai_vpred, anime_v160]
     description: "ilustmix default; WAI Illustrious v17, Animagine, AOM2, Homochi, Perfection 2.5D, NoobAI v-pred"
   fantasy:
     label: Fantasy art
@@ -163,6 +543,340 @@ art_food_groups:
     default_style: juggernaut
     styles: [juggernaut, miracle_nsfw, realisian, realvis_xl, perfection_25d]
     description: "Juggernaut, Flux2 miracle_nsfw, Realisian, RealVis XL, Perfection 2.5D hybrid"
+
+# Trained cast LoRAs (Illustrious / waijfu). Pass via generate_image(loras=…).
+# Prefer resolve_character_loras(character=…) so triggers + eye LoRA are included.
+# Fern / Frieren / Darkness: id_v1 rematch 2026-08-10 (no stamped soft lighting; same caption bucket as rest).
+# Ubel / Flamme / Cha Hae In / Jinah Sung / Joo Hee: id_v1 rest train (2026-08-10) — style/lighting soak fix.
+# Canonical filenames also kept as Fern/Fern_id_v1.safetensors etc. (same bytes).
+# Agents may use Fern/Fern.safetensors OR Fern/Fern_id_v1.safetensors — prefer id_v1 path when explicit.
+# Remaining Solo Leveling cast (Akari, Esil, …) still on original e008 until id_v1 retrain.
+character_loras:
+  fern:
+    file: Fern/Fern_id_v1.safetensors
+    weight: 0.8
+    trigger: nb_fern
+    preferred_style: waijfu
+    version: id_v1
+    aliases: [nb_fern, Fern/Fern.safetensors, Fern.safetensors]
+    pair_with:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.8
+  frieren:
+    file: Frieren/Frieren_id_v1.safetensors
+    weight: 0.8
+    trigger: nb_frieren
+    preferred_style: waijfu
+    version: id_v1
+    aliases: [nb_frieren, Frieren/Frieren.safetensors, Frieren.safetensors]
+    pair_with:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.8
+  ubel:
+    file: Ubel/Ubel_id_v1.safetensors
+    weight: 0.8
+    trigger: nb_ubel
+    preferred_style: waijfu
+    version: id_v1
+    aliases: [nb_ubel, übel, Ubel/Ubel.safetensors, Ubel.safetensors]
+    caption_helpers: "1girl, short black hair, purple eyes, black clothing"
+    pair_with:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.8
+  flamme:
+    file: Flamme/Flamme_id_v1.safetensors
+    weight: 0.8
+    trigger: nb_flamme
+    preferred_style: waijfu
+    version: id_v1
+    aliases: [nb_flamme, Flamme/Flamme.safetensors, Flamme.safetensors]
+    caption_helpers: "1girl, elf, blonde hair, long hair, green eyes, pointy ears"
+    pair_with:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.8
+  darkness:
+    file: Darkness/Darkness_id_v1.safetensors
+    weight: 0.8
+    trigger: nbk_darkness
+    preferred_style: waijfu
+    version: id_v1
+    aliases: [nbk_darkness, nb_darkness, darkness, Darkness/Darkness.safetensors, Darkness.safetensors]
+    # Keepers: waijfu_alpha + this LoRA + "large breasts" ONLY for figure. Do not stack thick/wide/hourglass; do not put figure words in negative.
+    caption_helpers: "1girl, blonde hair, long hair, blue eyes, large breasts"
+    body_prompt_rule: "Figure tag: large breasts ONLY. No thick thighs / wide hips / hourglass / slim / skinny in positive or negative — LoRA carries the body."
+    mesh_asset_id: darkness
+    pair_with:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.8
+
+  rin_tohsaka:
+    file: Rin_Tohsaka/Rin_Tohsaka_id_v1.safetensors
+    weight: 0.8
+    trigger: rin tohsaka
+    preferred_style: waijfu
+    version: nochekaiser_hsr_ingame_illustrious
+    aliases: [rin, tohsaka, tohsaka rin, rin_tohsaka, Fate/Rin]
+    caption_helpers: "1girl, black hair, long hair, two side up, blue eyes, hair ribbon"
+    pair_with:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.8
+
+  # --- Solo Leveling (trained 2026-07-17/18 on GenerationHost; epoch 8) ---
+  cha_hae_in:
+    file: Cha Hae In/Cha_Hae_In_id_v1.safetensors
+    weight: 0.8
+    trigger: nb_cha_hae_in
+    preferred_style: waijfu
+    version: id_v1
+    series: solo_leveling
+    aliases: [nb_cha_hae_in, cha, cha_hae, chahaein, Cha Hae In.safetensors]
+    caption_helpers: "1girl, blonde hair, short hair, bangs, yellow eyes"
+    pair_with:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.8
+  jinah_sung:
+    file: Jinah Sung/Jinah_Sung_id_v1.safetensors
+    weight: 0.8
+    trigger: nb_jinah_sung
+    preferred_style: waijfu
+    version: id_v1
+    series: solo_leveling
+    aliases: [nb_jinah_sung, jinah, sung_jinah, Jinah Sung.safetensors]
+    caption_helpers: "1girl, purple hair, medium hair, purple eyes"
+    pair_with:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.8
+  akari_shimizu:
+    file: Akari Shimizu.safetensors
+    weight: 0.8
+    trigger: nb_akari_shimizu
+    preferred_style: waijfu
+    series: solo_leveling
+    aliases: [nb_akari_shimizu, akari]
+    caption_helpers: "1girl, black hair, long hair, brown eyes"
+    pair_with:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.8
+  esil_radiru:
+    file: Esil Radiru.safetensors
+    weight: 0.8
+    trigger: nb_esil_radiru
+    preferred_style: waijfu
+    series: solo_leveling
+    aliases: [nb_esil_radiru, esil]
+    caption_helpers: "1girl, demon girl, horns, blonde hair, red eyes"
+    pair_with:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.8
+  gina:
+    file: Gina.safetensors
+    weight: 0.8
+    trigger: nb_gina
+    preferred_style: waijfu
+    series: solo_leveling
+    aliases: [nb_gina]
+    caption_helpers: "1girl, blonde hair, long hair"
+    pair_with:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.8
+  han_semi:
+    file: Han Semi.safetensors
+    weight: 0.8
+    trigger: nb_han_semi
+    preferred_style: waijfu
+    series: solo_leveling
+    aliases: [nb_han_semi, semi]
+    caption_helpers: "1girl, black hair, long hair"
+    pair_with:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.8
+  han_song_yi:
+    file: Han Song Yi.safetensors
+    weight: 0.8
+    trigger: nb_han_song_yi
+    preferred_style: waijfu
+    series: solo_leveling
+    aliases: [nb_han_song_yi, song_yi, hansongyi]
+    caption_helpers: "1girl, black hair, long hair, brown eyes"
+    pair_with:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.8
+  joo_hee:
+    file: Joo Hee/Joo_Hee_id_v1.safetensors
+    weight: 0.8
+    trigger: nb_joo_hee
+    preferred_style: waijfu
+    version: id_v1
+    series: solo_leveling
+    aliases: [nb_joo_hee, joohee, Joo Hee.safetensors]
+    caption_helpers: "1girl, brown hair, glasses"
+    pair_with:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.8
+  kanae_tawata:
+    file: Kanae Tawata.safetensors
+    weight: 0.8
+    trigger: nb_kanae_tawata
+    preferred_style: waijfu
+    series: solo_leveling
+    aliases: [nb_kanae_tawata, kanae]
+    caption_helpers: "1girl, black hair, long hair"
+    pair_with:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.8
+  lee_bora:
+    file: Lee Bora.safetensors
+    weight: 0.8
+    trigger: nb_lee_bora
+    preferred_style: waijfu
+    series: solo_leveling
+    aliases: [nb_lee_bora, bora]
+    caption_helpers: "1girl, purple hair, long hair"
+    pair_with:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.8
+  park_heejin:
+    file: Park Heejin.safetensors
+    weight: 0.8
+    trigger: nb_park_heejin
+    preferred_style: waijfu
+    series: solo_leveling
+    aliases: [nb_park_heejin, heejin, park_hee_jin]
+    # Catalog Civitai caption said blonde; Shooting Gallery Stage 1 used black hair (canon for Heejin Park).
+    caption_helpers: "1girl, black hair, long hair, brown eyes"
+    pair_with:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.8
+  jessie:
+    file: Jessie/jessie_pokemon_illust.safetensors
+    weight: 0.8
+    trigger: jessie (pokemon)
+    preferred_style: waijfu
+    series: pokemon
+    aliases: [jessie, musashi, team_rocket_jessie]
+    caption_helpers: "1girl, pink hair, very long hair, hair slicked back, blue eyes"
+    pair_with:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.8
+  tatsumaki:
+    file: Tatsumaki/tatsumaki-guy90-Illust-LoraV101.safetensors
+    weight: 1.0
+    trigger: ikatat
+    preferred_style: waijfu
+    series: one_punch_man
+    aliases: [tatsumaki, terrible_tornado, tornado_of_terror, ikatat]
+    caption_helpers: "1girl, short hair, curly hair, green hair, green eyes"
+    outfit_helpers: "black dress, long sleeves, collared dress, side slits, pelvic curtain"
+    pair_with:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.8
+
+  # --- IJP / New Book promo (DeskHost style-soak LoRAs; trained n4mik4; do not stack master+young) ---
+  orla:
+    file: DeskHost/DeskHost_master_v1.safetensors
+    weight: 0.85
+    trigger: orla
+    preferred_style: n4mik4
+    version: master_v1
+    series: ijp
+    aliases: [orla_master, DeskHost/DeskHost.safetensors, DeskHost.safetensors, DeskHost_master_v1]
+    caption_helpers: "1girl, dark brown bob hair, brown eyes"
+    notes: "Style-soak Master. Trigger `orla`. Do not stack with orla_young."
+    pair_with:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.75
+  orla_young:
+    file: DeskHost/DeskHost_young_v1.safetensors
+    weight: 0.85
+    trigger: orla_young
+    preferred_style: n4mik4
+    version: young_v1
+    series: ijp
+    aliases: [orla_young_v1, DeskHost_young_v1]
+    caption_helpers: "1girl, dark brown bob hair, brown eyes"
+    notes: "Style-soak younger look. Trigger `orla_young`. Do not stack with orla master."
+    pair_with:
+      - file: Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors
+        weight: 0.75
+# Darkness assets live under assets/Darkness/ only — do not create Images/Darkness_* or characters/Darkness dumps.
+# Agents: resolve_character_loras('darkness') / character_mesh_assets. Review: assets/Darkness/review/
+character_mesh_assets:
+  darkness:
+    character: darkness
+    root: "D:/GenerationHost Images and Videos/assets/Darkness"
+    linux_root: "<MODELS_MOUNT>/GenerationHost Images and Videos/assets/Darkness"
+    review: "D:/GenerationHost Images and Videos/assets/Darkness/review"
+    status: mesh_v3_ready
+    mesh_glb: "D:/GenerationHost Images and Videos/assets/Darkness/mesh/darkness_body_v3.glb"
+    mesh_blend: "D:/GenerationHost Images and Videos/assets/Darkness/mesh/darkness_body_v3.blend"
+    mesh_glb_v2_archive: "D:/GenerationHost Images and Videos/assets/Darkness/mesh/archive/darkness_body_v2.glb"
+    mesh_glb_v1_archive: "D:/GenerationHost Images and Videos/assets/Darkness/mesh/archive/darkness_body_v1.glb"
+    bg_mesh_glb: "D:/GenerationHost Images and Videos/assets/blender/sets/casting_couch/mesh/casting_couch_bg_v1.glb"
+    strip_solid_blend: "D:/GenerationHost Images and Videos/assets/blender/sets/casting_couch/casting_couch_strip_solid.blend"
+    solid_maps: "D:/GenerationHost Images and Videos/assets/blender/sets/casting_couch/strip_maps/solid_mesh_v3"
+    solid_maps_v2_archive: "D:/GenerationHost Images and Videos/assets/blender/sets/casting_couch/strip_maps/solid_mesh_v2"
+    solid_maps_v1_archive: "D:/GenerationHost Images and Videos/assets/blender/sets/casting_couch/strip_maps/solid_mesh_v1"
+    notes: "All Darkness character files under assets/Darkness/. Put approvals in review/ only — never new Images/Darkness_* folders."
+    lessons: "<STUDIO_ROOT>/LESSONS-SET-FILL.md"
+    proportion_refs: "D:/GenerationHost Images and Videos/assets/Darkness/proportion_refs"
+    plates:
+      - id: 01_front_a_pose
+        path: "D:/GenerationHost Images and Videos/assets/Darkness/plates/01_front_a_pose.png"
+        role: hero_front
+        approved: true
+      - id: 02_back_a_pose
+        path: "D:/GenerationHost Images and Videos/assets/Darkness/plates/02_back_a_pose.png"
+        role: back
+        approved: true
+      - id: 03_left_profile
+        path: "D:/GenerationHost Images and Videos/assets/Darkness/plates/03_left_profile.png"
+        role: left_profile
+        approved: true
+      - id: 04_right_profile
+        path: "D:/GenerationHost Images and Videos/assets/Darkness/plates/04_right_profile.png"
+        role: right_profile
+        approved: true
+    blender_sets:
+      - "D:/GenerationHost Images and Videos/assets/blender/sets/casting_couch"
+    strip_beats:
+      - id: b1_hands_front
+        stem: strip_b1_hands_front
+        outfit: "white holter/halter necktie top + blue micro shorts"
+      - id: b2_hands_behind
+        stem: strip_b2_hands_behind
+        outfit: "white bra/crop + blue micro shorts"
+      - id: b3_breast_hold
+        stem: strip_b3_breast_hold
+        outfit: "topless + blue micro shorts"
+    pose_script: "D:/GenerationHost Images and Videos/assets/blender/kits/pose_solid_strip_beats.py"
+    mask_prep_kit: "D:/GenerationHost Images and Videos/assets/blender/kits/mask_inpaint_prep.py"
+
+# Blender set meshes / locked plates (VN BG). Agents: list_set_mesh_assets / list_solid_strip_maps.
+set_mesh_assets:
+  casting_couch:
+    aliases: [casting_couch_strip, couch, casting]
+    blend: "D:/GenerationHost Images and Videos/assets/blender/sets/casting_couch/casting_couch.blend"
+    strip_blend: "D:/GenerationHost Images and Videos/assets/blender/sets/casting_couch/casting_couch_strip.blend"
+    strip_solid_blend: "D:/GenerationHost Images and Videos/assets/blender/sets/casting_couch/casting_couch_strip_solid.blend"
+    bg_glb: "D:/GenerationHost Images and Videos/assets/blender/sets/casting_couch/mesh/casting_couch_bg_v1.glb"
+    # Wood-slat keeper (Canny latch). Flat-blue archive: plates/camWide_empty_B.png
+    locked_plate: "D:/GenerationHost Images and Videos/assets/blender/sets/casting_couch/plates/camWide_empty_wood.png"
+    solid_maps_dir: "D:/GenerationHost Images and Videos/assets/blender/sets/casting_couch/strip_maps/solid_mesh_v3"
+    character_mesh_id: darkness
+    pose_script: "D:/GenerationHost Images and Videos/assets/blender/kits/pose_solid_strip_beats.py"
+    mask_prep_kit: "D:/GenerationHost Images and Videos/assets/blender/kits/mask_inpaint_prep.py"
+    lessons: "<STUDIO_ROOT>/LESSONS-SET-FILL.md"
+    notes: "BG = Blender blockers export (not AI room). Solid DarknessBody v2 maps for mask path."
+    strip_beats:
+      - id: b1
+        stem: strip_b1_hands_front
+        label: hands_front
+      - id: b2
+        stem: strip_b2_hands_behind
+        label: hands_behind
+      - id: b3
+        stem: strip_b3_breast_hold
+        label: breast_hold
 
 styles:
   anime:
@@ -473,12 +1187,114 @@ styles:
 
   waijfu:
     architecture: sdxl_anime
-    description: "WAI JFU Alpha — Illustrious-family anime merge"
+    description: >
+      WAI JFU Alpha — Illustrious-family anime merge. Many popular anime characters
+      are baked into the checkpoint (prompt by name; no character LoRA required).
+      Dedicated catalog LoRAs still preferred for tight ID lock when available.
     aliases: [wai_jfu, waijfu_alpha, wai_alpha]
     checkpoint: "waijfu_alpha.safetensors"
     loras: []
+    # Checkpoint-native faces (not separate LoRA files). Agents: lookup_character_identity.
+    baked_in_characters:
+      - id: eris
+        names: [Eris, Eris Greyrat, Eris Boreas Greyrat]
+        prompt_hints: "red hair, red eyes, athletic, confident / hot-tempered expression"
+        notes: "Das Booty lead — use style=waijfu + name/hints; no Eris LoRA file."
+      - id: frieren
+        names: [Frieren]
+        prompt_hints: "elf, long white hair, green eyes"
+        notes: "Also has Frieren_id LoRA — if stacking, keep LoRA ≤0.50 (see lighting-agents)."
+      - id: popular_anime_cast
+        names: []
+        prompt_hints: ""
+        notes: >
+          Illustrious/waijfu merge recognizes many other well-known anime characters by
+          name + distinctive tags. Prefer dedicated LoRA when catalog has one.
     prompt_prefix: "masterpiece, best quality, amazing quality, anime illustration"
     negative_prompt: "bad quality, worst quality, worst detail, sketch, photorealistic"
+    defaults:
+      width: 1024
+      height: 1024
+      steps: 28
+      cfg: 6.0
+      sampler: "euler_ancestral"
+      scheduler: "normal"
+
+  # Default house = v3 (pref@1.0 only). v4 demoted 2026-08-11: Invoke confirmed
+  # giant night-city windows (anti_sprawl bake inverted). Do not stack S1 on house.
+  # Darkness_slider stays runtime-only. Legacy: v4=pref+asprawl+S1, v2=pref@0.7, v1=S1@0.7+asprawl.
+  waijfu_house:
+    architecture: sdxl_anime
+    description: "House waijfu v3 — house_pref @1.0 only. v4 demoted (window inversion)."
+    aliases: [house_waijfu, wai_house]
+    checkpoint: "waijfu_house_v3.safetensors"
+    loras: []
+    prompt_prefix: "masterpiece, best quality, amazing quality, anime illustration"
+    negative_prompt: "bad quality, worst quality, worst detail, sketch, photorealistic, picture in picture, inset, panel, comic panel, panels, collage, border, frame, stickers, pop art, manga, multi panel, split screen, window, windows, skylight, bright window, daylight, sunlight, sunbeam, trees, outside view, overexposed, blown highlights, floor lamp clutter"
+    defaults:
+      width: 1024
+      height: 1024
+      steps: 28
+      cfg: 6.0
+      sampler: "euler_ancestral"
+      scheduler: "normal"
+
+  waijfu_house_v4:
+    architecture: sdxl_anime
+    description: "DEPRECATED — anti_sprawl bake inverted; giant windows in Invoke. Use waijfu or waijfu_house (v3)."
+    aliases: []
+    checkpoint: "waijfu_house_v4.safetensors"
+    loras: []
+    prompt_prefix: "masterpiece, best quality, amazing quality, anime illustration"
+    negative_prompt: "bad quality, worst quality, worst detail, sketch, photorealistic"
+    defaults:
+      width: 1024
+      height: 1024
+      steps: 28
+      cfg: 6.0
+      sampler: "euler_ancestral"
+      scheduler: "normal"
+
+  waijfu_house_v3:
+    architecture: sdxl_anime
+    description: "Legacy house waijfu v3 — house_pref @1.0 only (no extra anti_sprawl / S1)"
+    aliases: [house_waijfu_v3]
+    checkpoint: "waijfu_house_v3.safetensors"
+    loras: []
+    prompt_prefix: "masterpiece, best quality, amazing quality, anime illustration"
+    negative_prompt: "bad quality, worst quality, worst detail, sketch, photorealistic, picture in picture, inset, panel, comic panel, panels, collage, border, frame, stickers, pop art, manga, multi panel, split screen, window, skylight, overexposed, blown highlights, daylight, sunlight, trees"
+    defaults:
+      width: 1024
+      height: 1024
+      steps: 28
+      cfg: 6.0
+      sampler: "euler_ancestral"
+      scheduler: "normal"
+
+  waijfu_house_v2:
+    architecture: sdxl_anime
+    description: "Legacy house waijfu v2 — house_pref @0.7 bake (softer than v3)"
+    aliases: [house_waijfu_v2]
+    checkpoint: "waijfu_house_v2.safetensors"
+    loras: []
+    prompt_prefix: "masterpiece, best quality, amazing quality, anime illustration"
+    negative_prompt: "bad quality, worst quality, worst detail, sketch, photorealistic, picture in picture, panels, collage, window, skylight, overexposed, blown highlights, daylight, sunlight, trees"
+    defaults:
+      width: 1024
+      height: 1024
+      steps: 28
+      cfg: 6.0
+      sampler: "euler_ancestral"
+      scheduler: "normal"
+
+  waijfu_house_v1:
+    architecture: sdxl_anime
+    description: "Legacy house waijfu — S1 Dramatic Lighting + anti_sprawl baked (v1)"
+    aliases: [house_waijfu_v1]
+    checkpoint: "waijfu_house_v1.safetensors"
+    loras: []
+    prompt_prefix: "masterpiece, best quality, amazing quality, anime illustration"
+    negative_prompt: "bad quality, worst quality, worst detail, sketch, photorealistic, window, skylight, overexposed, blown highlights, daylight, sunlight"
     defaults:
       width: 1024
       height: 1024
@@ -610,7 +1426,46 @@ video_workflows:
     painter_i2v: true
 
   i2v:
-    description: "Wan 2.2 image-to-video"
+    description: "Wan 2.2 I2V-A14B MoE HIGH+LOW (identity/NSFW 14B — API builder)"
+    file: "workflow-wan22-i2v-a14b-moe-comfyui-native.json"
+    api_builder: wan22_i2v_moe
+    prompt_nodes:
+      - type: "CLIPTextEncode"
+        role: positive
+      - type: "CLIPTextEncode"
+        role: negative
+    note: >
+      Dual UNET HIGH→LOW KSamplerAdvanced. Default stacks LightX2V distill HIGH/LOW when
+      installed; action LoRAs must be HIGH+LOW pairs (e.g. female_orgasm). Do not use i2v_5b
+      for uncensored NSFW. Legacy single-UNET Wan 2.1: i2v_wan21_native.
+
+  flf2v:
+    description: "Wan 2.2 MoE First-Last-Frame (FLF2V) — start+end keys, short dual-face/hard contact"
+    file: "workflow-wan22-i2v-a14b-moe-comfyui-native.json"
+    api_builder: wan22_flf2v_moe
+    mode: i2v
+    prompt_nodes:
+      - type: "CLIPTextEncode"
+        role: positive
+      - type: "CLIPTextEncode"
+        role: negative
+    note: >
+      Same HIGH+LOW MoE as i2v but WanFirstLastFrameToVideo. Requires image_path (start)
+      + end_image_path (last key). Prefer num_frames=21 for dual-face / hard contact.
+      Quality MoE only for keepers; one verb. Not for multi-thrust 49f doggy.
+
+  i2v_wan21_native:
+    description: "Legacy Wan 2.1 single-UNET 14B I2V (native ComfyUI — prefer i2v MoE)"
+    file: "workflow-wan21-i2v-14b-comfyui-native.json"
+    prompt_nodes:
+      - type: "CLIPTextEncode"
+        role: positive
+      - type: "CLIPTextEncode"
+        role: negative
+    note: "Superseded by workflow_id=i2v (Wan 2.2 MoE). Kept for A/B and fallback only."
+
+  i2v_wrapper:
+    description: "Legacy WanVideoWrapper 14B graph (needs Easy-Use + WanVideoWrapper custom nodes)"
     file: "workflow-wan22-image-2-video-nsfw-axtxs1ISH3F3mrVSCSyt-civet_flawless_61-openart.ai.json"
     prompt_nodes:
       - type: "WanVideoTextEncode"
@@ -626,7 +1481,35 @@ video_workflows:
         negative_index: 1
 
   v2v_upscale:
-    description: "Wan 2.1 V2V upscale + RIFE frame interpolation (requires RealESRGAN + rife models)"
+    description: >
+      Wan 2.1 latent V2V clean (RealESRGAN → encode → KSampler denoise ~0.1 → decode).
+      Catalog graph also has optional RIFE; house default is mute RIFE (grain).
+      NOT the same as generate_video(mode=v2v) which only extends from last frame.
     file: "workflow-wan21-v2v-upscale-rife.json"
     mode: v2v
-    note: "ComfyUI-Frame-Interpolation (RIFE VFI) may be missing on the generation host — install if needed."
+    note: >
+      GenerationHost needs: comfyui-kjnodes, ComfyUI-Frame-Interpolation, ComfyUI-wanBlockswap,
+      rgthree-comfy (UI muters only). Models: wan2.1_t2v_1.3B + RealESRGAN_x4plus_anime_6B.
+      Engine generate_video does not yet run this graph — load in ComfyUI / future v2v_clean wire.
+      Fast Muter / Fast Groups Muter are frontend-only (skipped in dep checks).
+
+  hunyuan_t2v:
+    description: "HunyuanVideo 1.5 720p text-to-video (ComfyUI native — assets only)"
+    note: >
+      Assets via check_hunyuan_assets / download_hunyuan_assets. generate_video routing TBD —
+      use ComfyUI template workflows (Comfy-Org/workflow_templates) until engine wiring lands.
+      Base UNET: hunyuanvideo1.5_720p_t2v_fp16.safetensors.
+
+  hunyuan_i2v:
+    description: "HunyuanVideo 1.5 720p image-to-video (ComfyUI native — assets only)"
+    mode: i2v
+    note: >
+      Assets via check_hunyuan_assets / download_hunyuan_assets. generate_video routing TBD —
+      use ComfyUI template workflows until wired. Base UNET: hunyuanvideo1.5_720p_i2v_fp16.safetensors.
+      Distilled variants on HF when probing speed: hunyuanvideo1.5_720p_i2v_cfg_distilled_fp16.
+
+  hunyuan_sr:
+    description: "HunyuanVideo 1.5 optional 1080p super-resolution (distilled)"
+    note: >
+      Optional second pass — hunyuanvideo1.5_1080p_sr_distilled_fp16.safetensors. Not required for
+      base T2V/I2V. Assets via check_hunyuan_assets(workflow_id=hunyuan_sr).

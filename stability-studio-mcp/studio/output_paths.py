@@ -70,6 +70,30 @@ def deliver_files(
             continue
         shutil.copy2(src_path, dest)
         delivered.append(str(dest))
+        # Media lives only under GenerationHost delivery — drop MCP outputs/ copies.
+        # JSON/logs may stay under studio-agent/outputs.
+        if src_path.suffix.lower() in {
+            ".png",
+            ".jpg",
+            ".jpeg",
+            ".webp",
+            ".gif",
+            ".bmp",
+            ".mp4",
+            ".webm",
+            ".mkv",
+            ".avi",
+            ".mov",
+            ".wav",
+        }:
+            try:
+                mcp_out = Path(cfg.get("_root") or ".").resolve() / "outputs"
+                src_path.resolve().relative_to(mcp_out)
+                src_path.unlink(missing_ok=True)
+            except ValueError:
+                pass
+            except OSError:
+                pass
     return saved, delivered
 
 
