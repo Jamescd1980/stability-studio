@@ -1,0 +1,32 @@
+{
+  "asked": "(from PNG) studio_agent_00016_.png",
+  "expanded_prompt": "masterpiece, best quality, amazing quality, anime illustration, nb_esil_radiru, 1girl, solo, demon girl, horns, blonde hair, red eyes, from below, worm's-eye view, gothic cyber outfit, fishnets, buckles, neon red rim light, underexposed face, glowing red eyes, perfect eyes, red roses in foreground, bokeh neon background, dramatic lighting, highly detailed, sharp focus, eye_focus",
+  "negative_prompt": "lowres, bad anatomy, bad hands, text, watermark, blurry, worst quality, photorealistic, 3d render, plastic skin, extra fingers, logo, signature, NEURAL ANIME, watermark text",
+  "checkpoint": "waijfu_alpha.safetensors",
+  "loras": [
+    {
+      "file": "Esil Radiru.safetensors",
+      "weight": 0.78
+    },
+    {
+      "file": "Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors",
+      "weight": 0.9
+    },
+    {
+      "file": "DramaticColor_IL_v1.safetensors",
+      "weight": 0.3
+    },
+    {
+      "file": "ILDetailerV2.safetensors",
+      "weight": 0.55
+    }
+  ],
+  "width": 816,
+  "height": 1456,
+  "steps": 30,
+  "cfg": 5.5,
+  "cast": "nb_esil_radiru",
+  "source": "png_comfy_workflow",
+  "windows_path": "D:\\ComfyBox Images and Videos\\Images\\studio_agent_00016_.png",
+  "comfy_filename": "studio_agent_00016_.png"
+}

@@ -1,0 +1,53 @@
+---
+description: Forge stills — identity lock (eyes, hair, tattoos, face marks), denoise, one region per pass
+alwaysApply: true
+---
+
+# Forge stills
+
+Forge on this rig: `127.0.0.1:7860`. Prefer MCP `refine_face_forge` (tight box + Nari review) over blind global refine.
+
+## Before Forge (required)
+
+1. **Look at the source still first** — do not invent face details.
+2. **Record from the pixels** (and character card / LoRA identity if known):
+   - **Eye color** and **hair color**
+   - **Tattoos and face markings** — cheek/forehead marks, glyphs, freckle patterns, scars, facial tattoos, paint/tribal marks: presence, placement, shape, and color
+3. Put those **exact** details in the face prompt, e.g. `green eyes, silver-white hair, small cheek tattoo under left eye, keep exact markings`.
+4. If the source has **no** face tattoos/marks, say so (`no face tattoos, no facial markings`) so Forge does not invent them.
+5. Describe expression (open/closed mouth, smirk, gasp, tongue, blush).
+
+Skip locks only when the user **explicitly** asked to change hair, eyes, tattoos, or markings.
+
+## After Forge (gate)
+
+- **FAIL / revert** if eye color, hair color, tattoos, or face markings drifted, vanished, moved, or were newly invented vs the source.
+- Nari / `review_face_forge` must treat those mismatches as fail.
+- Do not send identity-drift keepers to the user. No pupil stamps.
+
+## Denoise
+
+- Keepers: **0.05–0.20** (hard cap **0.25** — ask user first above that).
+- Insertion / gape / oral face lock: light + face **≤ 0.10**.
+- Intentional hair recolor or marking edit is the usual high-denoise case — never accidental.
+
+## Pass discipline
+
+- One region per pass; one face per pass.
+- 3–6 passes on one still is OK; a bad image wastes more time.
+- Two faces = two passes. Fingers in a hole = its own pass. Two holes = two passes (dividing line). Never one combined crotch pass.
+- Body tattoos outside the face box: do not let a face pass erase or invent them on the neck/shoulders (lower-half gate).
+
+## Tools
+
+- `face_denoise_guide` → presets
+- `refine_face_forge` → box + inpaint + Nari loop
+- On fail: revert to original; try softer denoise / tighter box — do not stack high denoise
+
+## Never for faces
+
+- Do **not** use `edit_image` hybrid / `hybrid_preserve` / scene masks (`church_tower`, `right_building`) for face cleanups.
+- Those regions were a one-off demo still. Face asks belong on Forge or Comfy **i2i + face_detail**.
+- Call `plan_image_edit` first; abort if the plan shows a building mask on a face job.
+
+See also: `stability-studio-mcp/docs/FORGE-FACE-REFINE.md`, `.cursor/rules/nsfw-sex-prompting.mdc`.

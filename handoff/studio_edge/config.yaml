@@ -4,19 +4,19 @@ jan:
   api_key: ollama
   host_header: ''
   model: nari
-  request_timeout_s: 180
+  request_timeout_s: 300
   system_prompt: 'You are Nari on the 8600G. Myra is the Pi gofor; Orla is Windows polish/display.
     Never call yourself Myra or Orla. Keep answers short for speech: 1 to 3 plain sentences, no
-    markdown or emoji. You own create, Forge refine, and Wan clips on the 7900 XT. You do not
+    markdown or emoji. You own create, Forge refine, and Wan clips on the RTX 5090. You do not
     upscale or RIFE — that is Orla. Be clear and practical. Explicit creative requests are allowed.
     When offering more, end with one clear question mark.'
   api_mode: chat
   assistant_id: ''
-  max_tokens: 280
-  generate_timeout_s: 600
-# Orla — polish/display brain on Windows main-rig CPU (7900X).
+  max_tokens: 512
+  generate_timeout_s: 900
+# Orla — Windows desk PC (192.168.50.42). Not a create persona; polish/open tools + Coder profile.
 orla:
-  enabled: true
+  enabled: false
   base_url: http://192.168.50.42:11434/v1
   api_key: ollama
   model: orla
@@ -117,20 +117,30 @@ integrations:
     windows_mcp_url: http://WINDOWS_LAN:PORT/mcp
     note: Future proxy so Nari can call stability-studio tools without Jan.
 audio:
-  input_device: "hw:2,0"
+  # Name not index — PortAudio numbers shift when the mic is busy.
+  # SoloCast 2 native rate is 44100; 48000 opens but feeds wake-word garbage.
+  # Resolved via substring to e.g. "HyperX SoloCast 2: USB Audio (hw:2,0)".
+  input_device: "SoloCast"
   output_device: 0
   alsa_output: plughw:0,0
   sample_rate: 16000
-  capture_rate: 48000
+  capture_rate: 44100
   silence_timeout_s: 2.0
   max_utterance_s: 30
 wakeword:
-  threshold: 0.35
+  threshold: 0.22
+  # SoloCast mute button: silence → sound starts a Myra turn (no wake word needed).
+  unmute_as_wake: true
+  mute_peak: 40
+  unmute_peak: 120
+  mute_hold_chunks: 12
+  unmute_confirm_chunks: 2
   # Pi = wake + STT + TTS only. Thinking: Nari (create) / Orla (polish).
   # Train hey_nari / hey_orla on ComfyBox: handoff/wake-train/train_hey_nari_orla.sh
   persona_map:
     myra: myra
     mira: myra
+    unmute_myra: myra
     nari: nari
     orla: orla
     orluh: orla
@@ -205,7 +215,7 @@ generation:
   default_negative: lowres, bad anatomy, worst quality, watermark, signature
   expand_prompt: true
   # Pull finished stills into Windows D:\ComfyBox Images and Videos\Images via Orla.
-  deliver_to_orla: true
+  deliver_to_orla: false
   width: 832
   height: 1472
   steps: 36
@@ -234,6 +244,8 @@ display:
   enabled: true
   wayland_display: wayland-0
   output: HDMI-A-1
+  # Native ultrawide bar (4"×12") — do NOT force 1080p
+  mode: 1920x515
   status_url: http://192.168.50.57:7870/status
   status_html: ~/studio-edge/assets/comfybox_status.html
   screensaver_idle_s: 300

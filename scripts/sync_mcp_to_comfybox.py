@@ -22,6 +22,11 @@ ITEMS = [
     "LESSONS-WAN-I2V.md",
     "config.yaml.example",
 ]
+# Sibling lessons living under D:\studio-agent\ (not inside MCP tree)
+PARENT_LESSONS = [
+    "LESSONS-NSFW-STILLS.md",
+    "LESSONS-COMFYBOX-CUDA.md",
+]
 
 
 def main() -> int:
@@ -91,6 +96,16 @@ def main() -> int:
         text=True,
     )
     print(out)
+    # Sibling lesson files (repo root, not MCP tree)
+    parent = SRC.parent
+    for name in PARENT_LESSONS:
+        src = parent / name
+        if src.is_file():
+            subprocess.run(
+                ["scp", "-o", "BatchMode=yes", str(src), f"{HOST}:/mnt/game/studio-agent/{name}"],
+                check=True,
+            )
+            print(f"also synced {name} -> /mnt/game/studio-agent/")
     return 0
 
 

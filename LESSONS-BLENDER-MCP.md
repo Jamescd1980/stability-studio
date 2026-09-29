@@ -48,6 +48,7 @@ Playbook JSON: `get_blender_workflow_playbook()`.
 
 ## Related
 
+- [LESSONS-SET-FILL.md](LESSONS-SET-FILL.md) — casting couch BG lock, Darkness mesh turnaround, body prompt rule (2026-08-06)
 - [BLENDER-MCP.md](BLENDER-MCP.md) — install / start / paths
 - [POSE-CONTROL.md](POSE-CONTROL.md) — ControlNet still path
 - [LESSONS-COMFYBOX-CUDA.md](LESSONS-COMFYBOX-CUDA.md) — same GPU stack

@@ -1,0 +1,32 @@
+{
+  "asked": "(from PNG) studio_agent_00020_.png",
+  "expanded_prompt": "masterpiece, best quality, amazing quality, anime illustration, nb_fern, 1girl, solo, purple hair, long hair, bangs, purple eyes, standing waist-deep in clear river, looking up at sun, slight smile, shiny purple metallic bikini, gold ring detail, crystal earrings, gold bangles, hands resting on river stones under water, clear water caustics on stones, visible riverbed pebbles, palm trees and pine trees, distant green mountains, blue sky with cumulus clouds, bright sun lens flare top right, wet skin highlights, perfect eyes, eye_focus, highly detailed",
+  "negative_prompt": "lowres, bad anatomy, bad hands, text, watermark, blurry, worst quality, photorealistic, 3d render, plastic skin, extra fingers, logo, signature, NEURAL ANIME, watermark text",
+  "checkpoint": "waijfu_alpha.safetensors",
+  "loras": [
+    {
+      "file": "Fern/Fern.safetensors",
+      "weight": 0.78
+    },
+    {
+      "file": "Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors",
+      "weight": 0.9
+    },
+    {
+      "file": "LensFlare_LightLeak_IL.safetensors",
+      "weight": 0.5
+    },
+    {
+      "file": "ILDetailerV2.safetensors",
+      "weight": 0.55
+    }
+  ],
+  "width": 1024,
+  "height": 1368,
+  "steps": 30,
+  "cfg": 5.0,
+  "cast": "nb_fern",
+  "source": "png_comfy_workflow",
+  "windows_path": "D:\\ComfyBox Images and Videos\\Images\\studio_agent_00020_.png",
+  "comfy_filename": "studio_agent_00020_.png"
+}

@@ -10,7 +10,7 @@ from pathlib import Path
 ORLA_PROFILE = (
     '{ baseURL = "http://127.0.0.1:11434/v1", codexProfileId = "ollama", '
     'id = "custom:orla-ollama", isBuiltin = false, modelId = "orla:latest", '
-    'name = "Orla (Ollama LLM)", provider = "local", providerId = "builtin:local", '
+    'name = "Orla", provider = "local", providerId = "builtin:local", '
     'useResponsesApi = false, '
     'visionModel = { baseURL = "http://127.0.0.1:11434/v1", '
     'modelId = "orla-vl:latest", provider = "local" }, '
@@ -72,14 +72,7 @@ def patch_desktop(cfg_path: Path) -> None:
         text = text.replace("profiles = [", "profiles = [" + ORLA_PROFILE + ", ", 1)
         print("inserted Orla profile")
     else:
-        # Refresh vision/model ids if profile already exists
-        text = re.sub(
-            r"\{[^}]*id = \"custom:orla-ollama\"[^}]*\}",
-            ORLA_PROFILE,
-            text,
-            count=1,
-        )
-        print("refreshed existing Orla profile")
+        print("Orla profile already present — leaving nested visionModel braces alone")
 
     text = re.sub(
         r'default_profile_id\s*=\s*"[^"]+"',
@@ -117,39 +110,9 @@ def write_cli(cli_path: Path) -> None:
 
 def write_skill(skill_path: Path) -> None:
     skill_path.parent.mkdir(parents=True, exist_ok=True)
-    skill_path.write_text(
-        """---
-name: "orla-ollama"
-description: "Orla local Ollama brain — text/tools LLM plus orla-vl (Qwen3-VL) for images."
----
-
-# Orla (local Ollama)
-
-## Models
-
-| Role | Model | When |
-|------|-------|------|
-| **LLM (default)** | `orla:latest` | Chat, coding, tools, MCP, planning |
-| **VLM** | `orla-vl:latest` | Still QA / attached image analysis (Qwen3-VL 8B) |
-
-The desktop profile wires `visionModel` to the VLM automatically when an image is in the message.
-Do **not** load the VLM for plain text tasks.
-
-## Rules
-
-1. Text-only questions → stay on **Orla** (`orla:latest`).
-2. Image attached or "what's in this picture / still / screenshot" → use vision path (profile `visionModel`).
-3. Image **generation** still goes through `stability-studio__*` MCP (ComfyUI), not the VLM.
-4. Never call hosted `interpreter-app` on this local profile.
-5. Prefer Stability Studio MCP for generate/edit; Orla VLM only for understanding images.
-
-## Server
-
-Ollama must be running: `http://127.0.0.1:11434`
-""",
-        encoding="utf-8",
-    )
-    print("wrote", skill_path)
+    src = Path(__file__).with_name("open_interpreter_SKILL.md")
+    skill_path.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+    print("wrote", skill_path, "from", src)
 
 
 def main() -> None:

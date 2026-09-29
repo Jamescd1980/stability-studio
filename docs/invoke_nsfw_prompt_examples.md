@@ -10,12 +10,14 @@ Source: `D:\Invoke AI\outputs\images` — metadata chunk `invokeai_metadata` (no
 
 ## Pattern (waijfu / Illustrious)
 
-1. Quality / aesthetic header
-2. Scene / lighting / room
+1. Quality / aesthetic header (**once** — do not restack ultra-detailed / perfect eyes essays)
+2. Scene / lighting / room (**short**)
 3. Style line (`anime++`, cel-shaded, …)
-4. **View** (`View from mans POV` — never camera)
-5. Character + pose description (vulgar sentence)
+4. **View** (`View from mans POV` / `view from behind` — never camera)
+5. Character + pose description (vulgar sentence; triggers + few traits)
 6. Sex-act tags (`doggystyle, vaginal penetration` / `anal sex`)
+
+**2026-08-10:** Prefer owner short prompts over long contradictory essays. Frieren ID LoRA ≤0.50 on waijfu (baked in). Hate PIP — negate `picture in picture`. See `LESSONS-NSFW-STILLS.md`.
 
 ## Live examples
 

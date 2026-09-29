@@ -12,11 +12,14 @@ from typing import Any
 
 # Shown in get_prompt_style / compile_image_prompt for Jan and Cursor agents.
 COMFY_PROMPT_RULES: list[str] = [
+    "Do's → positive prompt; Don'ts → negative prompt. Never mix anti-tags into the positive.",
+    "House lexicon (gold standard, detail hero, recreate 003, look_profile, keeper) = MCP settings/LoRAs — never paste into Positive/Negative.",
     "One action, one phrase — never describe the same act twice (e.g. blowjob + oral sex + fellatio).",
     "Subject → pose/position → setting → lighting → one style line. No synonym stacks.",
     "Skip anatomy coaching in the positive (no 'perfect hands', 'correct limbs') — that belongs in negatives.",
     "For NSFW acts, name the act directly (blowjob, deepthroat, sex, cowgirl); add position tags only when needed.",
     "Call compile_image_prompt(prompt=...) to preview deduped text before generate_image.",
+    "Full Do/Don't + lexicon: read_studio_doc(doc='prompting').",
 ]
 
 NSFW_PROMPT_RULES: list[str] = [
@@ -57,6 +60,32 @@ _STRIP_SEGMENT_PATTERNS: list[re.Pattern[str]] = [
         r"^performing (oral|sexual)",
         r"^engaged in (intercourse|sex)",
         r"^intimate (physical )?contact$",
+        # House lexicon — agent/settings labels, not model captions
+        r"^gold[_\s-]?standard$",
+        r"^detail[_\s-]?hero$",
+        r"^recreate[_\s-]?0?03$",
+        r"^park heejin bar$",
+        r"^look[_\s-]?profile$",
+        r"^illustrious_detail_hero$",
+        r"^resolve_style_lane$",
+        r"^keeper$",
+        r"^prepare[_\s-]?wan$",
+        r"^moe[_\s-]?preset$",
+    )
+]
+
+# Phrases to scrub from inside a segment (leave the rest of the segment).
+_HOUSE_JARGON_INLINE: list[re.Pattern[str]] = [
+    re.compile(p, re.I)
+    for p in (
+        r"\bgold[_\s-]?standard\b",
+        r"\bdetail[_\s-]?hero\b",
+        r"\brecreate[_\s-]?0?03\b",
+        r"\bpark heejin bar\b",
+        r"\billustrious_detail_hero\b",
+        r"\bresolve_style_lane\b",
+        r"\blook[_\s-]?profile\b",
+        r"\bprepare[_\s-]?wan\b",
     )
 ]
 
@@ -106,6 +135,19 @@ def _apply_euphemisms(segment: str) -> str:
     return out.strip()
 
 
+def _scrub_house_jargon(segment: str) -> tuple[str, bool]:
+    """Remove studio lexicon tokens that must not reach Forge/Comfy prompts."""
+    out = segment
+    changed = False
+    for pattern in _HOUSE_JARGON_INLINE:
+        new_out = pattern.sub(" ", out)
+        if new_out != out:
+            changed = True
+            out = new_out
+    out = re.sub(r"\s{2,}", " ", out).strip(" ,;")
+    return out, changed
+
+
 def _should_strip_segment(segment: str) -> bool:
     norm = _normalize_key(segment)
     if not norm:
@@ -142,15 +184,31 @@ def compile_image_prompt(
 
     segments = _split_segments(prompt)
     if rating in {"sfw", "safe"}:
-        # Still dedupe obvious action stacks; skip NSFW euphemism pass.
-        working = segments
+        # Still scrub house lexicon; skip NSFW euphemism pass.
+        working = []
+        for seg in segments:
+            if _should_strip_segment(seg):
+                report["removed"].append(seg)
+                continue
+            scrubbed, jargon_hit = _scrub_house_jargon(seg)
+            if jargon_hit:
+                report["removed"].append(f"lexicon:{seg}")
+            if scrubbed and not _should_strip_segment(scrubbed):
+                working.append(scrubbed)
     else:
         working = []
         for seg in segments:
             if _should_strip_segment(seg):
                 report["removed"].append(seg)
                 continue
-            new_seg = _apply_euphemisms(seg)
+            scrubbed, jargon_hit = _scrub_house_jargon(seg)
+            if jargon_hit:
+                report["removed"].append(f"lexicon:{seg}")
+            if not scrubbed or _should_strip_segment(scrubbed):
+                if scrubbed and scrubbed != seg:
+                    report["removed"].append(scrubbed)
+                continue
+            new_seg = _apply_euphemisms(scrubbed)
             if new_seg != seg:
                 report["replaced"].append({"from": seg, "to": new_seg})
             working.append(new_seg)

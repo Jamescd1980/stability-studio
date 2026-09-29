@@ -1,6 +1,6 @@
 # Lessons learned — ComfyBox CUDA 5090 migration
 
-Updated **2026-08-05**. Host: LinuxBox / ComfyBox (ex-7900 XT ROCm → RTX 5090 CUDA).
+Updated **2026-08-20**. Host: LinuxBox / ComfyBox (ex-7900 XT ROCm → RTX 5090 CUDA).
 
 ## Verdict
 
@@ -18,6 +18,7 @@ ROCm was a dead end for this box once the 5090 landed. Fresh **CUDA 12.8 PyTorch
 | MoE I2V smoke | Draft then quality **65f ~736×1088** validated post-migration. Caps in `hardware_profile` must match 32 GB. |
 | Kohya CUDA `.venv` on Game | Same rule as Comfy: CUDA torch on 5090; ignore noisy tensorflow pin warnings if training starts. |
 | Hunyuan 1.5 assets | `check_hunyuan_assets` / `download_hunyuan_assets` are enough for now; **`generate_video` Hunyuan routing still TBD**. |
+| **V2V clean packs (2026-08-20)** | Live ComfyUI is `~/ComfyUI` — **not** the full Game SM `custom_nodes` tree. Symlink Game packs (`comfyui-kjnodes`, `ComfyUI-Frame-Interpolation`) + clone `rgthree-comfy`, `ComfyUI-wanBlockswap`. Then `gpu_backend.sh stop-comfy` → `comfy`. Fast Muter = UI-only. |
 
 ## Pitfalls
 
@@ -25,6 +26,8 @@ ROCm was a dead end for this box once the 5090 landed. Fresh **CUDA 12.8 PyTorch
 2. **ComfyUI + Blender + Forge on one 5090** — exclusive backends. Use `~/bin/gpu_backend.sh` (`comfy` \| `blender` \| `forge` \| `stop-all`).
 3. **Missing `clear_installed_node_types_cache`** — broke MCP dep checks after node installs; fixed in `studio/comfy_deps.py`. Restart MCP after pulling that fix.
 4. **Public vs private git** — LAN IPs, cast lists, NSFW one-off runners belong on **Private-Studio** or stay local. Public hub: scrubbed examples + generic scripts.
+5. **`install_comfyui_dependencies` on Windows SM path** does not populate LinuxBox `~/ComfyUI/custom_nodes` — SSH install/symlink there for ComfyBox.
+6. **MCP `mode=v2v` ≠ clean** — extend only. Latent clean = catalog `v2v_upscale` (mute RIFE). SeedVR polish can lose to the original (Saloon SS02).
 
 ## Scripts (repo)
 
@@ -44,3 +47,18 @@ Backups from migration: `/mnt/game/backups/cuda-migration-*` (on box only — do
 - [MODEL-FAMILIES.md](MODEL-FAMILIES.md) — Hunyuan 1.5 rows
 - [LESSONS-BLENDER-MCP.md](LESSONS-BLENDER-MCP.md) — Blender on same GPU
 - [stability-studio-mcp/LESSONS-WAN-I2V.md](stability-studio-mcp/LESSONS-WAN-I2V.md) — MoE keeper rules
+
+### Idle GPU vs local Invoke (2026-09-22)
+
+- If ComfyBox is idle, send AI touch-ups/custom renders there (Forge/Comfy). Use Orla Krita for manual cleanup. Avoid local Invoke competing with Coder on the 5060 Ti for work the 5090 should own.  
+<!-- appended 2026-09-22 via append_lesson -->
+
+### Coder OI tool calls (2026-09-22)
+
+- qwen2.5-coder via Ollama returns tool JSON in message.content, not tool_calls — OI/Codex will not execute. Fix: Orla proxy D:\studio-agent\ollama\coder\ollama_toolcall_proxy.py on 127.0.0.1:11436 rewriting content→tool_calls; point Coder OI profile at :11436/v1 (start_toolcall_proxy.ps1). Raw :11434 will keep dumping JSON.  
+<!-- appended 2026-09-22 via append_lesson -->
+
+### Coder model (2026-09-22)
+
+- Coder upgraded 2026-09-22: coder:latest FROM qwen3-coder:30b (Qwen3 MoE) on Orla 5060 Ti; keep :11436 toolcall proxy for OI. qwen2.5-coder:14b is legacy fallback only.  
+<!-- appended 2026-09-22 via append_lesson -->

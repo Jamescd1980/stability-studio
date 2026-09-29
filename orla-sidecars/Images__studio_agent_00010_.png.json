@@ -1,0 +1,32 @@
+{
+  "asked": "(from PNG) studio_agent_00010_.png",
+  "expanded_prompt": "masterpiece, best quality, amazing quality, anime illustration, nb_fern, nb_frieren, 2girls, fern and frieren, wc_painting, watercolor, traditional media, watercolor (medium), paper texture, soft edges, color bleeding, loose brushwork, painterly, streetwear fashion, back to back, full body, urban sidewalk, soft high-key daylight, cool shadow tint, sketchy line weight, fashion illustration, masterpiece, best quality",
+  "negative_prompt": "lowres, bad anatomy, bad hands, text, watermark, blurry, worst quality, photorealistic, 3d render, plastic skin, extra fingers, ink stains, ink drips, color stains on clothes, messy, dirty clothes",
+  "checkpoint": "waijfu_alpha.safetensors",
+  "loras": [
+    {
+      "file": "Fern/Fern.safetensors",
+      "weight": 0.7
+    },
+    {
+      "file": "Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors",
+      "weight": 0.75
+    },
+    {
+      "file": "Frieren/Frieren.safetensors",
+      "weight": 0.7
+    },
+    {
+      "file": "AquaInk_Watercolor_IL.safetensors",
+      "weight": 0.9
+    }
+  ],
+  "width": 848,
+  "height": 1424,
+  "steps": 28,
+  "cfg": 6.5,
+  "cast": "nb_fern",
+  "source": "png_comfy_workflow",
+  "windows_path": "D:\\ComfyBox Images and Videos\\Images\\studio_agent_00010_.png",
+  "comfy_filename": "studio_agent_00010_.png"
+}

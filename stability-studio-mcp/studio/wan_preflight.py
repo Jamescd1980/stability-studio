@@ -145,8 +145,8 @@ def check_wan_prompt(
             {
                 "id": "long_prompt",
                 "severity": "low",
-                "msg": "Prompt is long — I2V prefers short motion-only text.",
-                "fix": "Cut identity essay; image carries character",
+                "msg": "Prompt is long. Cut identity essays (STYLE/EYE/MOUTH); keep a mechanical motion explanation (object + where + cycle).",
+                "fix": "Image carries character. Do not shrink to an SDXL-short one-liner — Wan needs the beat explained (CCA2-004 2026-08-13).",
             }
         )
     if "deflating" not in neg.lower() and "disappearing shaft" not in neg.lower():

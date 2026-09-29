@@ -46,8 +46,23 @@ from studio.nsfw_image_loras import (
 )
 from studio.character_loras import (
     check_character_loras_on_disk as _check_character_loras_on_disk,
+    list_baked_in_characters as _list_baked_in_characters,
     list_character_loras as _list_character_loras,
+    list_character_mesh_assets as _list_character_mesh_assets,
+    lookup_character_identity as _lookup_character_identity,
     resolve_character_loras as _resolve_character_loras,
+)
+from studio.doc_reader import (
+    append_lesson as _append_lesson,
+    list_studio_docs as _list_studio_docs,
+    read_studio_doc as _read_studio_doc,
+    search_studio_docs as _search_studio_docs,
+)
+from studio.asset_naming import suggest_asset_name as _suggest_asset_name
+from studio.web_fetch import fetch_web_documentation as _fetch_web_documentation
+from studio.set_mesh_assets import (
+    list_set_mesh_assets as _list_set_mesh_assets,
+    list_solid_strip_maps as _list_solid_strip_maps,
 )
 from studio.style_lanes import resolve_style_lane as _resolve_style_lane
 from studio.chapter_phonetic import rewrite_chapter_phonetic as _rewrite_chapter_phonetic
@@ -69,6 +84,7 @@ from studio.delivery_media import (
     media_root_info as _media_root_info,
     move_delivery_media as _move_delivery_media,
     open_delivery_in_explorer as _open_delivery_in_explorer,
+    recycle_delivery_media as _recycle_delivery_media,
     rename_delivery_media as _rename_delivery_media,
     view_delivery_image_payload as _view_delivery_image_payload,
     view_delivery_video_frame_payload as _view_delivery_video_frame_payload,
@@ -108,11 +124,24 @@ from studio.gpu_backend import (
     inspect_gpu_backend,
     release_gpu_lock as _release_gpu_lock,
 )
+from studio.nari_ollama import (
+    maybe_unload_nari_for_audio as _maybe_unload_nari_for_audio,
+    maybe_unload_nari_for_hero as _maybe_unload_nari_for_hero,
+    maybe_unload_nari_for_video as _maybe_unload_nari_for_video,
+    nari_ollama_status as _nari_ollama_status,
+    unload_nari_models as _unload_nari_models,
+)
 from studio.forge_backend import (
     generate_image_forge as _generate_image_forge,
     inspect_forge_backend,
     refine_image_forge as _refine_image_forge,
     switch_stills_backend as _switch_stills_backend,
+)
+from studio.forge_face_refine import (
+    detect_face_box as _detect_face_box,
+    face_denoise_guide as _face_denoise_guide,
+    refine_face_forge as _refine_face_forge,
+    review_face_forge as _review_face_forge,
 )
 from studio.kokoro_client import (
     inspect_kokoro_backend,
@@ -188,12 +217,16 @@ mcp = FastMCP(
         "Four art food groups: anime, fantasy, cyberpunk, photoreal — pass food_group= to edit_image. "
         "Each style has an architecture (sd15, sdxl, pony_sdxl, flux2_klein) — see get_generation_context. "
         "Image edits: setup_image_editing() then edit_image(image_path, instruction, food_group=...). "
+        "Face/eyes/hair/tattoos/markings: refine_face_forge or auto i2i+face_detail — never hybrid scene masks (church_tower was a demo). "
+        "Object edits need explicit mask_region/segment_prompt; denoise≈0.45 IP-Adapter≈0.55 defaults. "
         "Before first image on a new PC: check style_readiness in get_generation_context; "
         "Flux2: check_style_assets / download_style_assets(style='miracle_nsfw'). "
         "Aliases work: 'illustrious'→anime, 'fantasyprime'→fantasy_prime, 'ragnarok'→juggernaut. "
         "Pass checkpoint= to override. For video: call check_comfyui_dependencies(workflow_id) first; "
         "if missing nodes, call install_comfyui_dependencies then restart ComfyUI on the generation host. "
         "Use generate_video(mode=t2v|i2v|v2v, workflow_id=t2v|i2v_5b|i2v_5b_painter|v2v_5b|v2v_5b_painter|i2v|flf2v|i2v_gpu) — short ids only. "
+        "CRITICAL: mode=v2v / v2v_5b* = EXTEND from last frame only — does NOT clean/re-denoise an existing clip. "
+        "True latent clean = catalog workflow_id=v2v_upscale (Wan 1.3B denoise ~0.1; mute RIFE). Not wired into generate_video yet — ComfyUI UI. "
         "Default I2V: i2v_5b (Wan 2.2 TI2V-5B, often censored). User asks for 14B / NSFW motion → "
         "generate_video(mode=i2v, workflow_id=i2v) = Wan 2.2 I2V-A14B MoE HIGH+LOW — NOT generate_video_hero, NOT i2v_5b. "
         "FLF2V: workflow_id=flf2v + image_path + end_image_path; prefer ~21f for hard contact / dual-face. "
@@ -201,7 +234,7 @@ mcp = FastMCP(
         "I2V identity: short motion-only prompts; do not re-describe the still; gate_i2v_clip after gen. "
         "No i2v_5b_painter / PainterI2V when the user needs face/body lock (BJ, portraits) — use workflow_id=i2v. "
         "MoE LoRAs: stack HIGH on high expert + LOW on low expert (Lightning pair + at most one action pair). "
-        "Bundles: female_orgasm, lightning_i2v, orgasm_lightning, oral_insertion, missionary_sex, pov_insertion, doggy_sex, facial_cum. "
+        "Bundles: female_orgasm, lightning_i2v, orgasm_lightning, oral_insertion, oral_deepthroat, ultimate_deepthroat, missionary_sex, pov_insertion, doggy_sex, facial_cum. "
         "Never orgasm HIGH alone on i2v. Keepers: moe_preset=quality (default) or omit; draft=True / moe_preset=fast = Lightning only. "
         "Wan action-LoRA checklist (REQUIRED before NSFW I2V keepers): "
         "(1) plan_wan_beat / resolve_wan_action_loras(prompt=…, beat_hint=oral|doggy|…) — pick the action bundle; "
@@ -209,10 +242,10 @@ mcp = FastMCP(
         "(3) if ready=false → download_wan_video_loras(bundle=…); "
         "(4) generate_video(..., lora_bundle=<id>, moe_preset=quality); "
         "(5) gate_i2v_clip → human keep → extract_chain_lastframe only if chaining. "
-        "Map: BJ/bob/deepthroat→oral_insertion; doggy→doggy_sex; tip→bury→pov_insertion; "
+        "Map: BJ tip-suck/soft bob→oral_insertion; deepthroat/bury→oral_deepthroat; doggy→doggy_sex; tip→bury→pov_insertion; "
         "already-in thrusts→missionary_sex; facial shoot→facial_cum. "
         "Do not generate hard contact / head-bob / insertion from prompt alone when a bundle exists. "
-        "Polish: recommend_polish first; Saloon dim keepers prefer polish_wan_best(skip_interpolate=true) SeedVR-only. "
+        "Polish: recommend_polish first; Saloon/no-RIFE: polish_wan_best(skip_interpolate=true) SeedVR-only — ALWAYS A/B vs original (SS02 2026-08-20 SeedVR lost to master). "
         "check_ebsynth before claiming EBSynth restore. "
         "Wan NSFW: never prompt full penis exit; partial withdraw only; negate deflating/disappearing shaft. "
         "Never prompt female 'cum' — use orgasm/squirting/juices. One Comfy job at a time; free VRAM between heavy runs. "
@@ -236,7 +269,10 @@ mcp = FastMCP(
         "splice via concat_video_clips / splice_pingpong / splice_pose_matched_loop / "
         "splice_crossfade_loop. Generate Wan on comfybox; polish locally. "
         "GPU policy: call check_gpu_backend before generate_video / generate_audio / generate_video_hero. "
-        "Comfybox Forge (:7860) exclusive with ComfyUI — switch_stills_backend then refine_image_forge / generate_image_forge (COMFYBOX-FORGE.md). "
+        "Comfybox Forge (:7860) exclusive with ComfyUI — switch_stills_backend then "
+        "refine_face_forge (tight face + Nari review) or refine_image_forge (global). "
+        "Face denoise: eyes_only 0.05–0.10, face_refine 0.12–0.18, never auto >0.25. "
+        "Only send refine_face_forge results to the user when pass/send_to_user is true. "
         "Draft I2V: generate_video(mode=i2v, workflow_id=i2v_5b). "
         "Wan2GP hero (generate_video_hero) ONLY if user explicitly says hero / Wan2GP / lip-sync — then stop remote ComfyUI via ssh gpu_backend.sh, not Windows Stability Matrix. "
         "Never run ComfyUI video and Wan2GP UI together. "
@@ -444,21 +480,32 @@ def get_generation_context(brief: bool = True) -> str:
     ctx["kokoro"] = inspect_kokoro_backend(_cfg)
     ctx["stills_backends"] = {
         "mcp_generate_image": "comfyui",
-        "adetailer_hires_stills": "forge",
+        "adetailer_hires_stills": "forge_comfybox",
+        "host_policy": (
+            "All create/refine/Wan on ComfyBox 5090 first. Windows Forge/Comfy only if the "
+            "user explicitly says so, or ComfyBox GPU is cooking a long video/batch."
+        ),
         "workflow": (
-            "generate_image (Comfy) → switch_stills_backend(forge) → "
-            "refine_image_forge → switch_stills_backend(comfy) → generate_video(i2v_5b)"
+            "generate_image (ComfyBox ComfyUI) → switch_stills_backend(forge) on ComfyBox → "
+            "refine_face_forge (face keepers) or refine_image_forge (global polish) → "
+            "only show face result if pass/send_to_user → switch_stills_backend(comfy) → "
+            "generate_video(workflow_id=i2v) for NSFW/keepers"
         ),
         "note": (
-            "ComfyUI: generate_image / edit_image / generate_video. "
-            "Forge: switch_stills_backend + refine_image_forge / generate_image_forge "
-            "(ADetailer/hires). Exclusive GPU. Default clip: i2v_5b; Wan 14B (i2v/i2v_gpu) "
-            "optional only on 20GB. See COMFYBOX-FORGE.md."
+            "ComfyUI: generate_image / edit_image / generate_video on ComfyBox. "
+            "Forge face: refine_face_forge = tight ellipse box + inpaint_full_res + Nari pass/fail "
+            "(fail if top half redrawn / bottom mismatch). Denoise presets via face_denoise_guide. "
+            "Global: refine_image_forge. Exclusive GPU. "
+            "Default keeper I2V: workflow_id=i2v (Wan 2.2 14B MoE). Draft/SFW only: i2v_5b."
         ),
         "tools": [
             "check_forge_backend",
             "switch_stills_backend",
             "generate_image_forge",
+            "refine_face_forge",
+            "review_face_forge",
+            "detect_face_box",
+            "face_denoise_guide",
             "refine_image_forge",
         ],
         "exiled_styles": ["fantasy_prime", "homochi", "anime", "ilustmix", "n4mik4", "juggernaut", "pony"],
@@ -655,13 +702,13 @@ def resolve_wan_action_loras(prompt: str = "", beat_hint: str = "") -> str:
     Call this BEFORE generate_video for NSFW sex/oral/doggy/insert keepers. Returns
     recommended lora_bundle, install ready/missing, and the agent checklist.
 
-    Beat map: oral/BJ/bob/deepthroat → oral_insertion; doggy → doggy_sex;
-    tip→bury → pov_insertion; already-in thrusts → missionary_sex; facial → facial_cum.
+    Beat map: oral/BJ tip-suck/soft bob → oral_insertion; deepthroat/throat/bury → oral_deepthroat;
+    doggy → doggy_sex; tip→bury → pov_insertion; already-in thrusts → missionary_sex; facial → facial_cum.
 
     Args:
         prompt: Planned I2V motion prompt (short).
         beat_hint: Optional override — free text or bundle id
-            (oral_insertion|doggy_sex|pov_insertion|missionary_sex|facial_cum).
+            (oral_insertion|oral_deepthroat|doggy_sex|pov_insertion|missionary_sex|facial_cum).
     """
     return json.dumps(
         _suggest_wan_action_lora(prompt or "", beat_hint=beat_hint or "", cfg=_cfg),
@@ -771,6 +818,8 @@ def recommend_polish(
 ) -> str:
     """
     Advise polish path. Saloon default: SeedVR-only @16fps (no RIFE).
+    Always A/B vs the master — SeedVR can look worse (Saloon SS02 2026-08-20; keep original).
+    mode=v2v generate_video is extend-only; latent clean is catalog v2v_upscale (mute RIFE).
     Skip polish if eyes melted or master already good.
     """
     return json.dumps(
@@ -997,7 +1046,9 @@ def setup_ip_adapter(
             "dependencies_after": deps_after,
             "next_steps": [
                 "Restart ComfyUI from Stability Matrix if install_results is non-empty.",
-                "Call edit_image or inpaint_advanced with flag_reference='ireland' and mask_region='right_building'.",
+                "Call edit_image / inpaint_advanced with an explicit mask_region or segment_prompt "
+                "(e.g. mask_region='right_building' only when editing that wall). "
+                "Face jobs: refine_face_forge or edit_image auto→i2i+face_detail.",
             ],
         },
         indent=2,
@@ -1025,8 +1076,15 @@ def list_loras() -> str:
 
 
 @mcp.tool()
+def reload_catalog() -> str:
+    """Re-read catalog.yaml from disk. Call after editing character_loras / styles without restarting MCP."""
+    return json.dumps(_catalog.reload(), indent=2)
+
+
+@mcp.tool()
 def list_character_loras() -> str:
-    """List trained character LoRAs (Frieren cast + Solo Leveling) and install status."""
+    """List trained character LoRAs (Frieren cast + Solo Leveling + Shooting Gallery) and install status."""
+    _catalog.reload()
     models_dir = Path(_cfg["stability_matrix"]["models"])
     return json.dumps(
         _check_character_loras_on_disk(_catalog._data, models_dir),
@@ -1036,17 +1094,213 @@ def list_character_loras() -> str:
 
 @mcp.tool()
 def resolve_character_loras(character: str, include_eye_lora: bool = True) -> str:
-    """Build generate_image(loras=…) for a trained cast member.
+    """Build generate_image(loras=…) for a cast member.
 
-    character: fern | frieren | ubel | flamme | cha_hae_in | jinah_sung | akari_shimizu |
-    esil_radiru | gina | han_semi | han_song_yi | joo_hee | kanae_tawata | lee_bora |
-    park_heejin (or triggers nb_fern, nb_jinah_sung, …).
-    Puts trigger + preferred_style=waijfu in the result — include the trigger in the prompt.
+    character: fern | frieren | darkness | ubel | flamme | cha_hae_in | jinah_sung |
+    park_heejin | jessie | tatsumaki | eris | …
+    Dedicated LoRA when catalog has one. Eris Greyrat and some others are baked into
+    waijfu — returns identity_source=baked_in_checkpoint (prompt by name, optional Eyes LoRAs).
+    Darkness also returns body_prompt_rule + mesh_source (ComfyBox turnaround plates).
     """
+    _catalog.reload()
     resolved = _resolve_character_loras(
         _catalog._data, character, include_eye_lora=include_eye_lora
     )
     return json.dumps(resolved, indent=2)
+
+
+@mcp.tool()
+def lookup_character_identity(character: str, include_eye_lora: bool = True) -> str:
+    """LoRA vs baked-into-checkpoint identity for a character name (Eris, Frieren, …).
+
+    Prefer this when unsure whether a dedicated LoRA exists. Same payload as
+    resolve_character_loras; identity_source is character_lora or baked_in_checkpoint.
+    """
+    _catalog.reload()
+    return json.dumps(
+        _lookup_character_identity(
+            _catalog._data, character, include_eye_lora=include_eye_lora
+        ),
+        indent=2,
+    )
+
+
+@mcp.tool()
+def list_baked_in_characters() -> str:
+    """Characters known to be baked into a checkpoint (e.g. Eris Greyrat in waijfu_alpha).
+
+    No LoRA file — prompt by name + tags on that style. Dedicated LoRAs still preferred
+    for tight ID when available.
+    """
+    _catalog.reload()
+    return json.dumps(
+        {
+            "ok": True,
+            "baked_in": _list_baked_in_characters(_catalog._data),
+            "usage": (
+                "lookup_character_identity('eris') or resolve_character_loras('eris') → "
+                "generate_image(style=waijfu, prompt includes Eris Greyrat + costume)."
+            ),
+        },
+        indent=2,
+    )
+
+
+@mcp.tool()
+def list_studio_docs() -> str:
+    """List allowlisted .md/.txt lessons and storyboards Nari can read.
+
+    Includes LESSONS-WAN-I2V, NSFW stills, Das Booty beats, hardware map, etc.
+    """
+    return json.dumps(_list_studio_docs(), indent=2)
+
+
+@mcp.tool()
+def read_studio_doc(
+    doc: str = "",
+    path: str = "",
+    max_chars: int = 24000,
+    start_line: int = 1,
+    max_lines: int = 0,
+    query: str = "",
+    context_lines: int = 8,
+) -> str:
+    """Read an allowlisted studio .md or .txt file.
+
+    Args:
+        doc: Short id from list_studio_docs (e.g. lessons-wan-i2v, path-bible, handoff).
+        path: Or a path under D:\\studio-agent / TheaterJobs.
+        max_chars: Truncate long files (default 24000).
+        start_line: 1-based start line (ignored when query is set).
+        max_lines: If >0, only return that many lines.
+        query: If set, return matching line windows (keyword chunk mode) instead of whole file.
+        context_lines: Lines of context around each query hit.
+    """
+    return json.dumps(
+        _read_studio_doc(
+            doc=doc,
+            path=path,
+            max_chars=max_chars,
+            start_line=start_line,
+            max_lines=max_lines,
+            query=query,
+            context_lines=context_lines,
+        ),
+        indent=2,
+    )
+
+
+@mcp.tool()
+def search_studio_docs(query: str, max_hits: int = 20) -> str:
+    """Grep allowlisted studio docs for a phrase (Wan LoRA tips, gold standard, etc.)."""
+    return json.dumps(_search_studio_docs(query, max_hits=max_hits), indent=2)
+
+
+@mcp.tool()
+def append_lesson(doc: str, bullet: str, heading: str = "") -> str:
+    """Append one short factual bullet to an allowlisted LESSONS md (Nari house knowledge).
+
+    doc: lessons-wan-i2v | lessons-nsfw-stills | lessons-comfybox-cuda | …
+    bullet: one lesson only (≤600 chars). No chat dumps.
+    """
+    return json.dumps(_append_lesson(doc, bullet, heading=heading), indent=2)
+
+
+@mcp.tool()
+def suggest_asset_name(
+    project: str,
+    scene: str,
+    beat: str,
+    view: str,
+    stage: str,
+    ext: str = "png",
+    kind: str = "still",
+) -> str:
+    """Build delivery filename: {project}_{scene}_{beat}_{view}_{stage}.{ext}.
+
+    See path-bible (ollama/coder/PATHS.md). Use before saving stills/clips for Coder handoff.
+    """
+    return json.dumps(
+        _suggest_asset_name(
+            project, scene, beat, view, stage, ext=ext, kind=kind
+        ),
+        indent=2,
+    )
+
+
+@mcp.tool()
+def fetch_web_documentation(url: str, max_chars: int = 20000) -> str:
+    """Fetch cleaned text from an allowlisted URL (HF, Civitai, GitHub, wiki, …).
+
+    For character refs / model cards. Scrape ≠ install — use download_* tools after approval.
+    """
+    return json.dumps(
+        _fetch_web_documentation(url, max_chars=max_chars), indent=2
+    )
+
+
+@mcp.tool()
+def list_character_mesh_assets() -> str:
+    """List ComfyBox character mesh / turnaround packs (catalog character_mesh_assets).
+
+    Paths are under delivery assets/characters/<Name>/mesh_source — not TheaterJobs game/.
+    See LESSONS-SET-FILL.md and resolve_character_loras(character=…) for body_prompt_rule.
+    Darkness includes darkness_body_v1.glb/.blend + strip beat stems when mesh_v1_ready.
+    """
+    return json.dumps(
+        {
+            "assets": _list_character_mesh_assets(_catalog._data),
+            "lessons": "D:/studio-agent/LESSONS-SET-FILL.md",
+            "related_tools": [
+                "list_set_mesh_assets",
+                "list_solid_strip_maps",
+                "resolve_character_loras",
+            ],
+            "usage": (
+                "resolve_character_loras('darkness') for LoRAs + body_prompt_rule + mesh_source; "
+                "list_set_mesh_assets() for casting_couch BG glb + locked plate; "
+                "list_solid_strip_maps() for gray_cut/silhouette/depth/pose per beat; "
+                "keep assets on ComfyBox; solid mesh > Body25 sticks for inpaint masks."
+            ),
+        },
+        indent=2,
+    )
+
+
+@mcp.tool()
+def list_set_mesh_assets() -> str:
+    """List Blender set meshes (BG glb, locked plates, solid strip maps).
+
+    Catalog key: set_mesh_assets (e.g. casting_couch). BG is exported Blender blockers — not AI room mesh.
+    """
+    return json.dumps(
+        {
+            "assets": _list_set_mesh_assets(_catalog._data),
+            "lessons": "D:/studio-agent/LESSONS-SET-FILL.md",
+            "related_tools": [
+                "list_character_mesh_assets",
+                "list_solid_strip_maps",
+                "get_blender_workflow_playbook",
+            ],
+            "usage": (
+                "list_solid_strip_maps(set_id='casting_couch') for per-beat maps; "
+                "pose via kits/pose_solid_strip_beats.py; fill via mask_inpaint_prep + inpaint_advanced."
+            ),
+        },
+        indent=2,
+    )
+
+
+@mcp.tool()
+def list_solid_strip_maps(set_id: str = "casting_couch") -> str:
+    """List solid-mesh strip maps (gray_cut / silhouette / depth / pose) for a Blender set.
+
+    set_id: casting_couch (default). Returns on-disk paths + exists flags for each beat.
+    """
+    return json.dumps(
+        _list_solid_strip_maps(_catalog._data, set_id=set_id),
+        indent=2,
+    )
 
 
 @mcp.tool()
@@ -1392,9 +1646,26 @@ def list_art_food_groups() -> str:
             "defaults": {
                 k: v.get("default_style") for k, v in (_catalog.art_food_groups or ART_FOOD_GROUPS).items()
             },
+            "ui_note": "Desk UI labels cyberpunk as Semi-real. Do not say Food Group in user-facing chrome.",
         },
         indent=2,
     )
+
+
+@mcp.tool()
+def get_user_preferences() -> str:
+    """Read One Desk workflow / style preferences (not catalog.yaml)."""
+    from studio.user_prefs import get_user_preferences as _gup
+
+    return json.dumps(_gup(), indent=2)
+
+
+@mcp.tool()
+def update_user_preferences(patch_json: str = "{}") -> str:
+    """Patch One Desk preferences JSON (style_override, primary_style, workflows). Never edits catalog.yaml."""
+    from studio.user_prefs import update_user_preferences as _uup
+
+    return json.dumps(_uup(patch_json), indent=2)
 
 
 @mcp.tool()
@@ -1406,13 +1677,18 @@ def get_prompt_style(
     """
     Compact prompt grammar for one catalog style or platform — call before writing prompts.
 
+    Do's → positive_prompt; Don'ts → negative_prompt.
+    Lexicon: "gold standard" / detail hero = resolve_style_lane + LoRAs/settings — NEVER paste
+    those words into Positive/Negative for Forge/Comfy (see read_studio_doc(doc='prompting')).
+
     Args:
         style: Catalog style id (ilustmix, pony, juggernaut, miracle_nsfw, …).
         platform: Studio platform id (illustrious, pony, flux, sdxl, wan_image, qwen_edit, action_combat).
         food_group: anime | fantasy | cyberpunk | photoreal (uses group default_style).
-        Empty args: index of platforms and food groups.
+        Empty args: index of platforms and food groups + lexicon/do_dont.
 
-    Returns prompt_style, prefix/negative hints, length caps, and generate_image style id.
+    Returns prompt_style, prefix/negative hints, length caps, generate_image style id,
+    do_dont split, and house lexicon.
     Prefer this over parsing full get_generation_context when writing Platform/Positive/Negative.
     """
     from studio.prompt_style import build_prompt_style_guide
@@ -1556,8 +1832,8 @@ def edit_image(
     seed: int = -1,
     steps: int = 0,
     cfg: float = 0,
-    denoising_strength: float = 1.0,
-    ipadapter_weight: float = 0.85,
+    denoising_strength: float = 0.45,
+    ipadapter_weight: float = 0.55,
     depth_strength: float = 0.52,
     canny_strength: float = 0.62,
     preserve_subject: bool = True,
@@ -1565,11 +1841,21 @@ def edit_image(
     content_rating: str = "open",
 ) -> str:
     """
-    Unified image edit from natural language. Prefer over raw inpaint/i2i for agents.
+    Unified image edit from natural language.
 
-    food_group: anime (ilustmix) | fantasy (divine_elegance) | cyberpunk | photoreal.
-    mode: auto | i2i | inpaint | controlnet | hybrid | hybrid_preserve.
-    Call setup_image_editing() once per machine, then restart ComfyUI if needed.
+    FACE / EYES / HAIR / TATTOO / MARKINGS:
+      Auto-routes to refine_face_forge (switch to Forge, YOLO face box, region inpaint, Nari gate).
+      Do NOT pass mask_region=church_tower or right_building — ignored on face asks.
+      Prefer calling refine_face_forge directly when you already know it is a face pass.
+      Fallback if Forge is down: Comfy i2i + face_detail.
+
+    OBJECT / FLAG / REGION:
+      Needs explicit mask_region or segment_prompt. mode hybrid_preserve is for add-object only.
+
+    food_group: anime | fantasy | cyberpunk | photoreal.
+    mode: auto | i2i | inpaint | controlnet | hybrid | hybrid_preserve (face asks override to Forge).
+    backend: comfyui|invoke|auto — ignored for face Forge path.
+    Call setup_image_editing() once per machine for Comfy region edits.
     """
     result = _engine.edit_image(
         image_path=image_path,
@@ -1865,14 +2151,14 @@ def inpaint_advanced(
     prompt: str,
     reference_image_path: str = "",
     flag_reference: str = "",
-    mask_region: str = "church_tower",
+    mask_region: str = "",
     mask_path: str = "",
     style: str = "",
     negative_prompt: str = "",
     checkpoint: str = "",
     loras: list[dict[str, Any]] | None = None,
-    denoising_strength: float = 0.55,
-    ipadapter_weight: float = 0.85,
+    denoising_strength: float = 0.45,
+    ipadapter_weight: float = 0.55,
     use_controlnet_depth: bool = False,
     controlnet_depth_strength: float = 0.75,
     width: int = 0,
@@ -1894,10 +2180,11 @@ def inpaint_advanced(
         prompt: What to add/change (e.g. "add a large Irish flag on the church").
         reference_image_path: Optional reference image for IP-Adapter (e.g. a clean Irish flag photo).
         flag_reference: Shorthand — pass 'ireland' to use bundled Irish tricolor (auto-downloaded).
-        mask_region: Auto-mask region to edit: top, top_third, top_two_thirds, full, or none.
+        mask_region: Auto-mask region to edit (required if no mask_path): top_third, right_building,
+            church_tower, full, none — only when that geometry matches the ask. Empty is refused.
         mask_path: Optional custom mask image (white=edit). Overrides mask_region.
-        denoising_strength: 0.35–0.75 typical. Higher = more freedom to add new elements.
-        ipadapter_weight: How strongly to follow the reference image (0.7–1.0).
+        denoising_strength: 0.35–0.55 typical for preserve edits (default 0.45). Do not use 1.0 casually.
+        ipadapter_weight: How strongly to follow the reference image (default 0.55; high values warp composition).
         use_controlnet_depth: Enable depth control for better background separation.
     """
     result = _engine.inpaint_advanced(
@@ -1958,12 +2245,12 @@ def generate_video(
     Do NOT call generate_video_hero for 14B. Hero/Wan2GP is a separate tool. Do NOT use i2v_5b for uncensored NSFW.
 
     Keepers (MoE i2v/flf2v): omit moe_preset or moe_preset=quality (no Lightning). draft=True or moe_preset=fast = Lightning probe only.
-    Action LoRAs: lora_bundle=oral_insertion|missionary_sex|pov_insertion|doggy_sex|facial_cum (or lora_ids),
+    Action LoRAs: lora_bundle=oral_insertion|oral_deepthroat|missionary_sex|pov_insertion|doggy_sex|facial_cum (or lora_ids),
     or pass-through loras=[{file, weight, branch}] with branch high|low|both. Split weights via lora_weights or per-entry weight.
 
     REQUIRED preflight for NSFW action beats: plan_wan_beat / resolve_wan_action_loras(prompt=…) →
     check_wan_prompt → download if missing → pass lora_bundle=. Do not skip when a matching action pair exists
-    (BJ without oral_insertion is a known failure mode). After gen: gate_i2v_clip before chain.
+    (BJ soft without oral_insertion / deepthroat without oral_deepthroat are known failure modes). After gen: gate_i2v_clip before chain.
 
     Args:
         prompt: Scene description.
@@ -1979,7 +2266,7 @@ def generate_video(
         num_frames: Optional frame count override (e.g. 65 for ~4s at 16fps; flf2v default 21).
         frame_rate: Optional output fps override (e.g. 16).
         lora_ids: Wan video LoRA id(s): comma-separated string or list (pov_insertion_i2v_high, …). MoE auto-pairs HIGH/LOW mates.
-        lora_bundle: female_orgasm | lightning_i2v | oral_insertion | missionary_sex | pov_insertion | doggy_sex | facial_cum | smooth_character | … — merged with lora_ids.
+        lora_bundle: female_orgasm | lightning_i2v | oral_insertion | oral_deepthroat | ultimate_deepthroat | missionary_sex | pov_insertion | doggy_sex | facial_cum | smooth_character | … — merged with lora_ids.
         lora_weights: Optional {catalog_id: weight} for split HIGH/LOW (e.g. {"pov_insertion_i2v_high": 0.35, "pov_insertion_i2v_low": 1.0}).
         loras: Optional pass-through [{file, weight, branch}] and/or {id, weight, branch} — same shape as GenerationEngine.generate_video.
         use_painter_i2v: Inject PainterI2V on 5B path only (or workflow_id=i2v_5b_painter). Ignored on MoE i2v.
@@ -2014,6 +2301,9 @@ def generate_video(
             "(prompt-only hard contact / bob / insertion often fails)."
         )
     try:
+        nari_unload = _maybe_unload_nari_for_video(
+            _cfg, workflow_id=workflow_id or "", mode=mode or ""
+        )
         result = _engine.generate_video(
             prompt=prompt,
             mode=mode,
@@ -2036,14 +2326,16 @@ def generate_video(
             moe_preset=moe_preset or None,
             draft=draft,
         )
-        if isinstance(result, dict) and preflight_warning:
-            result["lora_preflight_warning"] = preflight_warning
-            result["lora_preflight"] = {
-                "recommended_bundle": lora_preflight.get("recommended_bundle"),
-                "matched_on": lora_preflight.get("matched_on"),
-                "ready": lora_preflight.get("ready"),
-                "checklist": lora_preflight.get("checklist"),
-            }
+        if isinstance(result, dict):
+            result["nari_unload"] = nari_unload
+            if preflight_warning:
+                result["lora_preflight_warning"] = preflight_warning
+                result["lora_preflight"] = {
+                    "recommended_bundle": lora_preflight.get("recommended_bundle"),
+                    "matched_on": lora_preflight.get("matched_on"),
+                    "ready": lora_preflight.get("ready"),
+                    "checklist": lora_preflight.get("checklist"),
+                }
         return json.dumps(result, indent=2)
     except Exception as exc:
         err = humanize_error(exc, context="generate_video")
@@ -2460,7 +2752,18 @@ def check_gpu_backend() -> str:
     Windows Stability Matrix when ComfyUI is on remote comfybox.
     """
     status = inspect_gpu_backend(_cfg, comfyui_running=_engine.comfy.is_running())
+    status["nari_ollama"] = _nari_ollama_status(_cfg)
     return json.dumps(status, indent=2)
+
+
+@mcp.tool()
+def unload_nari_for_gpu(reason: str = "manual") -> str:
+    """Unload nari / nari-prompt from ComfyBox Ollama so Wan/Forge/MOSS can use the 5090.
+
+    Usually automatic before generate_video / generate_audio / generate_video_hero.
+    Call manually if Ollama still holds VRAM after a long OI chat.
+    """
+    return json.dumps(_unload_nari_models(_cfg, reason=reason or "manual"), indent=2)
 
 
 @mcp.tool()
@@ -2543,10 +2846,10 @@ def refine_image_forge(
     ad_denoising_strength: float = 0.4,
 ) -> str:
     """
-    img2img refine on Forge with optional ADetailer. Forge must be running.
+    Global img2img refine on Forge with optional ADetailer. Forge must be running.
 
-    Typical denoise 0.28–0.45 after a Comfy still. Then switch_stills_backend(comfy)
-    before generate_video.
+    For identity-critical FACE work prefer refine_face_forge (tight box + Nari review).
+    Typical global denoise 0.28–0.45. Then switch_stills_backend(comfy) before generate_video.
 
     For oral/insertion stills use eyes-only: ad_model=mediapipe_face_mesh_eyes_only
     and keep denoising_strength very low (≈0.05–0.10) so mouth/cock stay locked.
@@ -2567,6 +2870,139 @@ def refine_image_forge(
             ad_negative=ad_negative,
             ad_model=ad_model,
             ad_denoising_strength=ad_denoising_strength,
+        )
+    except Exception as exc:
+        return json.dumps({"ok": False, "error": humanize_error(exc)}, indent=2)
+    return json.dumps(result, indent=2)
+
+
+@mcp.tool()
+def face_denoise_guide() -> str:
+    """
+    Denoise presets and policy for Forge face refine (refine_face_forge).
+
+    eyes_only 0.05–0.10, face_soft 0.08–0.12, face_refine 0.12–0.18,
+    face_rescue 0.18–0.22. Never auto above 0.25.
+    """
+    return json.dumps(_face_denoise_guide(), indent=2)
+
+
+@mcp.tool()
+def detect_face_box(
+    image_path: str,
+    face_index: int = 0,
+    pad_frac: float = 0.08,
+) -> str:
+    """
+    Detect a tight face bounding box for Forge region refine.
+
+    Returns box [x1,y1,x2,y2] plus method (yolo or heuristic). Use before
+    refine_face_forge when you want to inspect/adjust the frame yourself.
+    """
+    try:
+        result = _detect_face_box(image_path, face_index=face_index, pad_frac=pad_frac)
+    except Exception as exc:
+        return json.dumps({"ok": False, "error": humanize_error(exc)}, indent=2)
+    return json.dumps(result, indent=2)
+
+
+@mcp.tool()
+def review_face_forge(
+    before_path: str,
+    after_path: str,
+    face_prompt: str = "",
+    box_json: str = "",
+    review_model: str = "",
+) -> str:
+    """
+    Nari + heuristic pass/fail on a Forge face refine (no generation).
+
+    FAIL examples: top half redrawn while bottom does not match; identity drift;
+    seam halo. Only present after_path to the user when pass/send_to_user is true.
+
+    Args:
+        before_path: Original still
+        after_path: Candidate refine
+        face_prompt: Expression / face instruction used
+        box_json: Optional JSON [x1,y1,x2,y2] for face-region metrics
+        review_model: Ollama tag override (default nari)
+    """
+    box = None
+    if box_json.strip():
+        try:
+            box = json.loads(box_json)
+        except json.JSONDecodeError:
+            return json.dumps({"ok": False, "error": "box_json must be JSON [x1,y1,x2,y2]"}, indent=2)
+    try:
+        result = _review_face_forge(
+            _cfg,
+            before_path=before_path,
+            after_path=after_path,
+            face_prompt=face_prompt,
+            box=box if isinstance(box, list) else None,
+            model=review_model,
+        )
+    except Exception as exc:
+        return json.dumps({"ok": False, "error": humanize_error(exc)}, indent=2)
+    return json.dumps(result, indent=2)
+
+
+@mcp.tool()
+def refine_face_forge(
+    image_path: str,
+    face_prompt: str,
+    negative_prompt: str = "",
+    preset: str = "face_refine",
+    denoise: float = -1,
+    box_json: str = "",
+    face_index: int = 0,
+    max_attempts: int = 2,
+    seed: int = -1,
+    review_model: str = "",
+    skip_nari: bool = False,
+) -> str:
+    """
+    Tight face Forge refine like the human workflow: box face → low denoise
+    region inpaint (inpaint_full_res) → Nari + heuristic review → retry if fail.
+
+    Denoise presets (call face_denoise_guide for full table):
+      eyes_only ~0.08, face_soft ~0.10, face_refine ~0.15, face_rescue ~0.20.
+      Auto/preset cap 0.25. Pass denoise= explicitly for strong rewrites up to 0.45
+      (e.g. 0.35 for marking removal / complete face rewrite).
+
+    Only show saved_files to the user when pass/send_to_user is true.
+    On fail: revert to original — do not stack high denoise blindly.
+
+    Args:
+        image_path: Source still
+        face_prompt: Face/expression prompt (identity-safe)
+        preset: eyes_only | face_soft | face_refine | face_rescue
+        denoise: Override (-1 = use preset). Explicit values up to 0.45 honored.
+        box_json: Optional JSON [x1,y1,x2,y2]; empty = auto-detect
+        face_index: Which face when multiple (largest-first)
+        max_attempts: Review loop retries (tighten box / lower denoise)
+        skip_nari: Heuristic-only gate (not recommended for keepers)
+    """
+    box = None
+    if box_json.strip():
+        try:
+            box = json.loads(box_json)
+        except json.JSONDecodeError:
+            return json.dumps({"ok": False, "error": "box_json must be JSON [x1,y1,x2,y2]"}, indent=2)
+    try:
+        result = _refine_face_forge(
+            _cfg,
+            image_path=image_path,
+            face_prompt=face_prompt,
+            negative_prompt=negative_prompt,
+            preset=preset,
+            denoise=None if denoise is None or denoise < 0 else float(denoise),
+            box=box if isinstance(box, list) else None,
+            face_index=face_index,
+            max_attempts=max_attempts,
+            seed=seed,
+            review_model=review_model,
+            skip_nari=skip_nari,
         )
     except Exception as exc:
         return json.dumps({"ok": False, "error": humanize_error(exc)}, indent=2)
@@ -2648,6 +3084,7 @@ def generate_video_hero(
         motion_amplitude: Wan2GP motion strength (default 1.05 for subtle bow).
     """
     try:
+        nari_unload = _maybe_unload_nari_for_hero(_cfg)
         result = _engine.generate_video_hero(
             prompt=prompt,
             image_path=image_path,
@@ -2657,6 +3094,8 @@ def generate_video_hero(
             seed=seed,
             motion_amplitude=motion_amplitude,
         )
+        if isinstance(result, dict):
+            result["nari_unload"] = nari_unload
         return json.dumps(result, indent=2)
     except Exception as exc:
         err = humanize_error(exc, context="generate_video_hero")
@@ -2793,6 +3232,55 @@ def rename_delivery_media(src: str, new_name: str, overwrite: bool = False) -> s
 def open_delivery_in_explorer(path: str = "") -> str:
     """Reveal a delivery file/folder in Windows Explorer."""
     return json.dumps(_open_delivery_in_explorer(_cfg, path), indent=2)
+
+
+@mcp.tool()
+def recycle_delivery_media(path: str) -> str:
+    """
+    Send a delivery (or Desktop\\New Images) file/folder to the Recycle Bin.
+
+    Never hard-deletes. Refuses paths outside the delivery sandbox.
+    Use when discarding failed gens / junk reviews — not for permanent wipe.
+    """
+    return json.dumps(_recycle_delivery_media(_cfg, path), indent=2)
+
+
+@mcp.tool()
+def comfy_queue_status() -> str:
+    """
+    ComfyUI queue + light system stats on the generation host.
+
+    Use before starting create/Wan work or when checking if the box is busy.
+    """
+    import urllib.error
+    import urllib.request
+
+    url = _comfy_url().rstrip("/")
+    out: dict[str, Any] = {"comfy_url": url}
+
+    def _get(path: str) -> Any:
+        req = urllib.request.Request(f"{url}{path}")
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+
+    try:
+        queue = _get("/queue")
+        running = queue.get("queue_running") or []
+        pending = queue.get("queue_pending") or []
+        out["queue_running"] = len(running) if isinstance(running, list) else "?"
+        out["queue_pending"] = len(pending) if isinstance(pending, list) else "?"
+        out["busy"] = bool(running) or bool(pending)
+        out["queue"] = queue
+    except Exception as exc:  # noqa: BLE001
+        out["ok"] = False
+        out["error"] = f"queue: {exc}"
+        return json.dumps(out, indent=2)
+    try:
+        out["system_stats"] = _get("/system_stats")
+    except Exception as exc:  # noqa: BLE001
+        out["system_stats_error"] = str(exc)
+    out["ok"] = True
+    return json.dumps(out, indent=2)
 
 
 @mcp.tool()
@@ -3155,6 +3643,7 @@ def generate_audio(
         filename_prefix: ComfyUI SaveAudio prefix under output/audio/.
     """
     try:
+        nari_unload = _maybe_unload_nari_for_audio(_cfg)
         result = _engine.generate_audio(
             mode=mode,
             text=text,
@@ -3165,6 +3654,8 @@ def generate_audio(
             seed=None if seed < 0 else seed,
             filename_prefix=filename_prefix or "",
         )
+        if isinstance(result, dict):
+            result["nari_unload"] = nari_unload
         return json.dumps(result, indent=2)
     except Exception as exc:
         err = humanize_error(exc, context="generate_audio")

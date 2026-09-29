@@ -57,6 +57,25 @@ PRESERVE_PATTERNS = re.compile(
     r"\b(keep|preserve|same knight|same subject|identical|do not change|unchanged)\b",
     re.I,
 )
+# Face / identity jobs must NEVER fall through to hybrid_preserve + scene masks
+FACE_PATTERNS = re.compile(
+    r"\b("
+    r"face|faces|facial|eyes?|eyelids?|iris|pupils?|"
+    r"hair\s*colou?r|eye\s*colou?r|"
+    r"tattoo|tattoos|markings?|freckles?|scar|scars|glyph|glyphs|"
+    r"face\s*paint|cheek\s*mark|forehead|"
+    r"adetailer|face.?detail|face.?detailer|"
+    r"fix\s+(her|his|their|the)\s+face|clean\s+(up\s+)?(her|his|their|the)\s+face|"
+    r"face\s+artifacts?|face\s+refine|refine\s+face"
+    r")\b",
+    re.I,
+)
+
+# Safe defaults — never ship denoise 1.0 / strong IP-Adapter as silent preserve defaults
+DEFAULT_HYBRID_DENOISE = 0.45
+DEFAULT_IPADAPTER_WEIGHT = 0.55
+DEFAULT_FACE_I2I_DENOISE = 0.35
+DEFAULT_MOOD_I2I_DENOISE = 0.32
 
 
 def normalize_food_group(name: str | None) -> str | None:
@@ -104,10 +123,30 @@ def resolve_style_for_edit(
     return sid, catalog.resolve_architecture(sid)
 
 
+def is_face_edit_intent(instruction: str) -> bool:
+    """True when the ask is about face / eyes / hair color / tattoos / markings."""
+    if not instruction:
+        return False
+    # Adding a flag/object wins over incidental "face" in preserve wording
+    if ADD_OBJECT_PATTERNS.search(instruction) and not FACE_PATTERNS.search(instruction):
+        return False
+    if ADD_OBJECT_PATTERNS.search(instruction) and FACE_PATTERNS.search(instruction):
+        # "add freckles to her face" is still a face job; "add flag keep face" is object
+        text = instruction.lower()
+        if any(w in text for w in ("flag", "sign", "logo", "banner", "building", "wall", "tower")):
+            return False
+    return bool(FACE_PATTERNS.search(instruction))
+
+
 def classify_edit_intent(instruction: str) -> str:
     """
     Return pipeline id: i2i | inpaint | controlnet | hybrid | hybrid_preserve.
+
+    Face / identity asks → i2i (caller enables face_detail). Never hybrid_preserve
+    with leftover demo masks (church_tower / right_building).
     """
+    if is_face_edit_intent(instruction):
+        return "i2i"
     if REGEN_PATTERNS.search(instruction):
         return "controlnet"
     if ADD_OBJECT_PATTERNS.search(instruction):
@@ -116,7 +155,8 @@ def classify_edit_intent(instruction: str) -> str:
         return "hybrid"
     if MOOD_PATTERNS.search(instruction) and not ADD_OBJECT_PATTERNS.search(instruction):
         return "i2i"
-    return "hybrid_preserve"
+    # Unknown soft edit — mild i2i, not hybrid with a fake building mask
+    return "i2i"
 
 
 def enrich_edit_prompts(instruction: str, food_group: str | None) -> tuple[str, str]:
@@ -144,6 +184,29 @@ def enrich_edit_prompts(instruction: str, food_group: str | None) -> tuple[str, 
     return prompt, neg
 
 
+def mask_region_from_instruction(instruction: str) -> str | None:
+    """
+    Only return a geometric mask when the text clearly asks for that region.
+    Never default to church_tower / right_building — those were one demo still.
+    """
+    text = (instruction or "").lower()
+    if not text:
+        return None
+    if any(w in text for w in ("church tower", "steeple", "bell tower", "spire")):
+        return "church_tower"
+    if "church" in text and ("tower" in text or "top" in text):
+        return "church_tower"
+    if any(w in text for w in ("right building", "right wall", "church wall", "right church")):
+        return "right_building"
+    if "right" in text and any(w in text for w in ("wall", "building", "church")):
+        return "right_building"
+    if "sky" in text or "top third" in text or "upper third" in text:
+        return "top_third"
+    if re.search(r"\bfull\s*(frame|image|mask)?\b", text):
+        return "full"
+    return None
+
+
 def plan_edit(
     *,
     instruction: str,
@@ -153,9 +216,14 @@ def plan_edit(
     preserve_subject: bool = True,
 ) -> dict[str, Any]:
     """Return pipeline plan for edit_image."""
-    pipeline = mode.lower().strip() if mode and mode != "auto" else classify_edit_intent(instruction)
-    if pipeline == "hybrid" and preserve_subject:
-        pipeline = "hybrid_preserve"
+    face_job = is_face_edit_intent(instruction)
+    # Face/identity always wins — agents must not force hybrid_preserve + building masks
+    if face_job:
+        pipeline = "forge_face"
+    else:
+        pipeline = mode.lower().strip() if mode and mode != "auto" else classify_edit_intent(instruction)
+        if pipeline == "hybrid" and preserve_subject:
+            pipeline = "hybrid_preserve"
 
     ref_key = None
     text = instruction.lower()
@@ -167,33 +235,69 @@ def plan_edit(
         ref_key = "uk_flag"
 
     seg = segment_prompt.strip()
-    if not seg and ADD_OBJECT_PATTERNS.search(instruction):
+    if not seg and ADD_OBJECT_PATTERNS.search(instruction) and not face_job:
+        # Only invent a segment when the instruction names a place to edit
         if "right" in text or "church" in text or "wall" in text:
-            seg = "stone church wall on the right"
+            seg = "stone wall on the right"
         elif "sky" in text or "background" in text:
             seg = "sky background"
+
+    mask_fallback = None if face_job else mask_region_from_instruction(instruction)
+
+    denoise_i2i = None
+    if pipeline == "i2i":
+        denoise_i2i = DEFAULT_FACE_I2I_DENOISE if face_job else DEFAULT_MOOD_I2I_DENOISE
+    if pipeline == "forge_face":
+        denoise_i2i = DEFAULT_FACE_I2I_DENOISE  # used only if Forge unavailable fallback
+
+    notes = list(_pipeline_notes(pipeline))
+    if face_job:
+        notes.insert(
+            0,
+            "Face/identity job -> refine_face_forge (YOLO box + Forge region inpaint + Nari). "
+            "Never hybrid_preserve / church_tower / right_building. "
+            "Fallback if Forge down: Comfy i2i + face_detail.",
+        )
 
     return {
         "pipeline": pipeline,
         "food_group": normalize_food_group(food_group),
         "segment_prompt": seg or None,
         "flag_reference": ref_key,
-        "mask_region_fallback": "right_building" if "right" in text else "church_tower",
+        "mask_region_fallback": mask_fallback,
         "use_ip_adapter": pipeline in {"hybrid", "hybrid_preserve", "inpaint"},
         "use_controlnet": pipeline in {"controlnet", "hybrid"} and not preserve_subject,
-        "denoise_i2i": 0.32 if pipeline == "i2i" else None,
-        "notes": _pipeline_notes(pipeline),
+        "face_detail": bool(face_job and pipeline in {"i2i", "forge_face"}),
+        "face_job": face_job,
+        "preferred_tool": "refine_face_forge" if face_job else "edit_image",
+        "denoise_i2i": denoise_i2i,
+        "denoise_hybrid": DEFAULT_HYBRID_DENOISE,
+        "ipadapter_weight": DEFAULT_IPADAPTER_WEIGHT if pipeline.startswith("hybrid") or pipeline == "inpaint" else None,
+        "notes": notes,
+        "agent_hint": (
+            "Call refine_face_forge (or edit_image with a face ask — auto-routes to Forge). "
+            "Keywords: face, eyes, hair color, tattoo, markings. "
+            "Do not pass mask_region=right_building/church_tower."
+            if face_job
+            else "Object/region edits need mask_region or segment_prompt; no silent building fallback."
+        ),
     }
 
 
 def _pipeline_notes(pipeline: str) -> list[str]:
     notes = {
-        "i2i": ["Good for mood/lighting only; will not reliably add new objects."],
-        "inpaint": ["Regional edit; provide segment_prompt or mask_region."],
+        "forge_face": [
+            "Routes to refine_face_forge: detect face box, Forge inpaint, Nari gate.",
+        ],
+        "i2i": [
+            "Mood/lighting or Comfy face_detail fallback; will not reliably add new objects.",
+        ],
+        "inpaint": ["Regional edit; provide segment_prompt or mask_region (required)."],
         "controlnet": ["Regenerates from scratch with depth+canny lock; SDXL ControlNet required."],
         "hybrid": ["ControlNet base then regional inpaint (may drift subject)."],
         "hybrid_preserve": [
-            "Keeps original image; inpaint + IP-Adapter in small mask (recommended for add-object edits).",
+            "Keeps original image; inpaint + IP-Adapter in an explicit mask only "
+            "(add-object edits). Requires mask_region or segment_prompt.",
         ],
     }
     return notes.get(pipeline, [])
@@ -215,7 +319,7 @@ def verify_edit_result(
             {
                 "id": "flag_visible",
                 "question": "Is a recognizable flag visible in the intended region?",
-                "hint": "Look for green-white-orange vertical stripes on the right church wall, not on the cross.",
+                "hint": "Confirm placement matches the mask/segment you requested.",
             }
         )
     if PRESERVE_PATTERNS.search(instruction):
@@ -224,6 +328,14 @@ def verify_edit_result(
                 "id": "subject_preserved",
                 "question": "Is the main subject (pose, armor, face) unchanged?",
                 "hint": "Compare helmet and foreground to the source image.",
+            }
+        )
+    if plan.get("face_job"):
+        checks.append(
+            {
+                "id": "face_identity",
+                "question": "Eye color, hair color, and tattoos/face markings match the source?",
+                "hint": "Fail and revert if any drifted — do not keep color/marking changes.",
             }
         )
     if "church" in text or "ruins" in text or "background" in text:
@@ -241,5 +353,5 @@ def verify_edit_result(
         "output_files": saved,
         "manual_checks": checks,
         "pass": None,
-        "note": "Set pass=true/false after visual review. Re-run edit_image with adjusted mask or seed if failed.",
+        "note": "Set pass=true/false after visual review. Re-run with adjusted mask or seed if failed.",
     }

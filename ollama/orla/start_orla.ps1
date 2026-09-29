@@ -1,17 +1,17 @@
-# Start Orla: Ollama (LAN + GPU for VLM) + tools sidecar.
-# Chat brain `orla` can stay light; VLM `orla-vl` (Qwen3-VL 8B) uses 5060 Ti.
+# Start Orla: official Ollama (CUDA) + tools sidecar.
+# Chat brain `orla` (copy-edit + Myra/Nari dispatch). Optional VLM: -WithVlm
+param(
+    [switch]$WithVlm
+)
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
-$cmd = Get-Command ollama -ErrorAction SilentlyContinue
-$Ollama = if ($cmd) { $cmd.Source } else { $null }
-if (-not $Ollama) {
-  $candidates = @(
-    "$env:LOCALAPPDATA\Programs\Ollama\ollama.exe",
-    "$env:LOCALAPPDATA\AMD\AI_Bundle\Ollama\ollama.exe"
-  )
-  $Ollama = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+# Official installer only — AMD AI Bundle Ollama is CPU-only and must stay off PATH.
+$Ollama = "$env:LOCALAPPDATA\Programs\Ollama\ollama.exe"
+if (-not (Test-Path $Ollama)) {
+    $cmd = Get-Command ollama -ErrorAction SilentlyContinue
+    if ($cmd -and $cmd.Source -notmatch "AMD\\AI_Bundle") { $Ollama = $cmd.Source }
 }
-if (-not $Ollama) { throw "ollama.exe not found" }
+if (-not (Test-Path $Ollama)) { throw "Official ollama.exe not found at $env:LOCALAPPDATA\Programs\Ollama\ollama.exe" }
 
 $env:OLLAMA_HOST = "0.0.0.0:11434"
 # GPU on for VLM (5060 Ti). ComfyUI gens are on ComfyBox (.57) — leave local GPU for Orla.
@@ -35,13 +35,17 @@ try {
   Start-Sleep -Seconds 3
 }
 
-Write-Host "Ensuring text brain + VLM ..."
+Write-Host "Ensuring text brain (orla = Qwen2.5 abliterate 7B, CPU, no think channel) ..."
 & $Ollama pull huihui_ai/qwen2.5-abliterate:7b-instruct
 & $Ollama create orla -f "$Root\Modelfile"
-& $Ollama pull qwen3-vl:8b
-& $Ollama create orla-vl -f "$Root\Modelfile.vlm"
-# Fallback if someone still asks for the old tag
-& $Ollama pull qwen2.5vl:7b
+if ($WithVlm) {
+  Write-Host "Ensuring VLM ..."
+  & $Ollama pull qwen3-vl:8b
+  & $Ollama create orla-vl -f "$Root\Modelfile.vlm"
+  & $Ollama pull qwen2.5vl:7b
+} else {
+  Write-Host "Skipping VLM pull (pass -WithVlm to restore orla-vl)."
+}
 & $Ollama list
 Write-Host "Orla ready."
 Write-Host "  Chat:  http://192.168.50.42:11434/v1  model=orla"

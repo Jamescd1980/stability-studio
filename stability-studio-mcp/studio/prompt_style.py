@@ -67,10 +67,46 @@ PLATFORM_SPECS: dict[str, dict[str, Any]] = {
 }
 
 AGENT_RULES = [
+    "Do's → positive prompt; Don'ts → negative prompt. Never mix.",
+    "Lexicon: 'gold standard' / detail hero / recreate 003 = resolve_style_lane + LoRAs/settings — NEVER paste those words into Positive/Negative for Forge/Comfy.",
+    "AUTO-INJECT: generate_image(style=…) prepends that style's prompt_prefix and merges its default negative. Always read prompt_prefix from get_prompt_style and do NOT repeat those words in Positive.",
     "Call get_prompt_style(style=...) or get_prompt_style(platform=...) before writing Platform/Positive/Negative.",
-    "Pass catalog style id to generate_image (ilustmix, pony, juggernaut) — not checkpoint filenames.",
+    "Read doc id 'prompting' (docs/PROMPTING.md) for the full Do/Don't + lexicon table.",
+    "Pass catalog style id to generate_image (ilustmix, pony, juggernaut, waijfu) — not checkpoint filenames.",
     "After brainstorming: log_image_prompt with platform, style, prompt_positive, prompt_negative.",
 ]
+
+# Studio jargon that must never be sent to the diffusion model as prompt text.
+HOUSE_LEXICON: dict[str, str] = {
+    "gold_standard": (
+        "House finish mood/look: resolve_style_lane('gold standard') → waijfu + "
+        "illustrious_detail_hero LoRAs + prompt_tail/negative_extra. Not model caption text."
+    ),
+    "gold standard": (
+        "Alias of gold_standard — agent/settings instruction only; never write into Positive/Negative."
+    ),
+    "detail hero": "Alias of gold_standard look bar (illustrious_detail_hero).",
+    "recreate 003": "Alias of gold_standard (recreate_003 bar).",
+    "look_profile": "Catalog LoRA/neg stack id — apply via tools, do not prompt the id.",
+    "keeper": "Quality bar for a kept still/clip — human/agent gate, not a prompt tag.",
+    "prepare wan": "Desk/MCP ready step — not a diffusion prompt.",
+}
+
+PROMPT_DO_DONT = {
+    "positive_is": "Do's — what should appear (subject, act, setting, light, View framing).",
+    "negative_is": "Don'ts — what must not appear (anatomy fails, PIP, unwanted styles/props).",
+    "never_in_either": [
+        "gold standard",
+        "gold_standard",
+        "detail hero",
+        "recreate 003",
+        "look_profile",
+        "illustrious_detail_hero",
+        "resolve_style_lane",
+        "keeper",
+        "prepare wan",
+    ],
+}
 
 # When a style appears in multiple platform specs, prefer the more specific id first.
 _PLATFORM_LOOKUP_ORDER = (
@@ -120,6 +156,9 @@ def _style_guide(catalog: StyleCatalog, style_id: str) -> dict[str, Any]:
         "defaults": catalog.resolve_generation_defaults(sid),
         "generate_with": f"generate_image(style={sid!r}, prompt=..., negative_prompt=...)",
         "agent_rules": AGENT_RULES,
+        "do_dont": PROMPT_DO_DONT,
+        "lexicon": HOUSE_LEXICON,
+        "prompting_doc": "prompting",
     }
 
 
@@ -139,6 +178,9 @@ def _platform_guide(catalog: StyleCatalog, platform_id: str) -> dict[str, Any]:
         "style_ids": spec.get("style_ids") or [],
         "workflow_ids": spec.get("workflow_ids") or [],
         "agent_rules": AGENT_RULES,
+        "do_dont": PROMPT_DO_DONT,
+        "lexicon": HOUSE_LEXICON,
+        "prompting_doc": "prompting",
     }
     if default_style and default_style in catalog.styles:
         out["recommended"] = _style_guide(catalog, default_style)
@@ -164,6 +206,9 @@ def _food_group_guide(catalog: StyleCatalog, food_group: str) -> dict[str, Any]:
         "styles": fg.get("styles", []),
         "prompt_guide": fg.get("prompt_guide", ""),
         "agent_rules": AGENT_RULES,
+        "do_dont": PROMPT_DO_DONT,
+        "lexicon": HOUSE_LEXICON,
+        "prompting_doc": "prompting",
     }
     if default_style:
         out["recommended"] = _style_guide(catalog, default_style)
@@ -195,11 +240,18 @@ def build_prompt_style_guide(
     }
     return {
         "lookup": "index",
-        "usage": "Call again with style=ilustmix | platform=pony | food_group=anime",
+        "usage": (
+            "Call again with style=ilustmix | platform=pony | food_group=anime. "
+            "Do's=positive, Don'ts=negative. Lexicon: gold standard = lane/LoRAs — not prompt text. "
+            "Full table: read_studio_doc(doc='prompting')."
+        ),
         "platforms": platforms,
         "food_groups": {
             k: {"default_style": v.get("default_style"), "label": v.get("label")}
             for k, v in (catalog.art_food_groups or {}).items()
         },
         "agent_rules": AGENT_RULES,
+        "do_dont": PROMPT_DO_DONT,
+        "lexicon": HOUSE_LEXICON,
+        "prompting_doc": "prompting",
     }

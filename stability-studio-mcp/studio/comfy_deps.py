@@ -78,6 +78,39 @@ NODE_PACKAGES: dict[str, dict[str, str]] = {
         "git_url": "https://github.com/ltdrdata/ComfyUI-Impact-Subpack.git",
         "note": "YOLO face detector for FaceDetailer; install alongside Impact Pack.",
     },
+    # v2v_upscale (Wan 2.1 latent clean) — catalog workflow-wan21-v2v-upscale-rife.json
+    "PathchSageAttentionKJ": {
+        "package": "comfyui-kjnodes",
+        "git_url": "https://github.com/kijai/ComfyUI-KJNodes.git",
+        "note": "Optional SageAttention speedup; mute via Fast Muter if sageattention not installed.",
+    },
+    "WanVideoTeaCacheKJ": {
+        "package": "comfyui-kjnodes",
+        "git_url": "https://github.com/kijai/ComfyUI-KJNodes.git",
+    },
+    "SkipLayerGuidanceWanVideo": {
+        "package": "comfyui-kjnodes",
+        "git_url": "https://github.com/kijai/ComfyUI-KJNodes.git",
+    },
+    "RIFE VFI": {
+        "package": "ComfyUI-Frame-Interpolation",
+        "git_url": "https://github.com/Fannovel16/ComfyUI-Frame-Interpolation.git",
+        "note": "House prefers mute RIFE on keepers (grain). Use latent V2V decode → VHS combine only.",
+    },
+    "Fast Muter (rgthree)": {
+        "package": "rgthree-comfy",
+        "git_url": "https://github.com/rgthree/rgthree-comfy.git",
+        "note": "Mute SageAttention / RIFE groups on v2v_upscale.",
+    },
+    "Fast Groups Muter (rgthree)": {
+        "package": "rgthree-comfy",
+        "git_url": "https://github.com/rgthree/rgthree-comfy.git",
+    },
+    "wanBlockSwap": {
+        "package": "ComfyUI-wanBlockswap",
+        "git_url": "https://github.com/orssorbit/ComfyUI-wanBlockswap.git",
+        "note": "VRAM block-swap for Wan 1.3B V2V clean on smaller cards; fine on 5090.",
+    },
 }
 
 # Optional quality-of-life bootstrap (ComfyUI Manager UI).
@@ -120,8 +153,14 @@ def fetch_installed_node_types(comfy_url: str, timeout: int = 15) -> set[str]:
 
 
 def required_node_types_for_workflow(ui_workflow: dict[str, Any]) -> set[str]:
+    from studio.workflow_converter import SKIP_NODE_TYPES, ui_to_api
+
     api = ui_to_api(ui_workflow)
-    return {node["class_type"] for node in api.values()}
+    return {
+        node["class_type"]
+        for node in api.values()
+        if node.get("class_type") not in SKIP_NODE_TYPES
+    }
 
 
 def packages_for_missing_nodes(missing: set[str]) -> dict[str, dict[str, str]]:

@@ -80,15 +80,25 @@ def inspect_forge_backend(cfg: dict[str, Any]) -> dict[str, Any]:
             "check_forge_backend",
             "generate_image_forge",
             "refine_image_forge",
+            "refine_face_forge",
+            "review_face_forge",
+            "detect_face_box",
+            "face_denoise_guide",
         ],
-        "purpose": "ADetailer / hires stills on the generation host. Exclusive with ComfyUI.",
+        "purpose": "ADetailer / hires / tight face refine on the generation host. Exclusive with ComfyUI.",
+        "face_refine": (
+            "refine_face_forge: tight box + low denoise + Nari pass/fail. "
+            "FAIL if top redrawn / bottom mismatch. Only send_to_user when pass=true."
+        ),
         "exclusive_with": "comfyui",
         "switch": "switch_stills_backend(backend='forge'|'comfy'|'status')",
         "ssh_host": g.get("ssh_host") or "",
         "doc": g.get("doc") or "COMFYBOX-FORGE.md",
         "offline_agent_note": (
             "Workflow: Comfy generate_image -> switch_stills_backend(forge) -> "
-            "refine_image_forge -> switch_stills_backend(comfy) -> generate_video."
+            "refine_face_forge (face) or refine_image_forge (global) -> "
+            "only show face result if pass/send_to_user -> "
+            "switch_stills_backend(comfy) -> generate_video."
         ),
         "video_note": (
             "Default draft clip: workflow_id=i2v_5b (Wan 2.2 5B). NSFW/14B: workflow_id=i2v (MoE). "
@@ -97,7 +107,8 @@ def inspect_forge_backend(cfg: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _ssh_run(cfg: dict[str, Any], remote_cmd: str, *, timeout: float = 120) -> dict[str, Any]:
+def _ssh_run(cfg: dict[str, Any], remote_cmd: str, *, timeout: float = 45) -> dict[str, Any]:
+    """SSH remote command. Fail soft — short connect/command timeouts, never hang MCP for minutes."""
     g = _forge_config(cfg)
     host = str(g.get("ssh_host") or "").strip()
     if not host:
@@ -106,16 +117,35 @@ def _ssh_run(cfg: dict[str, Any], remote_cmd: str, *, timeout: float = 120) -> d
             "error": "forge.ssh_host is unset — set it in local config.yaml (never commit hostnames)",
             "cmd": None,
         }
-    cmd = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=15", host, remote_cmd]
+    connect_timeout = int(g.get("ssh_connect_timeout") or 8)
+    cmd_timeout = float(g.get("ssh_command_timeout") or timeout or 45)
+    cmd = [
+        "ssh",
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        f"ConnectTimeout={connect_timeout}",
+        host,
+        remote_cmd,
+    ]
     try:
         proc = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
-            timeout=timeout,
+            timeout=cmd_timeout,
             check=False,
         )
-    except (OSError, subprocess.TimeoutExpired) as exc:
+    except subprocess.TimeoutExpired as exc:
+        return {
+            "ok": False,
+            "error": f"SSH timed out after {cmd_timeout}s — retry or use HTTP status",
+            "timeout": True,
+            "stdout": (exc.stdout or "")[-2000:] if isinstance(exc.stdout, str) else "",
+            "stderr": (exc.stderr or "")[-1000:] if isinstance(exc.stderr, str) else "",
+            "cmd": cmd,
+        }
+    except OSError as exc:
         return {"ok": False, "error": str(exc), "cmd": cmd}
     return {
         "ok": proc.returncode == 0,
@@ -133,9 +163,9 @@ def switch_stills_backend(
     wait: bool = True,
 ) -> dict[str, Any]:
     """
-    Exclusive GPU switch on the generation host: comfy | forge | status | stop-all.
+    Exclusive GPU switch: comfy | forge | status | stop-all.
 
-    Uses SSH + ~/bin/gpu_backend.sh (same script as manual ops).
+    Prefer HTTP reachability short-circuit before SSH. SSH fail-soft on timeout.
     """
     from studio.gpu_backend import comfyui_is_reachable
 
@@ -146,19 +176,62 @@ def switch_stills_backend(
             "error": "backend must be comfy, forge, status, or stop-all",
         }
 
+    forge_up = forge_is_reachable(cfg, timeout=3)
+    comfy_up = comfyui_is_reachable(cfg, timeout=3)
+
+    if backend == "status":
+        return {
+            "ok": True,
+            "requested": "status",
+            "short_circuit": True,
+            "forge": inspect_forge_backend(cfg),
+            "comfyui_running": comfy_up,
+            "forge_running": forge_up,
+        }
+
+    if backend == "forge" and forge_up and not comfy_up:
+        return {
+            "ok": True,
+            "requested": backend,
+            "short_circuit": True,
+            "ready": True,
+            "message": "Forge already up (Comfy down) — no SSH switch needed",
+            "forge": inspect_forge_backend(cfg),
+            "comfyui_running": False,
+        }
+    if backend == "comfy" and comfy_up and not forge_up:
+        return {
+            "ok": True,
+            "requested": backend,
+            "short_circuit": True,
+            "ready": True,
+            "message": "ComfyUI already up (Forge down) — no SSH switch needed",
+            "forge": inspect_forge_backend(cfg),
+            "comfyui_running": True,
+        }
+
     g = _forge_config(cfg)
     script = str(g.get("gpu_backend_script") or "~/bin/gpu_backend.sh")
     remote = f"bash {script} {backend}"
-    result = _ssh_run(cfg, remote, timeout=90)
+    result = _ssh_run(cfg, remote, timeout=float(g.get("ssh_command_timeout") or 45))
     out: dict[str, Any] = {
-        "ok": result.get("ok"),
+        "ok": bool(result.get("ok")),
         "requested": backend,
         "ssh": result,
         "forge": inspect_forge_backend(cfg),
         "comfyui_running": comfyui_is_reachable(cfg),
     }
+    if result.get("timeout"):
+        out["ok"] = False
+        out["error"] = result.get("error") or "SSH timed out"
+        out["retry"] = True
+        out["hint"] = "Poll status URL or retry_stills_backend_switch(wait=false)"
+        return out
 
-    if backend == "status" or not wait or not result.get("ok"):
+    if backend == "stop-all" or not wait or not result.get("ok"):
+        if not result.get("ok"):
+            out["error"] = result.get("error") or result.get("stderr") or "SSH switch failed"
+            out["retry"] = True
         return out
 
     wait_s = float(g.get("switch_wait_seconds") or 180)
@@ -174,6 +247,7 @@ def switch_stills_backend(
             time.sleep(3)
         out["ready"] = False
         out["error"] = f"Forge did not become ready within {wait_s}s"
+        out["retry"] = True
         return out
 
     if backend == "comfy":
@@ -187,6 +261,7 @@ def switch_stills_backend(
             time.sleep(3)
         out["ready"] = False
         out["error"] = f"ComfyUI did not become ready within {wait_s}s"
+        out["retry"] = True
         return out
 
     return out

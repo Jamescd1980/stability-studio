@@ -1,0 +1,32 @@
+{
+  "asked": "(from PNG) studio_agent_00019_.png",
+  "expanded_prompt": "masterpiece, best quality, amazing quality, anime illustration, nb_esil_radiru, 1girl, solo, demon girl, horns, white hair, silver hair, messy bangs, extreme low angle close-up, leaning toward viewer, smirk, specialty eye design: wide glowing electric-cyan eyes, intricate circuit-board and compass-rose iris pattern, eye glow bleeding over eyelids and lashes, neon blue bloom, perfect eyes, eye_focus, pink digital blush across nose, layered silver chain necklace, diamond pendant, black choker, gear hair ornaments, dark jacket, cyan and magenta rim lighting, glowing particles, chromatic aberration edges, abstract light shards background, portrait upper body only, clothed, highly detailed, sharp focus",
+  "negative_prompt": "lowres, bad anatomy, bad hands, text, watermark, blurry, worst quality, photorealistic, 3d render, plastic skin, extra fingers, logo, signature, NEURAL ANIME, watermark text, penis, cock, dick, genitals, pussy, nude, nsfw, explicit, exposed genitals, cameltoe, bulging crotch",
+  "checkpoint": "waijfu_alpha.safetensors",
+  "loras": [
+    {
+      "file": "Esil Radiru.safetensors",
+      "weight": 0.78
+    },
+    {
+      "file": "Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors",
+      "weight": 0.9
+    },
+    {
+      "file": "DramaticColor_IL_v1.safetensors",
+      "weight": 0.32
+    },
+    {
+      "file": "ILDetailerV2.safetensors",
+      "weight": 0.6
+    }
+  ],
+  "width": 1024,
+  "height": 1352,
+  "steps": 30,
+  "cfg": 5.5,
+  "cast": "nb_esil_radiru",
+  "source": "png_comfy_workflow",
+  "windows_path": "D:\\ComfyBox Images and Videos\\Images\\studio_agent_00019_.png",
+  "comfy_filename": "studio_agent_00019_.png"
+}

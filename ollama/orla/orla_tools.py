@@ -1305,6 +1305,19 @@ def handoff_event(body: dict) -> dict:
     }
 
 
+def _run_oi_do(cmd: str, extra: str = "") -> dict:
+    script = Path(__file__).with_name("oi_do.py")
+    args = [sys.executable, str(script), cmd]
+    if extra:
+        args.append(extra)
+    try:
+        proc = subprocess.run(args, capture_output=True, text=True, timeout=120)
+    except Exception as exc:
+        return {"ok": False, "action": cmd, "error": str(exc)}
+    out = ((proc.stdout or "") + (proc.stderr or "")).strip()
+    return {"ok": proc.returncode == 0, "action": cmd, "output": out, "returncode": proc.returncode}
+
+
 def handle_action(body: dict) -> dict:
     action = (body.get("action") or "status").strip().lower()
     if action == "status":
@@ -1339,6 +1352,9 @@ def handle_action(body: dict) -> dict:
             "actions_extra": [
                 "describe_image",
                 "review_still",
+                "show_comfybox_status",
+                "nari_jobs",
+                "ask_nari",
             ],
         }
     if action in {"ingest", "pull", "deliver"}:
@@ -1391,6 +1407,15 @@ def handle_action(body: dict) -> dict:
         return handoff_event(body)
     if action in {"phonetic_rewrite", "rewrite_phonetic", "phonetic"}:
         return phonetic_rewrite(body)
+    if action in {"show_comfybox_status", "comfybox_status", "myra_status"}:
+        return _run_oi_do("comfybox-status")
+    if action in {"nari_jobs", "nari_queue", "jobs"}:
+        return _run_oi_do("nari-jobs")
+    if action in {"ask_nari", "nari"}:
+        text = (body.get("text") or body.get("request") or body.get("prompt") or "").strip()
+        if not text:
+            return {"ok": False, "error": "ask_nari needs text"}
+        return _run_oi_do("ask-nari", text)
     return {"ok": False, "error": f"Unknown action: {action}"}
 
 

@@ -1,0 +1,24 @@
+{
+  "asked": "(from PNG) studio_agent_00030_.png",
+  "expanded_prompt": "masterpiece, best quality, amazing quality, anime illustration, nb_frieren, frieren, nude elf girl on all fours looking back, holding purple dildo against buttocks, sex toy on rug, bedroom, purple bedding, daylight window, detailed hands holding toy, masterpiece, best quality, highly detailed face and eyes, sharp lips, clean anatomy",
+  "negative_prompt": "lowres, bad anatomy, bad hands, extra fingers, missing fingers, mutated hands, deformed face, blurry face, soft face, plastic skin, oversaturated, watermark, text, logo, worst quality, jpeg artifacts, star pupils, glowing eyes, wet skin overlay, bad hands, fused fingers, extra fingers",
+  "checkpoint": "waijfu_alpha.safetensors",
+  "loras": [
+    {
+      "file": "Frieren/Frieren.safetensors",
+      "weight": 0.8
+    },
+    {
+      "file": "Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors",
+      "weight": 0.8
+    }
+  ],
+  "width": 1024,
+  "height": 1024,
+  "steps": 30,
+  "cfg": 5.5,
+  "cast": "nb_frieren",
+  "source": "png_comfy_workflow",
+  "windows_path": "D:\\ComfyBox Images and Videos\\Images\\studio_agent_00030_.png",
+  "comfy_filename": "studio_agent_00030_.png"
+}

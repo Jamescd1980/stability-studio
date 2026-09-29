@@ -1,0 +1,14 @@
+[Unit]
+Description=Nari Open Interpreter nothink proxy (:11435 -> Ollama :11434)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/studio-ops/nari
+ExecStart=/usr/bin/python3 %h/studio-ops/nari/ollama_nothink_proxy.py
+Restart=always
+RestartSec=2
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=default.target

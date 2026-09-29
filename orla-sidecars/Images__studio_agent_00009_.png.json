@@ -1,0 +1,32 @@
+{
+  "asked": "(from PNG) studio_agent_00009_.png",
+  "expanded_prompt": "masterpiece, best quality, amazing quality, anime illustration, nb_park_heejin, 1girl, solo, blonde hair, long hair, yellow eyes, prism light, shadows, summer suncore close-up, sun hat, dappled sunlight, harsh sun, extreme bloom, prism flares, light leaks, golden hour, warm skin, sparkling eyes, micro hair detail, soft smile, outdoors, looking at viewer, masterpiece, best quality, perfect eyes, eye_focus",
+  "negative_prompt": "lowres, bad anatomy, bad hands, text, watermark, blurry, worst quality, photorealistic, 3d render, plastic skin, extra fingers",
+  "checkpoint": "waijfu_alpha.safetensors",
+  "loras": [
+    {
+      "file": "Park Heejin.safetensors",
+      "weight": 0.8
+    },
+    {
+      "file": "Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors",
+      "weight": 0.75
+    },
+    {
+      "file": "LensFlare_LightLeak_IL.safetensors",
+      "weight": 0.55
+    },
+    {
+      "file": "ILDetailerV2.safetensors",
+      "weight": 0.65
+    }
+  ],
+  "width": 832,
+  "height": 1472,
+  "steps": 28,
+  "cfg": 6.0,
+  "cast": "nb_park_heejin",
+  "source": "png_comfy_workflow",
+  "windows_path": "D:\\ComfyBox Images and Videos\\Images\\studio_agent_00009_.png",
+  "comfy_filename": "studio_agent_00009_.png"
+}

@@ -8,6 +8,8 @@
 
 **Clean before you invent frames.** RIFE synthesizes in-betweens from whatever you give it. If mid-clip eyes/faces are mush, RIFE→SeedVR2 spreads and “restores” that mush — Saloon keepers have looked *worse* after polish for this reason.
 
+**2026-08-20 (Saloon SS02):** SeedVR-only @1080 on `SS02_i2v_thrust_33f_v7_KEEP` — owner preferred the **original**. Recycle polish fails; do not treat SeedVR as automatic upgrade on already-sharp keepers. For “clean existing clip,” prefer catalog **`v2v_upscale`** latent denoise (mute RIFE) once ComfyBox packs are up — **not** MCP `mode=v2v` (that only extends).
+
 1. **Lock the cut** — approved keeper / concat only. Do not polish WIP fails.
 2. **Identity / quality cleanup at native fps** (optional but preferred when faces matter):
    - Trim melt/blur tails; or

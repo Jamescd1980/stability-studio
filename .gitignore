@@ -54,3 +54,25 @@ Thumbs.db
 .cursor/mcp.json
 .cursor/*.local.json
 server.py.bak_77tools
+
+# OneDesk has its own private repo (Jamescd1980/OneDesk)
+desk-ui/
+
+
+# Local bulk / not for private tip
+temp/
+training/
+outputs/
+logs/
+stability-studio-mcp/temp/
+stability-studio-mcp/tools/
+stability-studio-mcp/push_err.txt
+stability-studio-mcp/push_out.txt
+stability-studio-mcp/smoke_out.txt
+push_err.txt
+push_out.txt
+smoke_out.txt
+ollama/orla/handoff_state.json
+ollama/orla/vlm_watch_state.json
+scripts/_gpu_b64.txt
+

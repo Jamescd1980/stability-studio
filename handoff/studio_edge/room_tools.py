@@ -687,10 +687,9 @@ TOOL_DEFINITIONS: list[dict] = [
         "function": {
             "name": "ask_orla",
             "description": (
-                "Send work to Orla on the Windows main PC (open/display still or clip, "
-                "upscale, RIFE/interp, ffmpeg polish, Kokoro prep, rewrite chapter phonetically "
-                "for read back). Use when the user says have Orla, open the image, show it, "
-                "upscale, interpolate, or rewrite a chapter phonetically."
+                "Desk PC (Orla host): open/display still or clip, upscale, RIFE/interp, "
+                "ffmpeg polish, Kokoro prep, phonetic rewrite. Not the retired story-editor bot. "
+                "Coding/Ren'Py install → Coder OI profile. Create/Wan → ask_nari."
             ),
             "parameters": {
                 "type": "object",

@@ -12,17 +12,18 @@ Logic lives in `stability-studio-mcp/studio/hardware_profile.py`.
 | Name | Where | Role |
 |------|-------|------|
 | **Myra** | Pi 5 (`myra` / `192.168.50.230`) | Voice + **Gofor** (`myra-gofor` on Pi Ollama) — sort/funnel, room tools |
-| **Nari** | LinuxBox/ComfyBox `192.168.50.57` **8600G CPU** Ollama `:11434` | Create / Forge refine / Wan clip language brain |
-| **nari-prompt** | Same LinuxBox Ollama | Eric's Prompt Enhancers only |
-| **Orla** | Windows main rig `192.168.50.42` **7900X CPU** Ollama `:11434` + tools `:11436` | Open/display, upscale, RIFE/interp, **Kokoro / phonetic chapter prep** |
-| **RTX 5090** | LinuxBox dGPU (CUDA) | ComfyUI `:8188` diffusion / Wan (32GB); **Blender MCP** `:9876` (exclusive vs Comfy) |
-| **5060 Ti** | Windows dGPU | Polish GPU jobs (not chat) |
+| **Nari** | LinuxBox/ComfyBox `192.168.50.57` Ollama `:11434` | Create brain — **5090 CUDA when free**; MCP unloads before Wan/audio |
+| **nari-prompt** | Same Ollama | Eric Prompt Enhancers only (also unloaded before Wan) |
+| **Orla** | Windows main rig `192.168.50.42` (**PC name**) | Desk host — **Coder** on the 5060 Ti (game code/install). Not a create chat persona |
+| **RTX 5090** | LinuxBox dGPU | ComfyUI / Forge / Wan **and** Nari chat when diffusion is light |
+| **5060 Ti** | Windows dGPU | **Coder only** (Ollama `num_gpu` full). Create/diffusion stays on ComfyBox — no Invoke↔coder GPU split here |
 
 Voice path: **You → Myra (gofor) → ask_nari / ask_orla / local tools**.  
 Hey Jan wake still greets Nari (direct studio). Follow-up listen window skips re-wake.
 
-LinuxBox Ollama: `OLLAMA_NUM_GPU=0` so Nari does not steal 5090 VRAM.  
+LinuxBox Ollama: Nari may use the **5090** for chat. MCP `generate_video` / `generate_audio` / `generate_video_hero` **unload** `nari` + `nari-prompt` first. Do not leave a 128K context pinned.  
 SSH: `ssh Linuxbox` (alias `comfybox`) → `192.168.50.57`.  
+Manual: `ssh comfybox '~/bin/nari_gpu.sh unload|status'` or MCP `unload_nari_for_gpu`.  
 Blender MCP: [BLENDER-MCP.md](BLENDER-MCP.md) — Blender on LinuxBox 5090, Cursor `BLENDER_HOST=192.168.50.57:9876`; `~/bin/gpu_backend.sh blender|comfy` for exclusivity.  
 CUDA migration lessons: [LESSONS-COMFYBOX-CUDA.md](LESSONS-COMFYBOX-CUDA.md). Blender lessons: [LESSONS-BLENDER-MCP.md](LESSONS-BLENDER-MCP.md).  
 Modelfiles: `ollama/nari/`, `ollama/myra-gofor/`, `ollama/orla/`.
@@ -39,12 +40,14 @@ Modelfiles: `ollama/nari/`, `ollama/myra-gofor/`, `ollama/orla/`.
 |-------|-----|
 | Myra gofor | `http://127.0.0.1:11434` on Pi (`myra-gofor`) |
 | Nari | `http://192.168.50.57:11434` |
-| Orla | `http://192.168.50.42:11434` + tools `:11436` |
+| Orla | `http://192.168.50.42:11434` + **Coder toolcall proxy** `:11436` (OI must use `:11436`) |
 
 Eric node: `ollama` → `http://127.0.0.1:11434` → `model_name=nari-prompt`
 
 Rule of thumb: **gofor on Pi, generate on the RTX 5090 (Nari/LinuxBox), polish/display on Windows (Orla).**  
 `get_generation_context` returns `labor_split` with the generation/polish policy.
+
+**Touch-ups (2026-09-22):** Hand cleanup / custom paint AI struggles with → **Krita on Orla**. Diffusion inpaint/refine → **ComfyBox** (Forge/Comfy) when the 5090 is free — not local **Invoke** on the 5060 while ComfyBox sits idle. Invoke folders may remain archival masters only.
 
 ## Config overrides (`config.yaml`)
 

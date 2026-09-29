@@ -1,7 +1,9 @@
-# Character ID LoRA retrain v1 (Fern / Frieren / Darkness)
+# Character ID LoRA retrain v1 (style / lighting soak fix)
 
-Goal: **identity + composition influence only** — not style. Style stays on **waijfu**.  
-Status: **TRAINING IN PROGRESS** (2026-07-26) � kohya_ss on ComfyBox (/mnt/game/lora-training/kohya_ss, ROCm). WD14 captions done. Chain: Fern ? Frieren ? Darkness via _train_id_v1_comfybox.sh. Log: /mnt/game/lora-training/output/id_v1/train_chain.log.
+Goal: **identity + composition influence only** — not style/lighting. Style stays on **waijfu**.  
+Status:
+- **Fern / Frieren / Darkness:** id_v1 July 2026; **rematched 2026-08-10** — same caption bucket as rest (no stamped `soft lighting`). Output: `/mnt/game/lora-training/output/id_v1_match/`.
+- **Ubel / Flamme / Cha Hae In / Jinah Sung / Joo Hee:** **done** (2026-08-10) — rest chain trained + installed to ComfyBox SM + `D:\Extra Models\Character LoRA's`. Logs: `/mnt/game/lora-training/output/id_v1_rest_*.log`.
 
 ## Datasets (found)
 
@@ -10,6 +12,11 @@ Status: **TRAINING IN PROGRESS** (2026-07-26) � kohya_ss on ComfyBox (/mnt/gam
 | Fern | 123 | `D:\Bad boy\Raw Images\GrimoireOfDesires\Fern` (`nbf_fern_*.jpg`) | `nb_fern` |
 | Frieren | 108 | `D:\Bad boy\Raw Images\GrimoireOfDesires\Frieren` | `nb_frieren` |
 | Darkness | 158 | `D:\Bad boy\Raw Images\Konosuba\Darkness` (`nbk_darkness_*.jpg`) | `nbk_darkness` |
+| Ubel | 111 | Grimoire / ComfyBox `datasets/ubel` | `nb_ubel` |
+| Flamme | 117 | Grimoire / ComfyBox `datasets/flamme` | `nb_flamme` |
+| Cha Hae In | 94 | SoloLeveling / `datasets/cha_hae_in` | `nb_cha_hae_in` |
+| Jinah Sung | 70 | SoloLeveling / `datasets/jinah_sung` | `nb_jinah_sung` |
+| Joo Hee | 58 | SoloLeveling / `datasets/joo_hee` | `nb_joo_hee` |
 
 Staged (hardlinks + skeleton `.txt`):  
 `D:\studio-agent\training\id_lora_v1\{fern,frieren,darkness}\`
@@ -38,7 +45,22 @@ Per image:
 nb_fern, 1girl, purple hair, long hair, bangs, purple eyes, flower hair ornament, medium breasts
 nb_frieren, 1girl, white hair, long hair, twintails, green eyes, pointy ears, elf, small breasts, red earrings
 nbk_darkness, 1girl, blonde hair, long hair, ponytail, blue eyes, large breasts, x hair ornament, red hair ornament, human ears
+nb_ubel, 1girl, short black hair, purple eyes, black clothing
+nb_flamme, 1girl, elf, blonde hair, long hair, green eyes, pointy ears
+nb_cha_hae_in, 1girl, blonde hair, short hair, bangs, yellow eyes
+nb_jinah_sung, 1girl, purple hair, medium hair, purple eyes
+nb_joo_hee, 1girl, brown hair, glasses
 ```
+
+### Caption style bucket (rest train / preferred)
+
+Do **not** stamp `soft lighting` on every image (binds one lighting look to the trigger). Use:
+
+```
+anime illustration, detailed background, natural skin texture, lineart visible
+```
+
+…plus WD14 pose / outfit / bg / **real lighting** tags so lighting stays in the caption, not the LoRA.
 
 ## Train recipe (kohya sd-scripts / kohya_ss GUI)
 

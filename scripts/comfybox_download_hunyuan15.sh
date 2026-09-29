@@ -32,10 +32,12 @@ download text_encoders qwen_2.5_vl_7b_fp8_scaled.safetensors "$BASE/TextEncoders
 download text_encoders byt5_small_glyphxl_fp16.safetensors "$BASE/TextEncoders"
 download vae hunyuanvideo15_vae_fp16.safetensors "$BASE/VAE"
 
-# Prefer FP8 distilled for VRAM/speed on 32GB; keep quality variants optional later
-download diffusion_models hunyuanvideo1.5_720p_i2v_cfg_distilled_fp8_scaled.safetensors "$BASE/DiffusionModels"
+# Full FP16 on ComfyBox (5090) — do NOT prefer distilled/nerfed weights.
+# Video weights live on /mnt/game only; never download Hunyuan video onto the main rig.
+download diffusion_models hunyuanvideo1.5_720p_i2v_fp16.safetensors "$BASE/DiffusionModels"
 download diffusion_models hunyuanvideo1.5_720p_t2v_fp16.safetensors "$BASE/DiffusionModels"
-download diffusion_models hunyuanvideo1.5_1080p_sr_distilled_fp8_scaled.safetensors "$BASE/DiffusionModels"
+# Optional SR (still distilled on HF — skip unless needed):
+# download diffusion_models hunyuanvideo1.5_1080p_sr_distilled_fp8_scaled.safetensors "$BASE/DiffusionModels"
 
 echo HUNYUAN_DOWNLOAD_OK
 ls -lh "$BASE/DiffusionModels"/hunyuanvideo1.5* "$BASE/VAE"/hunyuanvideo15* "$BASE/TextEncoders"/qwen_2.5_vl_7b_fp8_scaled.safetensors "$BASE/TextEncoders"/byt5_small_glyphxl_fp16.safetensors 2>/dev/null || true

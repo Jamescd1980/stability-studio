@@ -42,7 +42,13 @@ def get_blender_workflow_playbook() -> dict[str, Any]:
     """Agent steps: exclusive GPU → Blender pose → Comfy pose-guided still."""
     return {
         "host": "LinuxBox RTX 5090",
-        "docs": ["BLENDER-MCP.md", "POSE-CONTROL.md", "ACTION-COMBAT.md"],
+        "docs": [
+            "BLENDER-MCP.md",
+            "POSE-CONTROL.md",
+            "ACTION-COMBAT.md",
+            "LESSONS-SET-FILL.md",
+            "LESSONS-BLENDER-MCP.md",
+        ],
         "gpu_exclusivity": {
             "before_blender": "ssh Linuxbox '~/bin/gpu_backend.sh blender'  # stops ComfyUI",
             "before_comfy": "ssh Linuxbox '~/bin/gpu_backend.sh comfy'  # stops Blender",
@@ -53,6 +59,40 @@ def get_blender_workflow_playbook() -> dict[str, Any]:
             "env": {"BLENDER_HOST": "192.168.50.57", "BLENDER_PORT": "9876"},
             "start_remote": "~/bin/comfybox_start_blender_mcp.sh",
         },
+        "sets": {
+            "casting_couch": "D:/ComfyBox Images and Videos/assets/blender/sets/casting_couch",
+            "locked_wide_plate": "D:/ComfyBox Images and Videos/assets/blender/sets/casting_couch/plates/camWide_empty_B.png",
+            "rule": ".cursor/rules/set-3d-base-ai-style.mdc",
+        },
+        "character_mesh": {
+            "list_tool": "list_character_mesh_assets",
+            "darkness": "D:/ComfyBox Images and Videos/assets/characters/Darkness/mesh_source",
+            "mesh_glb": "D:/ComfyBox Images and Videos/assets/characters/Darkness/mesh_source/darkness_body_v1.glb",
+            "note": "Solid mesh > Body25 sticks for silhouette masks. Keep on ComfyBox.",
+        },
+        "set_mesh": {
+            "list_tool": "list_set_mesh_assets",
+            "maps_tool": "list_solid_strip_maps",
+            "casting_couch": "D:/ComfyBox Images and Videos/assets/blender/sets/casting_couch",
+            "bg_glb": "D:/ComfyBox Images and Videos/assets/blender/sets/casting_couch/mesh/casting_couch_bg_v1.glb",
+            "solid_maps": "D:/ComfyBox Images and Videos/assets/blender/sets/casting_couch/strip_maps/solid_mesh_v1",
+            "pose_script": "D:/ComfyBox Images and Videos/assets/blender/kits/pose_solid_strip_beats.py",
+        },
+        "bg_lock_vn_stills": [
+            "Do NOT full-frame pose i2i at high denoise on locked plates (walls drift).",
+            "Masked inpaint on plate OR rembg oracle → paste → low denoise edge/feet blend.",
+            "Outside mask must never enter the sampler.",
+            "Solid path: list_solid_strip_maps → gray_cut + mask_inpaint_prep → inpaint_advanced → hardlock.",
+        ],
+        "steps_solid_strip_fill": [
+            "1. gpu_backend.sh blender",
+            "2. blender -b -P kits/pose_solid_strip_beats.py  # solid gray_cut/silhouette/depth/pose",
+            "3. list_solid_strip_maps(set_id='casting_couch')",
+            "4. mask_inpaint_prep.py --plate empty_B --cutout *_gray_cut.png",
+            "5. gpu_backend.sh comfy",
+            "6. inpaint_advanced(seeded_plate, mask_path=mask_dilate, depth optional)",
+            "7. hardlock composite onto pristine empty_B",
+        ],
         "steps_pose_guided_still": [
             "1. gpu_backend.sh blender (free 5090)",
             "2. Ensure Blender MCP listening (:9876) — start script or GUI Connect",

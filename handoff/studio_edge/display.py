@@ -20,6 +20,9 @@ ASSETS = Path(__file__).resolve().parent.parent / "assets"
 DEFAULT_STATUS_HTML = ASSETS / "comfybox_status.html"
 DEFAULT_IDLE_HTML = ASSETS / "myra_idle.html"
 KIOSK_CLASS = "myra-display-kiosk"
+# Separate Chromium profile — required so --kiosk is not swallowed by the
+# desktop Chromium single-instance (which left a mid-screen window on the bar).
+KIOSK_USER_DATA = Path.home() / "studio-edge" / ".chromium-kiosk"
 
 
 def _display_cfg(cfg: dict) -> dict:
@@ -28,6 +31,8 @@ def _display_cfg(cfg: dict) -> dict:
     d.setdefault("wayland_display", "wayland-0")
     d.setdefault("xdg_runtime_dir", f"/run/user/{os.getuid()}")
     d.setdefault("output", "HDMI-A-1")
+    # Native IPS 4"×12" strip — preferred EDID mode, not 1080p
+    d.setdefault("mode", "1920x515")
     d.setdefault("status_url", "http://192.168.50.57:7870/status")
     d.setdefault("status_html", str(DEFAULT_STATUS_HTML))
     d.setdefault("idle_html", str(DEFAULT_IDLE_HTML))
@@ -36,6 +41,11 @@ def _display_cfg(cfg: dict) -> dict:
     d.setdefault("browser", "chromium")
     d.setdefault("show_idle_on_start", True)
     return d
+
+
+def _window_size(cfg: dict) -> str:
+    mode = str(_display_cfg(cfg).get("mode") or "1920x515")
+    return mode.replace("x", ",")
 
 
 def _env(cfg: dict) -> dict:
@@ -116,6 +126,7 @@ def _stop_kiosk(cfg: dict) -> None:
     _kill_pidfile(PID_STATUS_LEGACY, name="comfybox-status-legacy")
     _run(["pkill", "-f", KIOSK_CLASS], cfg)
     _run(["pkill", "-f", "myra-comfybox-status"], cfg)
+    _run(["pkill", "-f", str(KIOSK_USER_DATA)], cfg)
 
 
 def _start_kiosk(cfg: dict, html: Path, query: str = "") -> bool:
@@ -129,15 +140,25 @@ def _start_kiosk(cfg: dict, html: Path, query: str = "") -> bool:
     if query:
         url = f"{url}?{query.lstrip('?')}"
     browser = str(_display_cfg(cfg).get("browser") or "chromium")
+    try:
+        KIOSK_USER_DATA.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        log.warning("Could not create kiosk profile dir: %s", exc)
+    win = _window_size(cfg)
     cmd = [
         browser,
+        f"--user-data-dir={KIOSK_USER_DATA}",
+        "--ozone-platform=wayland",
         f"--app={url}",
         f"--class={KIOSK_CLASS}",
         "--kiosk",
         "--start-fullscreen",
+        f"--window-size={win}",
+        "--window-position=0,0",
         "--noerrdialogs",
         "--disable-infobars",
         "--disable-session-crashed-bubble",
+        "--disable-features=TranslateUI",
         "--check-for-update-interval=31536000",
         "--autoplay-policy=no-user-gesture-required",
     ]
@@ -152,8 +173,20 @@ def _start_kiosk(cfg: dict, html: Path, query: str = "") -> bool:
     except OSError as exc:
         log.error("Failed to launch kiosk: %s", exc)
         return False
+    # Chromium may fork; confirm the pid (or a child with our profile) survives.
+    time.sleep(0.8)
+    if not _pid_alive(proc.pid):
+        # Parent exited after handing off — find the real kiosk process.
+        r = _run(["pgrep", "-f", str(KIOSK_USER_DATA)], cfg)
+        kids = [int(x) for x in (r.stdout or "").split() if x.isdigit()]
+        if not kids:
+            log.error("Kiosk exited immediately (no process for %s)", KIOSK_USER_DATA)
+            return False
+        _write_pid(PID_KIOSK, kids[0])
+        log.info("Display kiosk pid=%s (reaped parent) url=%s size=%s", kids[0], url, win)
+        return True
     _write_pid(PID_KIOSK, proc.pid)
-    log.info("Display kiosk pid=%s url=%s", proc.pid, url)
+    log.info("Display kiosk pid=%s url=%s size=%s", proc.pid, url, win)
     return True
 
 
@@ -226,6 +259,22 @@ def disable_screensaver(cfg: dict) -> str:
     return wake
 
 
+def ensure_display_mode(cfg: dict, mode: str | None = None) -> None:
+    """Lock the bar panel to its native mode (default 1920x515 ultrawide).
+
+    This IPS 4\"×12\" strip reports 1920x515 as preferred. Forcing 1080p
+    stretches/letterboxes the idle face into a middle band.
+    """
+    d = _display_cfg(cfg)
+    out = str(d.get("output") or "HDMI-A-1")
+    mode = str(mode or d.get("mode") or "1920x515")
+    r = _run(["wlr-randr", "--output", out, "--mode", mode], cfg)
+    if r.returncode != 0:
+        log.warning("wlr-randr mode %s failed: %s %s", mode, r.stderr, r.stdout)
+    else:
+        log.info("Display %s set to %s", out, mode)
+
+
 def show_idle_face(cfg: dict) -> str:
     """Wake panel and show Myra clock / idle face."""
     d = _display_cfg(cfg)
@@ -233,6 +282,7 @@ def show_idle_face(cfg: dict) -> str:
         return "Display control is turned off in my config."
     html = Path(os.path.expanduser(str(d["idle_html"]))).resolve()
     wake_screen(cfg)
+    ensure_display_mode(cfg)
     if not _start_kiosk(cfg, html):
         return "I couldn't open my idle display."
     return "Back to my clock face."
@@ -263,6 +313,7 @@ def show_comfybox_status(cfg: dict) -> str:
         + f"&unit={unit}&poll=1500"
     )
     wake_screen(cfg)
+    ensure_display_mode(cfg)
     if not _start_kiosk(cfg, html, query):
         return "I couldn't open the ComfyBox status display."
     return "ComfyBox status is on the screen."

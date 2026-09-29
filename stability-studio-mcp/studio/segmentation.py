@@ -40,12 +40,13 @@ def install_segmentation_dependencies(cfg: dict[str, Any], comfy_url: str) -> di
     }
 
 
-def infer_mask_region(segment_prompt: str, fallback: str = "right_building") -> str:
-    text = segment_prompt.lower()
+def infer_mask_region(segment_prompt: str, fallback: str = "") -> str:
+    """Map a text segment prompt to a geometric region. Empty if unknown — never invent a church."""
+    text = (segment_prompt or "").lower()
     for phrase, region in REGION_KEYWORDS.items():
         if phrase in text:
             return region
-    return fallback
+    return fallback or ""
 
 
 def build_grounding_sam_workflow(

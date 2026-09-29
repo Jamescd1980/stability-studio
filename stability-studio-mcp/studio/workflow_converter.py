@@ -15,6 +15,10 @@ SKIP_NODE_TYPES: frozenset[str] = frozenset(
         "Note",
         "MarkdownNote",
         "Fast Groups Bypasser (rgthree)",
+        # Frontend-only mode changers — not in /object_info; mute RIFE/Sage in the
+        # saved graph (mode=4) or use catalog v2v_clean instead of UI Fast Muter.
+        "Fast Muter (rgthree)",
+        "Fast Groups Muter (rgthree)",
         "Reroute",
     }
 )

@@ -81,7 +81,9 @@ WORKFLOW_ASSETS: dict[str, list[dict[str, str]]] = {
 
 ROUTING_NOTE = (
     "HunyuanVideo 1.5 assets only — generate_video routing not wired yet. "
-    "Use ComfyUI template workflows (Comfy-Org/workflow_templates) until engine support lands."
+    "Use ComfyUI template workflows (Comfy-Org/workflow_templates) until engine support lands. "
+    "Video weights must live on ComfyBox /mnt/game (scripts/comfybox_download_hunyuan15.sh). "
+    "Prefer full FP16 I2V/T2V — not distilled FP8. Never download Hunyuan video onto the main rig."
 )
 
 
@@ -145,6 +147,30 @@ def download_missing(
     force: bool = False,
 ) -> list[dict[str, Any]]:
     """Download missing assets for a Hunyuan workflow. Skips multi-GB files when include_large=False."""
+    # Remote ComfyBox: MCP model_dirs often point at the main-rig SM tree — refuse
+    # dumping multi-GB video weights there. Use comfybox_download_hunyuan15.sh instead.
+    comfy = cfg.get("comfyui") or {}
+    models_root = str((cfg.get("stability_matrix") or {}).get("models") or "")
+    if comfy.get("local") is False or (
+        isinstance(comfy.get("url"), str) and "127.0.0.1" not in comfy["url"] and "localhost" not in comfy["url"]
+    ):
+        if "StabilityMatrix-win-x64" in models_root.replace("\\", "/") and "/mnt/game" not in models_root.replace(
+            "\\", "/"
+        ):
+            return [
+                {
+                    "ok": False,
+                    "skipped": True,
+                    "reason": (
+                        "Refuse Hunyuan video download onto main-rig model path. "
+                        "Run scripts/comfybox_download_hunyuan15.sh on Linuxbox (/mnt/game) "
+                        "for full FP16 weights."
+                    ),
+                    "models_path": models_root,
+                    "routing_note": ROUTING_NOTE,
+                }
+            ]
+
     status = check_workflow_assets(cfg, workflow_id)
     results: list[dict[str, Any]] = []
     pending = list(status["missing"])

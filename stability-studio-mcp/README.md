@@ -1,13 +1,15 @@
 # Stability Studio MCP
 
-Python MCP server for style-aware local image and video generation via **Stability Matrix** and **ComfyUI**.
+Python MCP server for style-aware local image and video generation via **ComfyUI** (and optionally Stability Matrix for model layout).
+
+> **Rename:** When published for One Desk, this repo becomes **one-desk-mcp**. The folder on this PC can stay put until that publish. One Desk points at this path in Settings → MCP path.
 
 ## Install
 
 ```powershell
 pip install -r requirements.txt
 copy config.yaml.example config.yaml
-# Edit config.yaml — set stability_matrix.root and related paths
+# Edit config.yaml — set ComfyUI / model paths (Stability Matrix roots are optional)
 ```
 
 From repo root, `..\install.ps1` does the above automatically.

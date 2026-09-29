@@ -302,3 +302,32 @@ def open_delivery_in_explorer(cfg: dict[str, Any], path: str = "") -> dict[str, 
     else:
         subprocess.Popen(["explorer", str(target)])
     return {"ok": True, "opened": str(target)}
+
+
+def recycle_delivery_media(cfg: dict[str, Any], path: str) -> dict[str, Any]:
+    """Send a delivery (or Desktop\\New Images) file/folder to the Recycle Bin.
+
+    Never hard-deletes. Paths outside the sandbox are refused.
+    """
+    import sys
+
+    target = _safe_resolve(cfg, path)
+    if not target.exists():
+        return {"ok": False, "error": f"Missing: {target}"}
+    info = (
+        _file_info(cfg, target)
+        if target.is_file()
+        else {"name": target.name, "path": str(target), "kind": "dir"}
+    )
+    scripts = Path(__file__).resolve().parents[1] / "scripts" / "general"
+    if str(scripts) not in sys.path:
+        sys.path.insert(0, str(scripts))
+    from recycle_path import recycle  # type: ignore
+
+    if not recycle(target):
+        return {"ok": False, "error": f"Recycle Bin failed for {target}", "target": info}
+    return {
+        "ok": True,
+        "recycled": info,
+        "note": "Sent to Recycle Bin (not permanent delete)",
+    }

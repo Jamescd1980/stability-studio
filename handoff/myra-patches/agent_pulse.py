@@ -80,8 +80,8 @@ def _post_one(aid: str) -> None:
         body.setdefault("name", "Nari")
         body.setdefault("role", "Create · ComfyBox")
     elif aid == "orla":
-        body.setdefault("name", "Orla")
-        body.setdefault("role", "Polish · Windows")
+        body["name"] = "Orla"
+        body["role"] = "Coder · Windows"  # force — old pulses cached "Polish"
     try:
         data = json_dumps(body)
         req = Request(

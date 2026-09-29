@@ -396,6 +396,45 @@
       border-color: transparent;
       animation: blink 1s step-end infinite;
     }
+    .chip.nari {
+      font-family: var(--mono);
+      letter-spacing: .04em;
+    }
+    .chip.nari.igpu {
+      color: #031018;
+      background: var(--accent);
+      border-color: transparent;
+    }
+    .chip.nari.dgpu {
+      color: #14081c;
+      background: var(--forge);
+      border-color: transparent;
+    }
+    .chip.nari.cpu {
+      color: #1a1200;
+      background: var(--warn);
+      border-color: transparent;
+    }
+    .chip.nari.off {
+      color: var(--muted);
+      background: rgba(0,0,0,.28);
+    }
+    .agent-device {
+      display: inline-block;
+      margin-top: 4px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      font-family: var(--mono);
+      color: var(--accent);
+      background: rgba(62,199,255,.12);
+      border: 1px solid rgba(62,199,255,.28);
+    }
+    .agent-device.dgpu { color: var(--forge); background: rgba(180,120,255,.12); border-color: rgba(180,120,255,.28); }
+    .agent-device.cpu { color: var(--warn); background: rgba(255,176,32,.12); border-color: rgba(255,176,32,.28); }
+    .agent-device.off { color: var(--muted); background: rgba(255,255,255,.04); border-color: rgba(255,255,255,.08); }
     .hint { opacity: .8; }
     @keyframes blink {
       0%, 100% { opacity: 1; }
@@ -435,7 +474,7 @@
               </svg>
               <div class="label">GPU</div>
               <div class="readout" id="gpuTemp">—</div>
-              <div class="sub" id="gpuName">7900 XT</div>
+              <div class="sub" id="gpuName">RTX 5090</div>
             </div>
             <div class="dual-col">
               <svg viewBox="0 0 120 90" aria-hidden="true">
@@ -491,6 +530,8 @@
           <div class="meta">
             <div class="cell"><div class="k">HOST</div><div class="v" id="host">comfybox</div></div>
             <div class="cell"><div class="k">QUEUE</div><div class="v" id="queue">0</div></div>
+            <div class="cell"><div class="k">NARI</div><div class="v" id="nariDevice">—</div></div>
+            <div class="cell"><div class="k">FAN</div><div class="v" id="fanRpm">—</div></div>
             <div class="cell session"><div class="k">SESSION</div><div class="v" id="session">—</div></div>
             <div class="cell"><div class="k">JOB</div><div class="v" id="sessionJob">idle</div></div>
           </div>
@@ -623,25 +664,50 @@
       document.getElementById("sparkArea").setAttribute("d", area);
     }
 
+    function nariChip(s) {
+      const id = String((s && s.nari_device) || "unloaded").toLowerCase();
+      const label = (s && s.nari_device_label) || "—";
+      if (id === "igpu") return ["NARI · iGPU", "nari igpu"];
+      if (id === "dgpu") return ["NARI · 5090", "nari dgpu"];
+      if (id === "cpu") return ["NARI · CPU", "nari cpu"];
+      if (id === "error") return ["NARI · ?", "nari hot"];
+      return ["NARI · OFF", "nari off"];
+    }
+
     function renderAgents(agents) {
       const root = document.getElementById("agents");
-      const list = Array.isArray(agents) && agents.length
-        ? agents
+      const raw = Array.isArray(agents) ? agents : [];
+      const list = raw.filter((a) => String(a.id || "").toLowerCase() !== "orla").length
+        ? raw.filter((a) => String(a.id || "").toLowerCase() !== "orla")
         : [
             { id: "myra", name: "Myra", role: "Gofor · Pi", status: "unknown", detail: "No data" },
             { id: "nari", name: "Nari", role: "Create · ComfyBox", status: "unknown", detail: "" },
-            { id: "orla", name: "Orla", role: "Polish · Windows", status: "unknown", detail: "" },
           ];
       root.innerHTML = list.map((a) => {
         const st = String(a.status || "unknown").toLowerCase();
         const label = STATUS_LABEL[st] || st.replace(/_/g, " ");
         const detail = a.detail || "";
+        const isNari = String(a.id || "").toLowerCase() === "nari";
+        const deviceId = String(a.device_id || "").toLowerCase();
+        const deviceLabel = a.device || "";
+        let deviceHtml = "";
+        if (isNari) {
+          const klass = deviceId === "dgpu" ? "dgpu"
+            : deviceId === "cpu" ? "cpu"
+            : deviceId === "igpu" ? ""
+            : "off";
+          const text = deviceId === "unloaded" || !deviceLabel || deviceLabel === "—"
+            ? "unloaded"
+            : deviceLabel;
+          deviceHtml = `<div class="agent-device ${klass}">${text}</div>`;
+        }
         return `<div class="agent ${st}">
           <div class="dot"></div>
           <div class="agent-body">
             <div class="agent-name">${a.name || a.id}</div>
             <div class="agent-role">${a.role || ""}</div>
             <div class="agent-status">${label}</div>
+            ${deviceHtml}
             <div class="agent-detail">${detail}</div>
           </div>
         </div>`;
@@ -691,6 +757,7 @@
       const pw = s && s.gpu_power_w;
       const sclk = s && s.gpu_sclk_mhz;
       const mclk = s && s.gpu_mclk_mhz;
+      const fan = s && s.gpu_fan_rpm;
 
       const gpuPct = typeof gt === "number" ? Math.max(0, Math.min(100, ((gt - 35) / 65) * 100)) : 0;
       const cpuPct = typeof ct === "number" ? Math.max(0, Math.min(100, ((ct - 30) / 70) * 100)) : 0;
@@ -702,7 +769,11 @@
       const gpuEl = document.getElementById("gpuTemp");
       gpuEl.textContent = fmtTemp(typeof gt === "number" ? gt : null);
       gpuEl.style.color = tempTone(typeof gt === "number" ? gt : null, "gpu");
-      setText("gpuName", (s && s.gpu_name) ? String(s.gpu_name).replace(/^Radeon\s+/i, "") : "GPU");
+      setText("gpuName", (s && s.gpu_name)
+        ? String(s.gpu_name)
+            .replace(/^NVIDIA\s+GeForce\s+/i, "")
+            .replace(/^Radeon\s+/i, "")
+        : "RTX 5090");
       setText("gpuUtil", typeof gu === "number" ? `${Math.round(gu)}%` : "—");
       document.getElementById("gpuUtil").style.color = pctTone(typeof gu === "number" ? gu : null);
       setText("gpuPower", typeof pw === "number" ? `${Math.round(pw)} W` : "— W");
@@ -718,7 +789,24 @@
       const bits = [];
       if (typeof sclk === "number") bits.push(`${Math.round(sclk)}`);
       if (typeof mclk === "number") bits.push(`${Math.round(mclk)}`);
-      setText("clocks", bits.length ? `${bits.join(" / ")} MHz` : "SCLK / MCLK");
+      setText("clocks", bits.length ? `${bits.join(" / ")} MHz` : "GR / MEM");
+      setText("fanRpm", typeof fan === "number" ? `${Math.round(fan)} RPM` : "—");
+
+      const nariId = String((s && s.nari_device) || "unloaded").toLowerCase();
+      const nariLabel = (s && s.nari_device_label) || "—";
+      const nariMeta = nariId === "unloaded" ? "OFF"
+        : nariId === "error" ? "?"
+        : nariLabel;
+      setText("nariDevice", nariMeta);
+      const nariEl = document.getElementById("nariDevice");
+      if (nariEl) {
+        nariEl.style.color =
+          nariId === "igpu" ? "var(--accent)" :
+          nariId === "dgpu" ? "var(--forge)" :
+          nariId === "cpu" ? "var(--warn)" :
+          nariId === "error" ? "var(--hot)" :
+          "var(--muted)";
+      }
 
       setText("sparkNow", fmtTemp(typeof gt === "number" ? gt : null));
       setText("host", (s && s.host) || "comfybox");
@@ -730,6 +818,7 @@
       const sessMs = updateSession(job, detail);
 
       const chips = [];
+      chips.push(nariChip(s));
       if (hot) chips.push(["GPU HOT", "hot"]);
       if (sessMs != null) chips.push([`⏱ ${fmtDuration(sessMs)}`, "session"]);
       if (s && s.training) chips.push(["TRAIN", "accent"]);
@@ -739,7 +828,7 @@
       const hung = (s && s.agents || []).some(a => String(a.status).toLowerCase() === "hung" || a.ok === false);
       if (hung) chips.push(["AGENT FAULT", "hot"]);
       document.getElementById("chips").innerHTML = chips.map(([t, c]) =>
-        `<span class="chip ${c}">${t}</span>`).join("") || `<span class="chip">STANDBY</span>`;
+        `<span class="chip ${c}">${t}</span>`).join("");
 
       document.getElementById("hint").textContent =
         `Tap = °${tempUnit === "F" ? "C" : "F"} · agents left · “hide ComfyBox” → clock`;

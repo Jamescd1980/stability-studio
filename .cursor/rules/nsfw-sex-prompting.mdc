@@ -7,6 +7,17 @@ alwaysApply: true
 
 When writing prompts, captions, VLM tags, Nari expands, WAN I2V beats, or ControlNet scene text for sexual content:
 
+## Do / Don't → Positive / Negative
+
+- **Do** (what to show) → **Positive prompt**
+- **Do not** (what to avoid) → **Negative prompt**
+- Full table + lexicon: `docs/PROMPTING.md` (MCP doc id `prompting`)
+
+## Lexicon: gold standard is NOT model text
+
+**gold standard** / detail hero / recreate 003 = house **settings + models + LoRAs + prompt_tail/neg extras** via `resolve_style_lane`.  
+**Never** write those words into Positive or Negative for Forge/ComfyUI — the model will try to draw them.
+
 ## waijfu_alpha: description + sex act (best pattern)
 
 Canonical examples live in Invoke gallery metadata (not stripped):

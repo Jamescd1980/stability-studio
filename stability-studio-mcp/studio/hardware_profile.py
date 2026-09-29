@@ -227,7 +227,7 @@ def build_hardware_profile(cfg: dict[str, Any], comfy: ComfyUIClient | None) -> 
         "labor_split": {
             "comfybox": {
                 "role": "GPU-heavy diffusion",
-                "host": "RX 7900 XT :8188 ComfyUI / :7860 Forge (exclusive)",
+                "host": "RTX 5090 :8188 ComfyUI / :7860 Forge (exclusive)",
                 "tasks": [
                     "generate_image",
                     "refine_image_forge / generate_image_forge",

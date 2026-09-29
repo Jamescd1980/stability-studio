@@ -1,0 +1,32 @@
+{
+  "asked": "(from PNG) studio_agent_00025_.png",
+  "expanded_prompt": "masterpiece, best quality, amazing quality, anime illustration, nb_frieren, 1girl, solo, silver-white hair, long hair in high ponytail, elf, pointed ears, red teardrop earrings, white string bikini, eyes closed, blissful smile, head tilted back to sun, leaning back against dark sunlit lakeside rocks, arms supporting, mid-thigh in crystal clear turquoise lake, water ripples, pale wet glossy skin, visible water droplets on shoulders chest and face, bright specular highlights, warm direct sunlight from upper right, sun lens flare, pine forest shoreline, deep blue sky with fluffy clouds, no mountains close behind, summer glamour lighting, highly detailed",
+  "negative_prompt": "lowres, bad anatomy, bad hands, text, watermark, blurry, worst quality, photorealistic, 3d render, plastic skin, extra fingers, logo, signature, NEURAL ANIME, overexposed, washed out, flat lighting, blue bikini, light blue swimsuit, lilac hair, purple hair, matte dry skin, cool shadows, overexposed white blowout, busy mountain backdrop",
+  "checkpoint": "waijfu_alpha.safetensors",
+  "loras": [
+    {
+      "file": "Frieren/Frieren.safetensors",
+      "weight": 0.78
+    },
+    {
+      "file": "Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors",
+      "weight": 0.9
+    },
+    {
+      "file": "LensFlare_LightLeak_IL.safetensors",
+      "weight": 0.55
+    },
+    {
+      "file": "ILDetailerV2.safetensors",
+      "weight": 0.55
+    }
+  ],
+  "width": 1024,
+  "height": 1376,
+  "steps": 30,
+  "cfg": 5.0,
+  "cast": "nb_frieren",
+  "source": "png_comfy_workflow",
+  "windows_path": "D:\\ComfyBox Images and Videos\\Images\\studio_agent_00025_.png",
+  "comfy_filename": "studio_agent_00025_.png"
+}

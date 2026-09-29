@@ -77,7 +77,11 @@ Generation tools **only work when**:
 | `check_style_assets` / `download_style_assets` | Flux2 / checkpoint manifest |
 | `check_wan_video_loras` / `download_wan_video_loras` | Optional Wan motion/face/lighting LoRAs |
 | `check_painter_i2v_dependencies` / `install_painter_i2v_dependencies` | PainterI2V motion node |
-| `generate_video` | `mode=t2v|i2v|v2v`; auto **`applied_safety_caps`** on ≤16 GB; **`smooth_motion=false`** recommended |
+| `generate_video` | `mode=t2v|i2v|v2v` — **`mode=v2v` = extend from last frame only**, not latent clean. Caps on ≤16 GB; **`smooth_motion=false`** recommended |
+| `list_video_workflows` | Catalog ids incl. **`v2v_upscale`** (true latent clean graph — ComfyUI UI / not wired into `generate_video` yet) |
+| `check_comfyui_dependencies` / `install_comfyui_dependencies` | Node packs for a `workflow_id` (e.g. `v2v_upscale`) — on ComfyBox prefer SSH into `~/ComfyUI/custom_nodes` |
+| `recommend_polish` / `polish_wan_best` | Main-rig post. Saloon / no-RIFE: `skip_interpolate=true` (SeedVR-only). **Gate vs master** — SeedVR can look worse (SS02 2026-08-20); keep original if so |
+| `check_local_post` | RIFE-ncnn + SeedVR2 readiness on the 5060 Ti polish rig |
 | `plan_storyboard_scene` | **Hero** storyboard plan (Wan2GP + MOSS + splice) — see STORYBOARD-QUICKSTART.md |
 | `check_storyboard_readiness` | MOSS + Wan2GP hero + GPU + `outputs.delivery` layout |
 | **Storyboard module** | `studio/storyboard_cli.py` — reusable plan/check/splice |
@@ -124,6 +128,8 @@ Call **`get_generation_context`** and read `hardware_profile`, `generation_limit
 - **Video T2V:** `workflow_id=t2v` — Wan 2.1 1.3B; **81 frames max** on 16 GB (validated 2026-06-11)
 - **Video I2V draft:** `mode=i2v` + `image_path` → **`i2v_5b`** / **`i2v_5b_painter`**; **65 frames max** on 16 GB
 - **Video I2V 14B / NSFW:** `workflow_id=i2v` — Wan 2.2 A14B MoE; LoRA pairs (`female_orgasm`, Lightning); one job at a time; gate first frame vs still
+- **Video V2V naming:** `mode=v2v` / `v2v_5b*` = **extend** (last-frame I2V + optional concat). **Latent clean** = catalog `v2v_upscale` (Wan 1.3B denoise ~0.1, mute RIFE). Do not call `generate_video(mode=v2v)` to “clean” a keeper.
+- **Polish (main rig):** `recommend_polish` → often SeedVR-only; **always A/B vs original** — reject if softer (Saloon SS02 SeedVR 2026-08-20)
 - **Video I2V hero:** **`generate_video_hero`** — Wan2GP Enhanced Lightning v2; **49 frames @ 832×480** validated (2026-06-12) — `outputs/wan2gp_bow_hero_result.json`
 - **Bow from still:** hero → `generate_video_hero`; draft → `i2v_5b_painter` `motion_amplitude=1.1`, 49 frames
 

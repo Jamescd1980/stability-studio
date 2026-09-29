@@ -211,6 +211,33 @@ WAN_VIDEO_LORAS: dict[str, dict[str, Any]] = {
         "workflows": ["i2v"],
         "purpose": "Oral insertion LOW. Pair with oral_insertion_i2v_high.",
     },
+    # Ultimate DeepThroat K3NK — Elven Appetite / Pale Elf Rider BJ keepers (with oral_insertion).
+    "ultimate_deepthroat_i2v_high": {
+        "id": "ultimate_deepthroat_i2v_high",
+        "filename": "wan22-ultimatedeepthroat-i2v-102epoc-high-k3nk.safetensors",
+        "folder": "loras",
+        "repo": "",
+        "path": "wan22-ultimatedeepthroat-i2v-102epoc-high-k3nk.safetensors",
+        "size_hint": "~293 MB",
+        "default_weight": 0.45,
+        "branch": "high",
+        "pair_id": "ultimate_deepthroat_i2v_low",
+        "workflows": ["i2v"],
+        "purpose": "Ultimate DeepThroat HIGH. Vertical bury/bob. Pair with oral_insertion for deepthroat keepers.",
+    },
+    "ultimate_deepthroat_i2v_low": {
+        "id": "ultimate_deepthroat_i2v_low",
+        "filename": "wan22-ultimatedeepthroat-I2V-101epoc-low-k3nk.safetensors",
+        "folder": "loras",
+        "repo": "",
+        "path": "wan22-ultimatedeepthroat-I2V-101epoc-low-k3nk.safetensors",
+        "size_hint": "~293 MB",
+        "default_weight": 0.45,
+        "branch": "low",
+        "pair_id": "ultimate_deepthroat_i2v_high",
+        "workflows": ["i2v"],
+        "purpose": "Ultimate DeepThroat LOW. Pair with ultimate_deepthroat_i2v_high.",
+    },
     # Missionary Sex — already-in thrust (not tip→bury). playtime_ai mirrors.
     "missionary_sex_i2v_high": {
         "id": "missionary_sex_i2v_high",
@@ -357,6 +384,18 @@ WAN_VIDEO_LORA_BUNDLES: dict[str, list[str]] = {
     ],
     # Action pairs — one per keeper; quality MoE (no Lightning) unless draft.
     "oral_insertion": ["oral_insertion_i2v_high", "oral_insertion_i2v_low"],
+    # Proven Elven Appetite / Pale Elf Rider deepthroat stack (oral + Ultimate DeepThroat).
+    # Exception to one-action-pair rule — see LESSONS-WAN-I2V.md BJ recipe.
+    "oral_deepthroat": [
+        "oral_insertion_i2v_high",
+        "oral_insertion_i2v_low",
+        "ultimate_deepthroat_i2v_high",
+        "ultimate_deepthroat_i2v_low",
+    ],
+    "ultimate_deepthroat": [
+        "ultimate_deepthroat_i2v_high",
+        "ultimate_deepthroat_i2v_low",
+    ],
     "missionary_sex": ["missionary_sex_i2v_high", "missionary_sex_i2v_low"],
     "pov_insertion": ["pov_insertion_i2v_high", "pov_insertion_i2v_low"],
     "doggy_sex": ["doggy_sex_i2v_high", "doggy_sex_i2v_low"],
@@ -378,11 +417,21 @@ WAN_ACTION_LORA_SCENE_HINTS: list[tuple[str, tuple[str, ...]]] = [
         ),
     ),
     (
+        "oral_deepthroat",
+        (
+            "deepthroat",
+            "deep throat",
+            "throat",
+            "bury in her mouth",
+            "takes him deeper",
+            "mouth slides down",
+        ),
+    ),
+    (
         "oral_insertion",
         (
             "blowjob",
             "fellatio",
-            "deepthroat",
             "oral",
             "cock in mouth",
             "cock into her mouth",
@@ -464,6 +513,8 @@ def suggest_wan_action_lora(
         bh = beat_hint.strip().lower()
         if bh in (
             "oral_insertion",
+            "oral_deepthroat",
+            "ultimate_deepthroat",
             "missionary_sex",
             "pov_insertion",
             "doggy_sex",
@@ -513,6 +564,8 @@ def suggest_wan_action_lora(
         "missing": status.get("missing") or [],
         "bundles_action": [
             "oral_insertion",
+            "oral_deepthroat",
+            "ultimate_deepthroat",
             "doggy_sex",
             "pov_insertion",
             "missionary_sex",
@@ -521,11 +574,13 @@ def suggest_wan_action_lora(
         "note": (
             "Before every NSFW Wan I2V keeper: run resolve_wan_action_loras (or "
             "check_wan_video_loras) and pass lora_bundle when a match is ready. "
-            "Stack limit: Lightning (draft only) + at most one action pair."
+            "Stack limit: Lightning (draft only) + at most one action pair "
+            "(exception: oral_deepthroat = oral_insertion + Ultimate DeepThroat)."
             if matched_bundle
             else (
                 "No action bundle matched — if this is sex/oral/doggy/insert, set "
-                "beat_hint=oral_insertion|doggy_sex|pov_insertion|missionary_sex|facial_cum "
+                "beat_hint=oral_insertion|oral_deepthroat|doggy_sex|pov_insertion|"
+                "missionary_sex|facial_cum "
                 "explicitly, then check/download before generate_video."
             )
         ),

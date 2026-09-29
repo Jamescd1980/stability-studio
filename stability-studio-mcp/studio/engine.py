@@ -25,6 +25,8 @@ from studio.checkpoint_metadata import validate_style_architecture
 from studio.face_detail_assets import ensure_face_detail_ready
 from studio.edit_pipeline import (
     ART_FOOD_GROUPS,
+    DEFAULT_HYBRID_DENOISE,
+    DEFAULT_IPADAPTER_WEIGHT,
     enrich_edit_prompts,
     plan_edit,
     resolve_style_for_edit,
@@ -893,8 +895,8 @@ class GenerationEngine:
         seed: int | None = None,
         steps: int | None = None,
         cfg: float | None = None,
-        denoising_strength: float = 1.0,
-        ipadapter_weight: float = 0.85,
+        denoising_strength: float = 0.45,
+        ipadapter_weight: float = 0.55,
         depth_strength: float = 0.52,
         canny_strength: float = 0.62,
         preserve_subject: bool = True,
@@ -903,8 +905,9 @@ class GenerationEngine:
         content_rating: str | None = None,
     ) -> dict[str, Any]:
         """
-        Unified image edit: classifies intent and runs i2i, inpaint, ControlNet, or hybrid pipeline.
+        Unified image edit: classifies intent and runs i2i, inpaint, ControlNet, hybrid, or Forge face.
         food_group: anime | fantasy | cyberpunk | photoreal (four art food groups).
+        Face/identity asks auto-route to refine_face_forge (never hybrid scene masks).
         """
         plan = plan_edit(
             instruction=instruction,
@@ -931,7 +934,116 @@ class GenerationEngine:
 
         working_image = str(src)
 
+        # Face jobs: ignore leftover demo masks even if the agent passed them
+        if plan.get("face_job") and (mask_region or "").strip().lower() in {
+            "church_tower",
+            "right_building",
+            "church",
+            "sky",
+        }:
+            stages.append(
+                {
+                    "stage": "mask_region_ignored",
+                    "requested": mask_region,
+                    "reason": "Face edit — refusing demo building/sky masks",
+                }
+            )
+            mask_region = ""
+
+        # Face -> Forge refine_face_forge (preferred). Fallback: Comfy i2i + face_detail.
+        if pipeline == "forge_face" or plan.get("face_job"):
+            from studio.forge_backend import forge_is_reachable, switch_stills_backend
+            from studio.forge_face_refine import refine_face_forge as _refine_face_forge
+
+            forge_ok = forge_is_reachable(self.cfg)
+            if not forge_ok:
+                sw = switch_stills_backend(self.cfg, backend="forge", wait=True)
+                stages.append({"stage": "switch_stills_backend", "backend": "forge", "result": sw})
+                forge_ok = bool(sw.get("ok")) or forge_is_reachable(self.cfg)
+
+            if forge_ok:
+                # Pass through tool denoise when caller set a real value (strong rewrite)
+                face_denoise = None
+                try:
+                    if denoising_strength is not None and float(denoising_strength) > 0:
+                        face_denoise = float(denoising_strength)
+                except (TypeError, ValueError):
+                    face_denoise = None
+                forge_result = _refine_face_forge(
+                    self.cfg,
+                    image_path=working_image,
+                    face_prompt=prompt_add,
+                    negative_prompt=merged_neg or "",
+                    preset="face_refine",
+                    denoise=face_denoise,
+                    seed=seed if seed is not None else -1,
+                )
+                stages.append({"stage": "refine_face_forge", "result": forge_result})
+                out = {
+                    **forge_result,
+                    "ok": bool(forge_result.get("ok") or forge_result.get("pass") or forge_result.get("send_to_user")),
+                    "backend": "forge",
+                    "routed": "refine_face_forge",
+                    "edit_plan": plan,
+                    "food_group": plan.get("food_group"),
+                    "stages": stages,
+                    "agent_hint": plan.get("agent_hint"),
+                }
+                if run_verification:
+                    out["verification"] = verify_edit_result(
+                        instruction=instruction, plan=plan, result=out
+                    )
+                return out
+
+            stages.append(
+                {
+                    "stage": "forge_unavailable",
+                    "fallback": "comfy_i2i_face_detail",
+                    "hint": "switch_stills_backend(forge) failed — using Comfy face_detail fallback",
+                }
+            )
+            pipeline = "i2i"
+            plan = {**plan, "pipeline": "i2i", "face_detail": True}
+
+        # Resolve denoise / IP-Adapter — never silently run denoise 1.0 on preserve edits
+        hybrid_denoise = float(
+            denoising_strength
+            if denoising_strength is not None and float(denoising_strength) < 0.95
+            else (plan.get("denoise_hybrid") or DEFAULT_HYBRID_DENOISE)
+        )
+        if float(denoising_strength or 0) >= 0.95 and pipeline.startswith("hybrid"):
+            hybrid_denoise = float(plan.get("denoise_hybrid") or DEFAULT_HYBRID_DENOISE)
+            stages.append(
+                {
+                    "stage": "denoise_clamped",
+                    "requested": denoising_strength,
+                    "used": hybrid_denoise,
+                    "reason": "Refuse silent denoise~1.0 on hybrid/preserve — pass an explicit mid value if you need stronger.",
+                }
+            )
+        ip_weight = float(
+            ipadapter_weight
+            if ipadapter_weight is not None and float(ipadapter_weight) <= 0.7
+            else (plan.get("ipadapter_weight") or DEFAULT_IPADAPTER_WEIGHT)
+        )
+        if float(ipadapter_weight or 0) > 0.7 and pipeline.startswith("hybrid"):
+            ip_weight = float(plan.get("ipadapter_weight") or DEFAULT_IPADAPTER_WEIGHT)
+            stages.append(
+                {
+                    "stage": "ipadapter_clamped",
+                    "requested": ipadapter_weight,
+                    "used": ip_weight,
+                    "reason": "High IP-Adapter warps composition on preserve edits; default 0.55 unless you pass <=0.7 intentionally with a real mask.",
+                }
+            )
+
         if pipeline == "i2i":
+            i2i_denoise = float(plan.get("denoise_i2i") or 0.35)
+            if denoising_strength is not None:
+                d = float(denoising_strength)
+                # Ignore hybrid-oriented tool default (0.45) when plan already set face/mood denoise
+                if abs(d - DEFAULT_HYBRID_DENOISE) > 0.001 and 0.05 <= d < 0.95:
+                    i2i_denoise = d
             result = self.generate_image_i2i(
                 image_path=working_image,
                 prompt=prompt_add,
@@ -940,12 +1052,19 @@ class GenerationEngine:
                 seed=seed,
                 steps=steps,
                 cfg=cfg,
-                denoising_strength=plan.get("denoise_i2i") or 0.35,
+                denoising_strength=i2i_denoise,
+                face_detail=bool(plan.get("face_detail")),
                 backend=backend,
                 content_rating=content_rating,
             )
-            stages.append({"stage": "i2i", "result": result})
-            out = {**result, "edit_plan": plan, "food_group": plan.get("food_group"), "stages": stages}
+            stages.append({"stage": "i2i", "result": result, "face_detail": bool(plan.get("face_detail"))})
+            out = {
+                **result,
+                "edit_plan": plan,
+                "food_group": plan.get("food_group"),
+                "stages": stages,
+                "routed": "i2i_face_detail" if plan.get("face_detail") else "i2i",
+            }
 
         elif pipeline == "controlnet":
             result = self.generate_image_controlnet(
@@ -987,7 +1106,7 @@ class GenerationEngine:
                 working_image = files[-1]
 
             mask_path: str | None = None
-            effective_region = mask_region or plan.get("mask_region_fallback") or "right_building"
+            effective_region = (mask_region or plan.get("mask_region_fallback") or "").strip()
             seg_prompt = plan.get("segment_prompt") or segment_prompt
             if seg_prompt:
                 mask_local, fallback_region = segment_image_to_mask(
@@ -1000,8 +1119,46 @@ class GenerationEngine:
                     mask_path = str(mask_local)
                     stages.append({"stage": "segment", "segment_prompt": seg_prompt, "mask_path": mask_path})
                 else:
-                    effective_region = fallback_region
-                    stages.append({"stage": "segment_fallback", "mask_region": effective_region})
+                    # Only accept geometric fallback if the plan/instruction named a region —
+                    # never invent church_tower / right_building from a failed segment.
+                    if fallback_region and effective_region:
+                        effective_region = fallback_region
+                        stages.append({"stage": "segment_fallback", "mask_region": effective_region})
+                    else:
+                        stages.append(
+                            {
+                                "stage": "segment_failed",
+                                "segment_prompt": seg_prompt,
+                                "error": "Segmentation produced no mask and no instruction-named region fallback.",
+                            }
+                        )
+
+            if not mask_path and effective_region.lower() in {"", "none", "off", "auto"}:
+                return {
+                    "ok": False,
+                    "error": (
+                        "Regional edit needs an explicit mask_region or segment_prompt "
+                        "(or a successful segment mask). Refusing silent church_tower/right_building fallback. "
+                        "For faces: use refine_face_forge or leave mode=auto (routes to i2i+face_detail)."
+                    ),
+                    "edit_plan": plan,
+                    "stages": stages,
+                    "hint": plan.get("agent_hint"),
+                }
+
+            # Never allow leftover demo region names unless the instruction asked for them
+            if not mask_path and effective_region in {"church_tower", "right_building"}:
+                named = plan.get("mask_region_fallback")
+                if named != effective_region and mask_region != effective_region:
+                    return {
+                        "ok": False,
+                        "error": (
+                            f"Refusing demo mask_region={effective_region!r}. "
+                            "Pass mask_region explicitly if you really mean that geometric region."
+                        ),
+                        "edit_plan": plan,
+                        "stages": stages,
+                    }
 
             flag_ref = flag_reference or ""
             if not flag_ref and plan.get("flag_reference"):
@@ -1023,8 +1180,8 @@ class GenerationEngine:
                     seed=seed,
                     steps=steps,
                     cfg=cfg,
-                    denoising_strength=denoising_strength,
-                    ipadapter_weight=ipadapter_weight,
+                    denoising_strength=hybrid_denoise,
+                    ipadapter_weight=ip_weight,
                     backend=backend,
                     content_rating=content_rating,
                 )
@@ -1037,7 +1194,7 @@ class GenerationEngine:
                     seed=seed,
                     steps=steps,
                     cfg=cfg,
-                    denoising_strength=denoising_strength,
+                    denoising_strength=hybrid_denoise,
                     backend=backend,
                     content_rating=content_rating,
                 )
@@ -1281,7 +1438,7 @@ class GenerationEngine:
         reference_image_path: str | None = None,
         flag_reference: str = "",
         mask_path: str | None = None,
-        mask_region: str = "church_tower",
+        mask_region: str = "",
         style: str | None = None,
         negative_prompt: str | None = None,
         checkpoint: str | None = None,
@@ -1291,8 +1448,8 @@ class GenerationEngine:
         steps: int | None = None,
         cfg: float | None = None,
         seed: int | None = None,
-        denoising_strength: float = 0.55,
-        ipadapter_weight: float = 0.85,
+        denoising_strength: float = 0.45,
+        ipadapter_weight: float = 0.55,
         ipadapter_ref_size: int = 256,
         use_controlnet_depth: bool = False,
         controlnet_depth_strength: float = 0.75,
@@ -1350,9 +1507,9 @@ class GenerationEngine:
         ref_uploaded = self.comfy.upload_image(ref_path) if ref_path else None
 
         mask_uploaded = None
-        effective_mask_region = mask_region
-        if effective_mask_region.lower() in {"top", "sky", "church"}:
-            effective_mask_region = "church_tower"
+        effective_mask_region = (mask_region or "").strip()
+        aliases = {"sky": "top_third", "church": "church_tower", "top": "top_third"}
+        effective_mask_region = aliases.get(effective_mask_region.lower(), effective_mask_region)
         if mask_path:
             mp = Path(mask_path)
             if mp.is_file():
@@ -1362,6 +1519,12 @@ class GenerationEngine:
             mask_file = self.output_dir / f"_mask_{seed or 0}_{effective_mask_region}.png"
             write_region_mask_png(mask_file, mw, mh, region=effective_mask_region)
             mask_uploaded = self.comfy.upload_image(mask_file)
+        else:
+            raise ValueError(
+                "inpaint_advanced requires mask_path or an explicit mask_region "
+                "(e.g. top_third, right_building, full). Empty region is refused — "
+                "church_tower is no longer the default."
+            )
 
         chosen = self.pick_backend(backend)
         if chosen == "invoke":

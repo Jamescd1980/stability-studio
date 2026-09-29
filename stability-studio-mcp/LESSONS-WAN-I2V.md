@@ -1,13 +1,13 @@
 # Lessons learned — Wan I2V (14B / NSFW)
 
-Updated **2026-08-05** — LinuxBox on **RTX 5090 CUDA** (32 GB); keeper res/frames can go higher after smoke — see [LESSONS-COMFYBOX-CUDA.md](../LESSONS-COMFYBOX-CUDA.md). Prior: **2026-08-04** Saloon SS04_002 drip I2V frozen×3 (below); **2026-07-31** Wild Fern dual-face / fake EBSynth; **2026-07-25** SS04 cum; **2026-07-23** SS02; **2026-07-20** Stage2 tease.
+Updated **2026-08-20** — V2V naming trap + Saloon SS02 SeedVR reject (original preferred). Prior: **2026-08-13** — Casting Couch Act 2 **004** double-dildo: Wan I2V needs a **mechanical explanation**, not an SDXL-short prompt. Prior: **2026-08-12** Casting Couch BJ autopsy (004 deepthroat twist fail) + BJ recipe review; catalog `oral_deepthroat` / Ultimate DeepThroat. Prior: **2026-08-11** Casting Couch Darkness **001 lick** keeper (house-best oral lick). Prior: **2026-08-05** LinuxBox RTX 5090 CUDA; **2026-08-04** Saloon SS04_002 drip I2V frozen×3; **2026-07-31** Wild Fern dual-face / fake EBSynth; **2026-07-25** SS04 cum; **2026-07-23** SS02; **2026-07-20** Stage2 tease.
 
 ## Blame split (so we fix the right layer)
 
 | Layer | Share | What went wrong | Fix |
 |-------|------:|-----------------|-----|
 | **Tools / defaults** | ~40% | MoE `default` preset used **Lightning 12-step** for keepers; amp defaults high; runner batched beats; lastframe extract flaky | Default preset = **quality (20 step, no Lightning)**; `draft=True` / `moe_preset=fast` only for probes; one-beat runners; solid lastframe extract |
-| **Process** | ~35% | Treated each gen as shippable; chained without mid-clip gates; asked for too much motion per chunk; essay prompts | One verb / clip; human approve lastframe before chain; gate f0 + mid + last; short prompts |
+| **Process** | ~35% | Treated each gen as shippable; chained without mid-clip gates; asked for too much motion per chunk; **identity essays** (STYLE/EYE/MOUTH) *or* **SDXL-short motion** (one tag, no mechanics) | One beat / clip; human approve lastframe before chain; gate f0 + mid + last; **explain the motion** (object + where + cycle); never identity essays |
 | **Us (agent)** | ~25% | Repeated amp/prompt knobs instead of preset; queued Stage3 mid-Stage2; batched build+slam; overLOCK (eyes/mouth invent faces) | Follow `.cursor/rules/wan-i2v-chaining.mdc`; diagnose frames before retry; stop side-scenes mid-chain |
 
 Not “Wan can’t do video.” Wrong **default quality path** + **process that re-amplified drift**.
@@ -22,8 +22,9 @@ Not “Wan can’t do video.” Wrong **default quality path** + **process that 
 6. **Free VRAM** after heavy runs when needed.
 7. **Delivery layout:** `Video\Theater Jobs\<Scene>\Work\` (WIP) → `Completed Scene\` (finals). Images under `Images\Theater Jobs\<Scene>\Stills\`. See `docs/MEDIA_DELIVERY_LAYOUT.md`. Fails → Recycle Bin.
 8. **Rear-view / head-away clips:** do not prompt eyes/mouth (invents a face).
-9. **Mouth (front-facing):** soft breathing / quiet moan only — no talk / lip-sync.
+9. **Mouth (front-facing):** drop mouth tags unless the beat is oral. Soft still expression is enough. `mouth opens in pleasure` on high-angle front I2V **melts/deforms the mouth** (CCA2-004 v12). No talk / lip-sync.
 10. **Dual-hand beats:** both hands keep moving or one freezes.
+11. **Wan motion prompts are explanations, not checkpoint tags.** SDXL stills can live on a short vulgar line. I2V/FLF keepers need: **what must persist** (lead the prompt — toys/shafts vanish if mentioned last) → **where it is in frame** → **the motion cycle (out-and-back)** → act tags → secondary jiggle/face. One-verb still-style lines freeze or move the wrong body. Identity still comes from the start image — do **not** essay STYLE/EYE/MOUTH. Never `detailed face` / `symmetrical eyes` / `camera`.
 
 ## Chaining for length (required approach)
 
@@ -40,7 +41,7 @@ last_A   →  clip_B (quality, one new verb)  →  [gate]  →  last_B
 - Length: default **49f** (~3s) for soft/dialogue motion. **Hard contact / dual-face doggy:** prefer **21f (~1.3s) single micro-thrust** then splice/ping-pong — multi-thrust 49f melts eyes first.
 - **Short FLF loops (preferred for sex keepers):** `workflow_id=flf2v`, **same forge still** as `image_path` + `end_image_path`, `moe_preset=quality`, action LoRA pair. Prompt must say **out-and-back / return to start pose** (same-still FLF freezes on soft “subtle” verbs). Prefer **`num_frames=21–33`** (~1.3–2s); **13–17f + subtle bob = dead plate** (Saloon BJ02 2026-08-02). Loop/ping-pong in post for longer.
 - Res (LinuxBox RTX 5090 ~32GB): keepers up to **1080²** / longer clips (65–81f) after smoke; older 20GB notes used **960²**. Do not ship 720×400 when faces matter.
-- Prompt: short; **one motion verb**; image carries identity. Never append `detailed face` / `symmetrical eyes` on video (engine video anatomy hint must omit eyes).
+- Prompt: **mechanical explanation of the beat**, not a ComfyUI checkpoint one-liner. Image carries identity (no STYLE/EYE/MOUTH essays). One **beat** per clip — not exit + re-entry + head throw. Never append `detailed face` / `symmetrical eyes` on video (engine video anatomy hint must omit eyes). Same-still FLF: say **out-and-back / backward and forwards**; “slightly” freezes.
 - `motion_amplitude` ≤ 0.75 unless user accepts melt risk (PainterI2V-only; no-op on MoE).
 - Start: forge still for openers; **only human-approved** lastframe for continuations.
 - Fail: recycle that link; retry same link; **never chain a fail**.
@@ -84,7 +85,7 @@ WanImageToVideo; wan_2.1_vae; umt5_xxl
 3. `generate_video(mode=i2v, workflow_id=i2v, …)` — **one** job, quality unless draft
 4. Gate f0 / mid / last vs start
 5. User approve → extract lastframe → next link
-6. Concat approved mp4s for length. Polish: **clean native frames first** (trim / EBSynth / SeedVR @16fps), **RIFE last**. Do not RIFE→SeedVR2 on melted eyes — invents more mush (Saloon lesson).
+6. Concat approved mp4s for length. Polish: **clean native frames first** (trim / EBSynth / SeedVR @16fps), **RIFE last**. Do not RIFE→SeedVR2 on melted eyes — invents more mush (Saloon lesson). **Always A/B polish vs original** — SeedVR is not automatic keep (SS02 2026-08-20).
 
 ## Catalog map
 
@@ -93,6 +94,77 @@ WanImageToVideo; wan_2.1_vae; umt5_xxl
 | `i2v` | Wan 2.2 MoE (correct 14B path) |
 | `i2v_wan21_native` | Legacy single-UNET Wan 2.1 |
 | `i2v_5b` / `*_painter` | 5B draft / Painter motion |
+| `v2v` / `v2v_5b*` (**MCP mode**) | **Extend only** — extract last frame → I2V → optional concat. Does **not** re-render / denoise the existing clip |
+| `v2v_upscale` | **True latent clean** — load video → RealESRGAN → VAE encode → KSampler denoise ~0.1 → decode. Mute RIFE (house: grain). ComfyBox packs: kjnodes + Frame-Interpolation + wanBlockswap (+ rgthree UI). Not wired into `generate_video` yet |
+
+---
+
+## V2V clean vs extend + SeedVR gate (2026-08-20)
+
+**Ask:** “V2V setup to clean what we already have.”
+
+| Path | What it does | Verdict |
+|------|----------------|---------|
+| `generate_video(mode=v2v)` | Last-frame continuation | Wrong tool for clean |
+| Catalog `v2v_upscale` | Latent denoise ~0.1 + optional RIFE | Correct *idea*; needs ComfyBox node packs; mute RIFE |
+| `polish_wan_best(skip_interpolate=true)` | SeedVR2 @1080 on main rig | Ran on Saloon `SS02_i2v_thrust_33f_v7_KEEP` → **owner: original looks better** → recycle polish |
+
+**Process:** Never ship polish without human A/B. Soft/over-smoothed SeedVR → Recycle Bin, keep master. Prefer latent `v2v_upscale` (no RIFE) once ComfyBox is ready over blind SeedVR on already-good keepers.
+
+**ComfyBox install (2026-08-20):** symlinked `comfyui-kjnodes` + `ComfyUI-Frame-Interpolation` from Game SM `custom_nodes` into `~/ComfyUI/custom_nodes`; cloned `rgthree-comfy` + `ComfyUI-wanBlockswap`. Fast Muter nodes are **frontend-only** (not in `/object_info`) — mute RIFE in the graph or strip for API.
+
+---
+
+## Casting Couch Act 2 — 004 double-dildo (2026-08-13)
+
+**Still:** `User Import\Movie Sex Sceens\Casting Couch Scene\CC act 2\CCA2-004.png` — Frieren on top, V-legs, facing viewer; Darkness torso/breasts cropped at the **bottom of the frame**; thick pink double-ended dildo already in both. Do **not** FLF to 005 (different pose).
+
+**Owner (2026-08-13):** Wan I2V needs **explanations**, not short ComfyUI-checkpoint prompts. v11 (user prompt) was the first clip that “did it.”
+
+### Prompt pattern that worked
+
+Lead with the object that must persist, then where, then the cycle, then act tags, then secondary jiggle/face:
+
+```
+thick pink double-ended dildo stays in both pussies, hips at bottom of screen moves backward and forwards, sex, vaginal sex, missionary, mouth opens in pleasure, breast jiggle, butt jiggles
+```
+
+Strengthen that same stack with mechanics (persist / vanish / pull-back-then-push-in / with each thrust) — do **not** rewrite it into a one-verb still line.
+
+### Stack (keeper direction)
+
+- Same-still **FLF2V**: `image_path` + `end_image_path` both = `CCA2-004.png`
+- `workflow_id=flf2v`, `moe_preset=quality`, `num_frames=33`, `frame_rate=16`
+- `lora_bundle=missionary_sex` HIGH+LOW **0.75**
+- No `face_naturalizer`, no inpaint end-keys, no free txt2img of a new 004
+
+### Fail log (do not repeat)
+
+| Try | Recipe | Result |
+|-----|--------|--------|
+| v1 | I2V 21f, missionary 0.65 + face_nat, “thrust hips together” | Frieren **legs** only |
+| v2 | Drop missionary, “girl on the bottom thrusts hips” | **Big eyes**, legs |
+| v3–v5 | FLF to **warped/inpainted** end keys | Stomach / **stretch-morph**. Owner: inpaint end-keys turn to shit |
+| v6 | I2V “hips at the bottom pull back” | Frieren mid-body; Darkness hips still |
+| v7 | “torso at the bottom slides down” | Bottom moved; **dildo disappeared** (“slides down” = exit) |
+| v8 | More negs, dildo mentioned last | Worse — Wan **weights the start of the prompt** |
+| Path A stills | Fresh `waijfu` txt2img | **Wrong room, wrong pose.** Recycled |
+| v9 | Same-still FLF, short “slightly bounces”, no LoRA | **Zero movement** |
+| v10 | Same-still FLF 33f, missionary 0.75, “bounces hips hard out and back” | Modest mid motion |
+| **v11** | User’s explanation prompt + v10 stack | **Keeper direction** (mid MAE ~6.12) |
+| v12 | Same stack + strengthened mechanics + `Her mouth opens in pleasure` | **Massive deformed mouth.** Recycled. Drop all mouth prompts on this still |
+| v13 | v12 mechanics, **no mouth line**; neg `deformed mouth, gaping mouth, extra mouth` | **FAIL** (owner). Recycled. |
+| **v14** | Owner prompt (no jiggle/mouth; neg `moving legs`) + v10 stack | **KEEP.** Ping-pong + drop 1-frame join freeze + **1.25×** → `cca2_004_dildo_v1.mp4` |
+
+**v12 prompt (strengthened from v11):**
+
+```
+The thick pink double-ended dildo stays in both pussies the whole time; it does not slip out, vanish, or get replaced. The hips at the bottom of the screen move backward and then forwards in a repeating sex rhythm, pulling back then pushing in, never leaving the bottom of the frame. Sex, vaginal sex, missionary. Her mouth opens in pleasure. Her breasts jiggle with each thrust. Her butt jiggles with each thrust.
+```
+
+**Crop fact:** Darkness’s hip joints are **off the bottom of the frame**. Short “hips” maps to Frieren’s V-pelvis. Name **hips at the bottom of the screen** + full sex tags.
+
+**Do not:** inpaint/warp end keys; free txt2img a new 004; FLF to 005; `face_naturalizer`; penis LoRA on a dildo still; Lightning; prompt `camera`; prompt female `cum`; one-verb “slightly” on same-still FLF; prompt **mouth** / `mouth opens in pleasure` on this high-angle front still (v12 deformed mouth).
 
 ---
 
@@ -144,12 +216,14 @@ Hard rules confirmed for contact:
 | **Insert / tip→in** | Tip at entrance, or tip just outside | **POV Missionary Insertion** (HIGH+LOW) | One verb: push in **and stay buried** — no in-out cycle |
 | **Thrust / already-in** | Cock already painted inside | **Missionary Sex** (HIGH+LOW) | Short front-to-back thrusts, **partial withdraw only** |
 | **Doggy** | Rear insert / pump | **Doggy Style Sex** I2V HIGH+LOW — `wan2.2-i2v-high/low-doggy-style-sex-14b.safetensors`; Missionary Sex is wrong pose family (causes hip-shake + shaft pulse) | Trigger: *they are having doggy style sex* + front-to-back hip thrusts; stay-inside / partial withdraw |
-| **Oral** | Tip-in-mouth | **Oral insertion** HIGH+LOW (proven on BJ) | Lips sealed / small bob; no withdraw |
+| **Oral lick** (tongue on tip, **not** tip-in) | Tongue on glans, tip outside / just touching | **Oral insertion** HIGH+LOW @ **0.40** (not 0.6) | One verb: tongue lick along tip — **no** head-slide / deepthroat |
+| **Oral bob / tip-in** | Tip-in-mouth, **hands on shaft** | **Oral insertion** HIGH+LOW @ **0.40–0.50** | Mouth / lips slide down then up; **never** prompt `her head` (detaches skull). Neg twisting. Short 13–21f → RIFE half-speed + ping-pong |
+| **Oral deepthroat / bury** | Already deep, looking up | **`oral_deepthroat`** = Oral insertion + **Ultimate DeepThroat K3NK** HIGH+LOW (Elven Appetite / Pale Elf Rider proven) | One vertical bury/bob verb; still must allow axial travel (hands on shaft preferred) |
 
-Stack limit (MoE keepers): **Lightning pair (draft only) + at most one action pair**. Optional PENISLORA / general NSFW only if shaft melt persists — still count as the action stack budget; do not pile Missionary Sex + Insertion + PENIS together.
+Stack limit (MoE keepers): **Lightning pair (draft only) + at most one action pair**. **Exception — BJ deepthroat:** `lora_bundle=oral_deepthroat` stacks oral_insertion + Ultimate DeepThroat (historical keepers also added K3NK NSFW helper @ ~0.50 via `loras=`). Do not pile Missionary Sex + Insertion + PENIS together.
 
-**MCP (2026-07-26):** `generate_video` accepts catalog **action pairs** + pass-through:
-- Bundles: `oral_insertion`, `missionary_sex`, `pov_insertion`, `doggy_sex`, `facial_cum` (+ older orgasm/lightning/nsfw)
+**MCP (2026-07-26 / 2026-08-12):** `generate_video` accepts catalog **action pairs** + pass-through:
+- Bundles: `oral_insertion`, `oral_deepthroat`, `ultimate_deepthroat`, `missionary_sex`, `pov_insertion`, `doggy_sex`, `facial_cum` (+ older orgasm/lightning/nsfw)
 - `lora_weights={"pov_insertion_i2v_high": 0.35, "pov_insertion_i2v_low": 1.0}`
 - `loras=[{file, weight, branch}]` (or `{id, weight, branch}`) — same as `GenerationEngine`
 - `moe_preset="quality"|"fast"`, `draft=True` for Lightning probes
@@ -167,11 +241,19 @@ Under `/mnt/game/StabilityMatrix-win-x64/Data/Models/Lora` (same SM Lora tree):
 | Catalog ids | Files |
 |-------------|--------|
 | `oral_insertion_i2v_{high,low}` | `wan2.2-i2v-high/low-oral-insertion-v1.0.safetensors` |
+| `ultimate_deepthroat_i2v_{high,low}` | `wan22-ultimatedeepthroat-i2v-102epoc-high-k3nk` / `…-I2V-101epoc-low-k3nk` |
+| `oral_deepthroat` (bundle) | oral_insertion + ultimate_deepthroat (both pairs) |
 | `missionary_sex_i2v_{high,low}` | `wan2.2-i2v-high/low-missionary-sex-14b.safetensors` |
 | `pov_insertion_i2v_{high,low}` | `wan2.2-i2v-high/low-pov-missionary-insertion-v1.safetensors` |
 | `doggy_sex_i2v_{high,low}` | `wan2.2-i2v-high/low-doggy-style-sex-14b.safetensors` |
 | `facial_cum_i2v_{high,low}` | `CloseUpFacialCum-v10_{High,Low}.safetensors` (local-only) |
+
+**FacialCum trigger (Elven Appetite keepers — required):** use creator phrasing with **`penis`**, not soft cock-only essays:
+`Facial, cum shot, sticky cum, … cum shoots out of the penis and lands on her face`
+(+ `cum on face / tongue / chin`, `multiple thick slimy cum shots`). Tip-in stills need **pull tip out then shoot** (EA: light oral ~0.25 + FacialCum ~0.75–0.85 + optional k3nk helper / face_naturalizer). Weight-only bumps without triggers = no ropes.
 | `general_nsfw` / `penis_lock` | `NSFW-22-H/L-e8`, `PENISLORA_wan22_i2v_{high,low}` |
+
+On disk but **pass-through only** (not a named bundle): `wan22-k3nk4llinon3-{16epoc-full-high,15epoc-full-low}-k3nk.safetensors` — historical BJ helper @ ~0.50 HIGH/LOW.
 
 Optional alt: `wan2.2_i2v_{high,low}noise_pov_missionary_v1.0.safetensors` (dtwr434) — not cataloged; pass via `loras=[{file,weight,branch}]`.
 
@@ -194,6 +276,58 @@ Neg: same exit/melt block · LoRA: Missionary Sex @ ~0.5–0.6 · amp ≤ 0.40 �
 
 Say **view / POV**, not **camera** (house still rule — camera spawns props; Saloon BJ prompts still say “steady camera” and should be cleaned to “steady view”).
 
+### Casting Couch oral lick (house-best, 2026-08-11)
+
+User call: **best lick scene we have ever made.** Do not “improve” by raising LoRA weight or swapping to Hunyuan.
+
+| Field | Value |
+|-------|--------|
+| **Still** | `Images\Theater Jobs\Casting Couch\review\darkness_cc_sex001_lick_v3.png` (Fixed → Forge 0.20, AD off) |
+| **Clip** | `Video\Theater Jobs\Casting Couch\Work\darkness_cc_sex001_lick_v1.mp4` → promote to `Completed Scene\` when packing |
+| **Engine** | Wan 2.2 MoE **14B** `workflow_id=i2v` — **not** 5B, **not** Hunyuan (assets missing + `generate_video` routing TBD) |
+| **Preset** | `moe_preset=quality`, `draft=false`, 28-step / no Lightning |
+| **Size / length** | **1024²**, **49f @ 16fps** (~3.06s) |
+| **LoRA** | `lora_bundle=oral_insertion` @ **0.40 HIGH + 0.40 LOW** (default 0.6 pushes tip-in / swallow) |
+| **Pos** | `her tongue slowly licks along the tip of his cock` |
+| **Neg** | `full penis exit, empty mouth, tip vanishing, deflating shaft, disappearing shaft, melting, morphing face, camera, dslr, deepthroat, head sliding down` |
+| **Gate** | f0≈still **0.9998**; mid moves **~0.79**; last still lick beat **~0.90** (mild tip-in LoRA pull OK) |
+
+**Do not:** essay the still into the prompt; use oral_insertion @ 0.6 on a tongue-only still; Hunyuan until wired; Lightning/draft for keepers.
+
+### Casting Couch BJ bob (003 keeper + length post, 2026-08-12)
+
+| Field | Value |
+|-------|--------|
+| **Still** | `darkness_cc_sex003_inmouth_v3.png` — tip-in, **both hands gripping shaft** |
+| **Raw** | `darkness_cc_sex003_bob_v2.mp4` — 13f / oral_insertion @ **0.40** / `she takes his cock deeper, lips stay wrapped around the shaft` |
+| **Usable** | `darkness_cc_sex003_bob_v3.mp4` — RIFE→half-speed @16fps → ping-pong (~3.25s). Promote: `Completed Scene\` |
+| **Fail that taught** | Prompt `her head slides down…` → **skull detach + shaft vanish**. Never say **her head** on oral I2V. |
+
+### Casting Couch 004 deepthroat autopsy (2026-08-12) — why Elven Appetite / Pale Elf Rider worked and we failed
+
+**User ask:** we already shipped vertical BJ deepthroat/bob on Elven Appetite + Pale Elf Rider / Saloon. Why is Casting Couch 004 only twisting?
+
+**Blame split (not “Wan is broken”):**
+
+| Lever | Elven Appetite / Pale Elf Rider keepers | Casting Couch 004 tries (v1–v4) |
+|-------|------------------------------------------|----------------------------------|
+| **Action LoRA** | **`oral_insertion` + `Ultimate DeepThroat K3NK`** (and often K3NK NSFW helper) — see `scripts/nsfw/run_bj_wan22_loras.py` @ oral 0.75 + DT 0.45 + helper 0.50 | **`oral_insertion` alone** @ 0.40–0.55. Ultimate DeepThroat was **on disk but not in MCP catalog** until 2026-08-12 — agents could not `lora_bundle` it |
+| **Still pose** | POV oral with room for axial travel (hands free or on shaft / crop allows up-down) | **`004_deepthroat` = arms behind back**, looking straight up the shaft — neck locked; Wan spends motion budget on **yaw/twist** |
+| **Contrast still** | — | **`003_inmouth` hands-on-shaft** → bob keeper with oral_insertion alone. Pose > prompt |
+| **Prompt** | Historical: `head moves/goes down the shaft… rhythmic bobbing downward` (risky wording but DT LoRA carried vertical) | Soft “deeper into throat” / “mouth slides down” without DT LoRA → twist or melt; `her head…` → detach |
+| **Same-still FLF** | Saloon BJ01 FLF bob worked with **out-and-back** language + action stack | Same-still FLF on 004 with soft verb → **frozen plate** (dmse≈0) |
+
+**Hard rules (BJ recipe — review):**
+
+1. **Still gate before gen:** hands **on shaft** (or free) for vertical bob/deepthroat. **Arms behind back / neck locked looking up the pole** → do not expect axial bob; keep as still or re-pose / use 003-class still.
+2. **Deepthroat / deep bury LoRA:** use `lora_bundle=oral_deepthroat` (oral_insertion + Ultimate DeepThroat). Tip-suck / soft bob can stay `oral_insertion` @ 0.40. Lick = oral @ 0.40 and **negate** deepthroat.
+3. **Never prompt `her head`** on oral I2V (detach). Prefer `her mouth` / `she takes his cock deeper` / `lips stay wrapped`.
+4. **Neg for bob:** `twisting, turning, rotating, tilting, looking aside, pulling off, empty mouth, biting, severed, detached head, disappearing penis…`
+5. **Length:** short 13–21f keeper → RIFE in-betweens → play half-speed @16fps → `splice_pingpong` (down then reverse-up). Do not ask one Wan run for a long bob cycle on hard contact.
+6. **Catalog gap fixed 2026-08-12:** Ultimate DeepThroat + `oral_deepthroat` bundle added to `studio/wan_video_loras.py`. Restart MCP to pick up. Optional K3NK helper still via `loras=[{file,weight,branch}]`.
+
+**Log:** `Video\Theater Jobs\Casting Couch\Work\logs\cc_bj_004_deepthroat_autopsy_2026-08-12.md`
+
 ### Workflow levers (ranked for Saloon next)
 
 1. **Post: SS01 first-2s ping-pong** — production win without new gens (`splice_pingpong` / `splice_pose_matched_loop`).
@@ -203,7 +337,7 @@ Say **view / POV**, not **camera** (house still rule — camera spawns props; Sa
 5. **PENISLORA light** (~0.4–0.55) if shaft melts while contact holds.
 6. **Deep-stroke / contact length** — two paths:
    - **LF→I2V chain (Saloon proven):** gate deepest clean frame → optional Forge → next quality MoE chunk one verb → concat/ping-pong. Still the default for Saloon deep-stroke sequences.
-   - **MoE FLF2V (Wild Fern ship probe):** `studio/wan22_flf2v_moe.py` + scripts under `scripts/nsfw/_prep_flf_*` — first+last keys, quality MoE, **short length (21f)**. **Not yet** exposed on MCP `generate_video` (script-only until wired). Do not ask FLF for multi-thrust 49f on dual-face doggy.
+   - **MoE FLF2V (Wild Fern ship probe):** `studio/wan22_flf2v_moe.py` + scripts under `scripts/nsfw/_prep_flf_*` — first+last keys, quality MoE, **short length (21f)**. Also MCP `workflow_id=flf2v` + `image_path` + `end_image_path`. Do not ask FLF for multi-thrust 49f on dual-face doggy.
 7. **PainterI2V** — 5B motion amp tool only; **not** for face/body lock or identity-critical NSFW contact. Stay on `workflow_id=i2v` MoE.
 8. OpenPose/ControlNet hip thrust — optional later; still+LoRA+verb usually wins first.
 

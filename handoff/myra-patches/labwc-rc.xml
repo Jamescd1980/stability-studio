@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<labwc_config>
+  <windowRules>
+    <windowRule identifier="myra-display-kiosk*">
+      <action name="Maximize"/>
+      <action name="ToggleFullscreen"/>
+    </windowRule>
+    <windowRule title="Myra*">
+      <action name="Maximize"/>
+      <action name="ToggleFullscreen"/>
+    </windowRule>
+  </windowRules>
+</labwc_config>

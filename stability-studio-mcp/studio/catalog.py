@@ -38,6 +38,16 @@ class StyleCatalog:
         with self.catalog_path.open(encoding="utf-8") as f:
             return yaml.safe_load(f) or {}
 
+    def reload(self) -> dict[str, Any]:
+        """Re-read catalog.yaml from disk (character_loras / styles edits without MCP restart)."""
+        self._data = self._load()
+        return {
+            "ok": True,
+            "path": str(self.catalog_path),
+            "styles": len(self.styles),
+            "character_loras": len(self.character_loras),
+        }
+
     def save(self) -> None:
         with self.catalog_path.open("w", encoding="utf-8") as f:
             yaml.dump(self._data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
@@ -273,6 +283,55 @@ class StyleCatalog:
 
         raise ValueError(f"No {mode} workflow configured in catalog.yaml")
 
+    def get_generation_context_brief(self) -> dict[str, Any]:
+        """Fast context for agents — no model-folder / style-asset scans."""
+        return {
+            "model_families_doc": "See MODEL-FAMILIES.md in repo root for full agent guide",
+            "art_food_groups": self.art_food_groups or {},
+            "style_lanes": self.style_lanes or {},
+            "style_lanes_doc": (
+                "Finer than food groups: media (cartoon/anime_modern/anime_retro/cgi/…) "
+                "+ mood (traditional/gothic/cyber/dark_fantasy/gold_standard) "
+                "+ cast axes (subject/grouping/content). Maps to styles, look_profiles, checkpoint_roles A/B/C."
+            ),
+            "look_profiles": self.look_profiles or {},
+            "look_profiles_doc": "Named LoRA/neg stacks (illustrious_detail_hero = recreate_003 bar).",
+            "character_loras": self.character_loras or {},
+            "character_loras_doc": (
+                "Trained cast LoRAs — call resolve_character_loras(character=...) then "
+                "generate_image(style=waijfu, loras=..., prompt with trigger). "
+                "Eris Greyrat is baked into waijfu — lookup_character_identity('eris') (no LoRA file)."
+            ),
+            "styles": self.list_styles(),
+            "default_style": self.cfg.get("default_style", "juggernaut"),
+            "video_workflows": self.list_video_workflow_entries(),
+            "video_workflow_ids": list(self.video_workflows.keys()),
+            "comfyui_url": self.cfg.get("comfyui", {}).get("url"),
+            "note": (
+                "Brief mode. Before stills: resolve_style_lane + resolve_character_loras. "
+                "Before Wan keepers: check_wan_prompt / plan_wan_beat / resolve_wan_action_loras; "
+                "default NSFW/identity I2V = workflow_id=i2v (14B MoE). Draft/SFW only: i2v_5b. "
+                "All diffusion on ComfyBox 5090 unless user says otherwise."
+            ),
+            "jan_quickstart": {
+                "before_any_gpu": "check_gpu_backend",
+                "before_image": (
+                    "get_generation_context → resolve_style_lane → "
+                    "resolve_character_loras (if cast) → generate_image on ComfyBox"
+                ),
+                "character_still": (
+                    "resolve_character_loras(character=…) → "
+                    "generate_image(style=waijfu, loras=<result.loras>, prompt includes trigger)"
+                ),
+                "before_keeper_video": (
+                    "check_gpu_backend → plan_wan_beat / resolve_wan_action_loras → "
+                    "check_wan_prompt → generate_video(mode=i2v, workflow_id=i2v, moe_preset=quality)"
+                ),
+                "before_draft_video": "check_gpu_backend → generate_video(mode=i2v, workflow_id=i2v_5b)",
+                "comfyui_url": self.cfg.get("comfyui", {}).get("url"),
+            },
+        }
+
     def get_generation_context(self) -> dict[str, Any]:
         from studio.comfy_remote_models import file_has_payload, remote_model_inventory
         from studio.style_assets import check_all_style_assets
@@ -418,16 +477,25 @@ class StyleCatalog:
                 "local Windows NTFS may show zeroed shells even though the remote ComfyUI host can load the files. "
                 "Always call check_gpu_backend before generate_video / generate_audio / generate_video_hero. "
                 "Image edits: setup_image_editing then edit_image (food_group: anime|fantasy|cyberpunk|photoreal). "
+                "Face/eyes/markings → refine_face_forge or edit_image→i2i+face_detail; never hybrid church_tower masks. "
                 "Flux2 styles: check_style_assets / download_style_assets. "
-                "Wan video: check_wan_assets / download_wan_assets. Default draft I2V: workflow_id=i2v_5b. "
+                "Wan video: check_wan_assets / download_wan_assets. "
+                "Default keeper/NSFW I2V: workflow_id=i2v (14B MoE). Draft/SFW only: i2v_5b. "
                 "Use style ids from styles[] (architecture field selects workflow builder)."
             ),
             "jan_quickstart": {
                 "before_any_gpu": "check_gpu_backend",
-                "before_image": "get_generation_context -> pick style id -> generate_image",
+                "before_image": (
+                    "get_generation_context → resolve_style_lane → "
+                    "resolve_character_loras (if cast) → generate_image on ComfyBox"
+                ),
                 "character_still": (
                     "resolve_character_loras(character=fern|jinah_sung|cha_hae_in|…) -> "
                     "generate_image(style=waijfu, loras=<result.loras>, prompt includes trigger)"
+                ),
+                "before_keeper_video": (
+                    "check_gpu_backend → plan_wan_beat / resolve_wan_action_loras → "
+                    "check_wan_prompt → generate_video(mode=i2v, workflow_id=i2v, moe_preset=quality)"
                 ),
                 "before_draft_video": "check_gpu_backend(intent=comfyui) -> generate_video(mode=i2v, workflow_id=i2v_5b)",
                 "comfyui_url": self.cfg.get("comfyui", {}).get("url"),

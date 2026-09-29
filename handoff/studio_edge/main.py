@@ -70,9 +70,24 @@ _FOLLOW_UP_NOISE_RE = re.compile(
 # STT mangles: "Hey, myra." / "A. Myra?" / "Myra?"
 _FOLLOW_UP_WAKE_ECHO_RE = re.compile(
     r"^\s*(?:hey[,\s]+|a[.\s]+|ok[,\s]+)?"
-    r"(?:myra|mira|jan|nari|orluh|orla)\s*[!?.]*\s*$",
+    r"(?:myra|mira|lira|jan|nari|orluh|orla)\s*[!?.]*\s*$",
     re.I,
 )
+
+
+def _is_thin_command(text: str) -> bool:
+    """Wake-echo / noise / scraps — ask again instead of a long canned speech."""
+    t = (text or "").strip()
+    if not t:
+        return True
+    if _FOLLOW_UP_NOISE_RE.match(t) or _FOLLOW_UP_WAKE_ECHO_RE.match(t):
+        return True
+    words = re.findall(r"[a-zA-Z']+", t)
+    if len(words) <= 1:
+        return True
+    if t.lower() in {"and the", "and a", "the the", "uh huh", "mm hmm"}:
+        return True
+    return False
 
 
 def build(cfg: dict):
@@ -92,6 +107,11 @@ def build(cfg: dict):
         sample_rate=audio_cfg.get("sample_rate", 16000),
         input_device=audio_cfg.get("input_device"),
         capture_rate=audio_cfg.get("capture_rate"),
+        unmute_as_wake=bool(ww_cfg.get("unmute_as_wake", True)),
+        mute_peak=int(ww_cfg.get("mute_peak", 40)),
+        unmute_peak=int(ww_cfg.get("unmute_peak", 180)),
+        mute_hold_chunks=int(ww_cfg.get("mute_hold_chunks", 12)),
+        unmute_confirm_chunks=int(ww_cfg.get("unmute_confirm_chunks", 3)),
     )
     stt = build_transcriber(stt_cfg)
     narrate = tts_cfg.get("narrate") or {}
@@ -345,15 +365,16 @@ def handle(
     if myra is not None and myra.is_up():
         return myra.ask(intent.text, cfg, jan_brain=jan, orla_brain=orla)
 
-    # Gofor off: polite room fallback — hand deep asks to Nari
+    # Gofor off: short room fallback — never dump a long menu on every garble.
     low = (intent.text or "").lower()
     if any(k in low for k in ("why", "how", "explain", "tell me about", "what do you think")):
         return jan.ask(intent.text)
-    return (
-        "I can do time, weather, notes, recordings, timers, look-ups, and the display. "
-        "For images, say make an image or Hey Nari. "
-        "For display polish, ask Orla."
-    )
+    if any(k in low for k in ("what can you", "help me", "what do you do")):
+        return (
+            "Time, weather, notes, timers, recordings, and the display. "
+            "Images: Hey Nari. Polish: Orla."
+        )
+    return "Sorry, I didn't catch a command. Try again, or say weather, time, or note."
 
 
 def _follow_up_cfg(cfg: dict) -> dict:
@@ -635,6 +656,10 @@ def main() -> int:
             persona = resolve_persona(fired, cfg)
             tts.set_persona(persona)
             log.info("Persona=%s (wake=%s)", persona, fired)
+            from_unmute = str(fired).startswith("unmute")
+            # USB mute button: settle, then give more time to start speaking.
+            if from_unmute:
+                time.sleep(1.0)
             if ack:
                 audio_mod.beep(
                     output_device=out_dev,
@@ -642,6 +667,8 @@ def main() -> int:
                 )
             # Short spoken identity so you know who answered
             greet = greetings.get(persona)
+            if from_unmute and persona == "myra":
+                greet = "Listening."
             if greet:
                 try:
                     from . import agent_pulse as _pulse
@@ -650,6 +677,8 @@ def main() -> int:
                 except Exception:
                     pass
                 tts.speak(greet, persona=persona)
+                if from_unmute:
+                    time.sleep(0.35)
 
             try:
                 from . import agent_pulse as _pulse
@@ -657,16 +686,20 @@ def main() -> int:
                 _pulse.set_status("myra", "hearing", detail="Listening for command")
             except Exception:
                 pass
+            silence_s = float(cfg.get("audio", {}).get("silence_timeout_s", 1.2))
+            if from_unmute:
+                silence_s = max(silence_s, 2.5)
             audio = audio_mod.record_until_silence(
                 sample_rate=cfg.get("audio", {}).get("sample_rate", 16000),
-                silence_timeout_s=cfg.get("audio", {}).get("silence_timeout_s", 1.2),
+                silence_timeout_s=silence_s,
                 max_utterance_s=cfg.get("audio", {}).get("max_utterance_s", 30),
                 input_device=cfg.get("audio", {}).get("input_device"),
                 capture_rate=cfg.get("audio", {}).get("capture_rate"),
             )
             peak = audio_mod.peak_level(audio)
             text = stt.transcribe(audio, cfg.get("audio", {}).get("sample_rate", 16000))
-            if not text:
+            if not text or _is_thin_command(text):
+                log.info("Thin/empty command %r peak=%d — ask again", text, peak)
                 if peak < 200:
                     log.warning("Captured near-silence (peak=%d) - mic muted/unplugged?", peak)
                     tts.speak(
@@ -674,7 +707,7 @@ def main() -> int:
                         persona=persona,
                     )
                 else:
-                    tts.speak("Sorry, I didn't catch that.", persona=persona)
+                    tts.speak("Go ahead.", persona=persona)
                 continue
 
             if _HARD_ABORT_RE.search(text):
@@ -765,14 +798,21 @@ def main() -> int:
                 _pulse.set_status("myra", "error", detail=type(exc).__name__, ok=False)
             except Exception:
                 pass
-            # Mic busy / wrong device: don't spam TTS — two processes often cause this.
+            # Mic busy / wrong device / SoloCast not ready yet: don't spam TTS.
             try:
                 import sounddevice as sd  # noqa: WPS433
 
                 portaudio_err = isinstance(exc, sd.PortAudioError)
             except Exception:  # noqa: BLE001
                 portaudio_err = "PortAudioError" in type(exc).__name__
-            if portaudio_err:
+            msg = str(exc).lower()
+            mic_missing = (
+                portaudio_err
+                or "no input device matching" in msg
+                or "solocast" in msg
+            )
+            if mic_missing:
+                log.warning("Mic not ready (%s) — retry in 5s", exc)
                 time.sleep(5)
                 continue
             try:
