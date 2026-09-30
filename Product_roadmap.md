@@ -55,11 +55,11 @@ Ideas may appear during renders, tests, or while an AI is mid-build. What sticks
 | Step | Intent | Notes |
 |------|--------|--------|
 | P0-S1 Reliability & media | Jobs finish → paths resolve → filmstrip / scopes show nested Video & Images; move-to-folder; Seed/Still notes; FLF / storyboard UX | Handoff Batches 1–6+; keep proving |
-| P0-S2 Resizable / collapsing chat | Enlarge viewer; remember width per **mode id** (Document / Image / Video; Editing later) | Higher than manual editors; Suggestions §7.1 |
+| P0-S2 Resizable / collapsing chat | Enlarge viewer; remember width per **mode id** (Document / Image / Video; Editing later) | **Verified** Batch 7 (2026-09-30) — handoff `P0-S2-B1` |
 | P0-S3 Workflows end-to-end | Writing → prompt → still → Forge → Wan → AI post tools prove on this rig | Human-in-the-loop keepers |
 | P0-S4 Style & model guidance | Checkpoint / LoRA recommendations; task-based brain hints | Catalog + docs; pose control optional |
 | P0-S5 Guided tour foundation | Onboarding path that will ship in Phase 1 | Drafts OK in Phase 0 |
-| P0-S6 AI post tools + recipes | Group existing MCP splice, ping-pong, mix, frame grab; **write `.recipe.json`** on agent/editor outputs | No manual timeline tab; feeds Phase 2 open-from-recipe |
+| P0-S6 AI post tools + recipes | Group existing MCP splice, ping-pong, mix, frame grab; **write `.recipe.json`** on agent/editor outputs | **Recipe writes verified** Batch 8 (2026-09-30); mix/frame grab later; P2 reads recipes |
 | P0-S7 Minimal Rin teaser clip | Bow + breeze + footsteps + JP hello on bow; honest README | **Kokoro** for VO (CPU); keep Rin example |
 | P0-S8 Folder names (optional late P0) | Align default folder names / MCP map with Suggestions §13.5 | Or slip to P1-S0; before public beta either way |
 

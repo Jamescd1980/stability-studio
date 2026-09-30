@@ -935,6 +935,8 @@ Minor face highlighting / region tools so Forge hits the right area. Light inpai
   - **MOSS:** ComfyBox; needs Owner's explicit go-ahead.
 - Section 14 question 6 still asks whether to keep or archive "the Rin storyboard example", though it's now the teaser and guide. Close that question?
 
+**Answered (Build AI §18.5):** keep Rin as teaser/guide — Kokoro for JP hello on P0-S7; do not archive the onboarding example.
+
 **Q7. Should the undo journal (section 7) be promoted?**
 - It's a reliability feature, and Phase 0 is about reliability. It covers recycles, moves, renames and ships into `game/`.
 - Bulk-action confirms and diagnostics export are the same kind of work. Promote them to Phase 0 or 1, or deliberately leave them out?
