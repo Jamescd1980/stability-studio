@@ -8,6 +8,13 @@ from pathlib import Path
 from typing import Any
 
 from studio.output_paths import deliver_files
+from studio.recipes import (
+    attach_recipes_to_result,
+    recipe_for_concat,
+    recipe_for_crossfade,
+    recipe_for_pingpong,
+    recipe_for_pose_matched,
+)
 from studio.video_utils import concat_videos, probe_video
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -39,13 +46,18 @@ def concat_video_clips(
         dest = srcs[0].parent / f"{srcs[0].stem}_concat.mp4"
     concat_videos(srcs, dest)
     saved, delivered = deliver_files(cfg, [str(dest)], bucket="temp")
-    return {
+    result = {
         "ok": True,
         "saved_files": saved,
         "delivered_files": delivered,
         "probe": probe_video(Path(saved[0])),
         "inputs": [str(s) for s in srcs],
     }
+    return attach_recipes_to_result(
+        result,
+        tool="concat_video_clips",
+        build_for_output=lambda out: recipe_for_concat(srcs, out),
+    )
 
 
 def splice_pingpong(
@@ -112,7 +124,7 @@ def splice_pingpong(
     )
     concat_videos(parts, dest)
     saved, delivered = deliver_files(cfg, [str(dest)], bucket="temp")
-    return {
+    result = {
         "ok": True,
         "mode": "pingpong_then_forward" if then_forward else "pingpong",
         "saved_files": saved,
@@ -120,6 +132,11 @@ def splice_pingpong(
         "probe": probe_video(Path(saved[0])),
         "source": str(src),
     }
+    return attach_recipes_to_result(
+        result,
+        tool="splice_pingpong",
+        build_for_output=lambda out: recipe_for_pingpong(src, out, then_forward=then_forward),
+    )
 
 
 def splice_crossfade_loop(
@@ -163,7 +180,7 @@ def splice_crossfade_loop(
         ]
     )
     saved, delivered = deliver_files(cfg, [str(dest)], bucket="temp")
-    return {
+    result = {
         "ok": True,
         "mode": "crossfade_loop",
         "fade_sec": fade,
@@ -172,6 +189,11 @@ def splice_crossfade_loop(
         "probe": probe_video(Path(saved[0])),
         "source": str(src),
     }
+    return attach_recipes_to_result(
+        result,
+        tool="splice_crossfade_loop",
+        build_for_output=lambda out: recipe_for_crossfade(src, out, fade),
+    )
 
 
 def splice_pose_matched_loop(
@@ -216,4 +238,10 @@ def splice_pose_matched_loop(
     payload["saved_files"] = saved
     payload["delivered_files"] = delivered
     payload["probe"] = probe_video(Path(saved[0]))
-    return payload
+    payload["ok"] = payload.get("ok", True)
+    worker = {k: payload[k] for k in payload if k not in ("saved_files", "delivered_files", "probe")}
+    return attach_recipes_to_result(
+        payload,
+        tool="splice_pose_matched_loop",
+        build_for_output=lambda out: recipe_for_pose_matched(src, out, worker),
+    )

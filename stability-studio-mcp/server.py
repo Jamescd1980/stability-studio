@@ -165,6 +165,7 @@ from studio.video_upscale import (
     check_local_post as _check_local_post,
     upscale_video_local as _upscale_video_local,
 )
+from studio.recipes import read_recipe as _read_recipe
 from studio.video_splice import (
     concat_video_clips as _concat_video_clips,
     splice_crossfade_loop as _splice_crossfade_loop,
@@ -3441,6 +3442,8 @@ def concat_video_clips(paths_json: str, output_path: str = "") -> str:
     """
     Lossless-concat MP4s (same codec/fps). paths_json = JSON list of absolute paths.
 
+    Writes a ``.recipe.json`` beside each delivered output (pieces + join frames).
+
     Args:
         paths_json: e.g. '["D:/.../a.mp4","D:/.../b.mp4"]'
         output_path: optional dest; default first_stem_concat.mp4 beside first clip.
@@ -3467,6 +3470,8 @@ def splice_pingpong(
 ) -> str:
     """
     D-style lengthen: forward + reverse (+ optional forward again). Good for bobbing loops.
+
+    Writes a ``.recipe.json`` beside the delivered output.
 
     Args:
         video_path: Source segment (often first half of a clip).
@@ -3495,7 +3500,7 @@ def splice_crossfade_loop(
     fade_sec: float = 0.25,
     output_path: str = "",
 ) -> str:
-    """E-style soft loop: two copies joined with ffmpeg xfade."""
+    """E-style soft loop: two copies joined with ffmpeg xfade. Writes ``.recipe.json`` beside the output."""
     try:
         return json.dumps(
             _splice_crossfade_loop(
@@ -3522,6 +3527,8 @@ def splice_pose_matched_loop(
     """
     Pose-matched D-style loop: search ±rewind_max frames for best join (quieter drool/pose pops).
 
+    Writes a ``.recipe.json`` beside the delivered output when possible.
+
     Args:
         video_path: Source master (e.g. 12s chain before climax).
         target_sec: Desired bobbing length before climax.
@@ -3541,6 +3548,36 @@ def splice_pose_matched_loop(
         )
     except Exception as exc:
         err = humanize_error(exc, context="splice_pose_matched_loop")
+        err["ok"] = False
+        return json.dumps(err, indent=2)
+
+
+@mcp.tool()
+def read_video_recipe(video_path: str) -> str:
+    """
+    Load the ``.recipe.json`` sidecar for a spliced clip (join markers, sources, audio lines).
+
+    Args:
+        video_path: Absolute path to the MP4 (recipe must sit beside it as ``<stem>.recipe.json``).
+    """
+    try:
+        path = Path(video_path).expanduser()
+        recipe = _read_recipe(path)
+        if recipe is None:
+            return json.dumps(
+                {
+                    "ok": False,
+                    "error": "No recipe for this clip",
+                    "fix": (
+                        "Clips made before recipes existed have none; "
+                        "joins can be guessed later with scene detection."
+                    ),
+                },
+                indent=2,
+            )
+        return json.dumps({"ok": True, "recipe": recipe}, indent=2)
+    except Exception as exc:
+        err = humanize_error(exc, context="read_video_recipe")
         err["ok"] = False
         return json.dumps(err, indent=2)
 
