@@ -128,3 +128,8 @@ Full walkthrough: **[STORYBOARD-QUICKSTART.md](STORYBOARD-QUICKSTART.md)** · Re
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+## Planning docs (private)
+
+- [Claude_Suggestions.md](Claude_Suggestions.md) - ideas / non-coding discussion
+- [Product_roadmap.md](Product_roadmap.md) - Phase / Step / Batch plan
