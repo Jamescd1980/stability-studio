@@ -7,7 +7,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from studio.output_paths import deliver_files
+from studio.output_paths import deliver_files, recycle_path
 from studio.recipes import (
     attach_recipes_to_result,
     recipe_for_concat,
@@ -26,6 +26,21 @@ def _ffmpeg() -> str:
 
 def _run(cmd: list[str]) -> None:
     subprocess.run(cmd, check=True, capture_output=True)
+
+
+POSE_WORKER_CANDIDATES = (
+    Path("scripts") / "general" / "local_post" / "pose_match_loop.py",
+    Path("scripts") / "local_post" / "pose_match_loop.py",
+)
+
+
+def pose_worker_path(root: Path = ROOT) -> Path:
+    for rel in POSE_WORKER_CANDIDATES:
+        candidate = root / rel
+        if candidate.is_file():
+            return candidate
+    tried = ", ".join(str(root / rel) for rel in POSE_WORKER_CANDIDATES)
+    raise FileNotFoundError(f"pose_match_loop.py not found (tried {tried})")
 
 
 def concat_video_clips(
@@ -132,6 +147,12 @@ def splice_pingpong(
         "probe": probe_video(Path(saved[0])),
         "source": str(src),
     }
+    try:
+        work_gone = recycle_path(work)
+    except Exception:
+        work_gone = False
+    if not work_gone and work.exists():
+        result["work_dir_left"] = str(work)
     return attach_recipes_to_result(
         result,
         tool="splice_pingpong",
@@ -216,7 +237,7 @@ def splice_pose_matched_loop(
         else src.parent / f"{src.stem}_pose_loop_{int(target_sec)}s.mp4"
     )
     py = post_python(cfg)
-    worker = ROOT / "scripts" / "local_post" / "pose_match_loop.py"
+    worker = pose_worker_path()
     cmd = [
         str(py),
         str(worker),

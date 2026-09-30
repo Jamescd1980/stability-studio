@@ -10,6 +10,18 @@ from typing import Any
 from studio.project_layout import ensure_project_layout, project_paths
 
 
+def recycle_path(path: Path) -> bool:
+    """Send a file or folder to the Recycle Bin. Returns True when it's gone."""
+    import sys
+
+    scripts = Path(__file__).resolve().parents[1] / "scripts" / "general"
+    if str(scripts) not in sys.path:
+        sys.path.insert(0, str(scripts))
+    from recycle_path import recycle  # type: ignore
+
+    return bool(recycle(Path(path)))
+
+
 def delivery_dir(cfg: dict[str, Any]) -> Path | None:
     raw = (cfg.get("outputs") or {}).get("delivery")
     if not raw:
@@ -72,6 +84,7 @@ def deliver_files(
         delivered.append(str(dest))
         # Media lives only under ComfyBox delivery — drop MCP outputs/ copies.
         # JSON/logs may stay under studio-agent/outputs.
+        # Removing the source right after copy2 is a move, not a delete: the file lives on in dest.
         if src_path.suffix.lower() in {
             ".png",
             ".jpg",
@@ -103,11 +116,14 @@ def promote_file(
     *,
     move: bool = True,
 ) -> Path:
-    """Move or copy an approved temp file to its canonical project path."""
+    """Move or copy an approved temp file to its canonical project path.
+
+    An existing file at ``dest`` goes to the Recycle Bin first (never hard-deleted).
+    """
     dest.parent.mkdir(parents=True, exist_ok=True)
+    if dest.is_file() and not recycle_path(dest):
+        raise OSError(f"Could not send existing {dest} to the Recycle Bin; not overwriting it")
     if move:
-        if dest.is_file():
-            dest.unlink()
         shutil.move(str(src), str(dest))
     else:
         shutil.copy2(src, dest)
