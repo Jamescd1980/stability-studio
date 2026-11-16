@@ -76,3 +76,7 @@ ollama/orla/handoff_state.json
 ollama/orla/vlm_watch_state.json
 scripts/_gpu_b64.txt
 
+
+# Preferred path is a junction to stability-studio-mcp during transition
+onedesk-mcp/
+
