@@ -40,21 +40,21 @@ wire_api = "chat"
 # Primary chat / tools brain
 # Vision attachments: desktop profile uses visionModel=orla-vl (Qwen3-VL 8B)
 
-[mcp_servers.stability-studio]
+[mcp_servers.onedesk-mcp]
 command = "python"
-args = ["D:/studio-agent/stability-studio-mcp/server.py"]
+args = ["D:/studio-agent/onedesk-mcp/server.py"]
 default_tools_approval_mode = "approve"
 enabled = true
 startup_timeout_sec = 15
 tool_timeout_sec = 1200
 
-[mcp_servers.stability-studio.tools.get_generation_context]
+[mcp_servers.onedesk-mcp.tools.get_generation_context]
 approval_mode = "approve"
 
-[mcp_servers.stability-studio.tools.generate_image]
+[mcp_servers.onedesk-mcp.tools.generate_image]
 approval_mode = "prompt"
 
-[mcp_servers.stability-studio.tools.generate_video]
+[mcp_servers.onedesk-mcp.tools.generate_video]
 approval_mode = "prompt"
 """
 
@@ -83,10 +83,10 @@ def patch_desktop(cfg_path: Path) -> None:
     print("default_profile_id = custom:orla-ollama")
 
     if "[model_providers.ollama]" not in text:
-        if "[mcp_servers.stability-studio]" in text:
+        if "[mcp_servers.onedesk-mcp]" in text:
             text = text.replace(
-                "[mcp_servers.stability-studio]",
-                PROVIDER_BLOCK + "\n[mcp_servers.stability-studio]",
+                "[mcp_servers.onedesk-mcp]",
+                PROVIDER_BLOCK + "\n[mcp_servers.onedesk-mcp]",
             )
         else:
             text += "\n" + PROVIDER_BLOCK

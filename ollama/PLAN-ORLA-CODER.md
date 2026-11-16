@@ -49,7 +49,7 @@ Status: **Phases 0–5 implemented** (2026-09-22).
 1. **OI → Nari** — create; name via `suggest_asset_name`; fill `staging/handoff.md`
 2. **OI → Coder** (profile) — open TheaterJobs workspace; read handoff; wire `.rpy`
 3. Before Invoke: `.\ollama\coder\gpu_etiquette.ps1 invoke-free`
-4. Restart Stability Studio MCP so new tools appear
+4. Restart OneDesk MCP so new tools appear
 
 ## Done earlier (Nari GPU)
 

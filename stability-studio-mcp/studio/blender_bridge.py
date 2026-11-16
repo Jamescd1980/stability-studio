@@ -1,4 +1,4 @@
-"""Blender MCP ↔ Stability Studio path conventions (LinuxBox Game drive)."""
+"""Blender MCP ↔ OneDesk MCP path conventions (LinuxBox Game drive)."""
 
 from __future__ import annotations
 

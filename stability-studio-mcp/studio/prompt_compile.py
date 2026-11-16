@@ -12,14 +12,15 @@ from typing import Any
 
 # Shown in get_prompt_style / compile_image_prompt for Jan and Cursor agents.
 COMFY_PROMPT_RULES: list[str] = [
-    "Do's → positive prompt; Don'ts → negative prompt. Never mix anti-tags into the positive.",
+    "Match the checkpoint family. Do not use one order for every model.",
+    "Illustrious: comma tags after the auto quality prefix. Negatives yes. Do not say camera.",
+    "Basic negative on Illustrious, Pony, and photoreal SDXL: bad hands, poorly drawn hands, extra fingers, missing fingers, fused fingers, deformed fingers, mutated hands, extra limbs, bad anatomy. Do not drop it. Flux has no negative.",
+    "Pony: score_9 line first, then short phrases. score_6 and below go in the negative.",
+    "Photoreal SDXL: subject first. Negatives yes. Camera and lens language is fine.",
+    "Flux (miracle_nsfw): sentences. Subject, action, style, context. No negative prompt.",
     "House lexicon (gold standard, detail hero, recreate 003, look_profile, keeper) = MCP settings/LoRAs — never paste into Positive/Negative.",
     "One action, one phrase — never describe the same act twice (e.g. blowjob + oral sex + fellatio).",
-    "Subject → pose/position → setting → lighting → one style line. No synonym stacks.",
-    "Skip anatomy coaching in the positive (no 'perfect hands', 'correct limbs') — that belongs in negatives.",
-    "For NSFW acts, name the act directly (blowjob, deepthroat, sex, cowgirl); add position tags only when needed.",
-    "Call compile_image_prompt(prompt=...) to preview deduped text before generate_image.",
-    "Full Do/Don't + lexicon: read_studio_doc(doc='prompting').",
+    "Full grammar: read_studio_doc(doc='prompting').",
 ]
 
 NSFW_PROMPT_RULES: list[str] = [
@@ -181,6 +182,20 @@ def compile_image_prompt(
     }
     if not prompt or not prompt.strip():
         return prompt, report
+
+    arch = (architecture or "").lower()
+    if arch.startswith("flux"):
+        scrubbed, jargon_hit = _scrub_house_jargon(prompt.strip())
+        if jargon_hit:
+            report["removed"].append("lexicon")
+        report["compiled"] = scrubbed
+        report["rules"] = [
+            "Flux: keep the sentence. Subject, then action, then style, then context.",
+            "Do not split a Flux prompt into comma tags.",
+            "No negative prompt.",
+            *COMFY_PROMPT_RULES,
+        ]
+        return scrubbed, report
 
     segments = _split_segments(prompt)
     if rating in {"sfw", "safe"}:

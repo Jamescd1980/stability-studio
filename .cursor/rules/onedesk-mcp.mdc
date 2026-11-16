@@ -1,22 +1,22 @@
 ---
-description: Use Stability Studio MCP for local ComfyUI image/video generation
+description: Use OneDesk MCP for local ComfyUI image/video generation
 alwaysApply: true
 ---
 
-# Stability Studio MCP
+# OneDesk MCP
 
 This repo includes an MCP server for **local** image and video generation via Stability Matrix + ComfyUI.
 
 ## When MCP is available
 
-If `stability-studio` MCP tools are connected (Cursor Settings → MCP shows `stability-studio` enabled):
+If `onedesk-mcp` MCP tools are connected (Cursor Settings → MCP shows `onedesk-mcp` enabled):
 
 1. Call **`get_generation_context`** first — read **`art_food_groups`**, **`gpu_backend_policy`**, **`image_editing_readiness`**, **`face_detail_readiness`**, **`model_families`**, **`style_readiness`**, **`hardware_profile`**, **`generation_limits`**.
 2. **GPU policy:** **`check_gpu_backend`** before **`generate_video`**, **`generate_audio`**, or **`generate_video_hero`**. Offline agents (Jan, LM Studio) rely on this — conflicts return **`gpu_backend_conflict`**.
 3. **Image edits:** **`setup_image_editing()`** once per machine → restart ComfyUI if needed → **`edit_image(...)`**.
    - **Face / eyes / hair / tattoos / markings:** auto-routes to **`refine_face_forge`** (Forge). Prefer calling **`refine_face_forge`** directly. Never pass `mask_region=church_tower` / `right_building`. Call **`plan_image_edit`** first — expect `pipeline: forge_face`.
    - **Add object / flag:** `edit_image` with explicit **`mask_region`** or **`segment_prompt`**. Defaults: denoise ~0.45, IP-Adapter ~0.55.
-   - After code changes to `studio/`: **restart the Stability Studio MCP** in Cursor or the server won’t pick them up.
+   - After code changes to `studio/`: **restart the OneDesk MCP** in Cursor or the server won’t pick them up.
 4. **Four food groups:** `anime` (ilustmix), `fantasy` (merged_dreams), `cyberpunk` (n4mik4), `photoreal` (juggernaut / miracle_nsfw). Use `list_art_food_groups()`.
 5. **Photoreal edits:** use `juggernaut` for SDXL IP-Adapter/ControlNet; `miracle_nsfw` is Flux2 (no SDXL ControlNet).
 6. Before **`generate_image`**: check `style_readiness`; Flux2: `download_style_assets(style='miracle_nsfw')`. **`ilustmix`**: `face_detail` on by default — **`setup_face_detail()`** once, restart ComfyUI.
@@ -30,7 +30,7 @@ Tool names in Cursor: use the MCP tool list shown in the session.
 ## Prerequisites (local machine)
 
 - ComfyUI launched from Stability Matrix
-- `stability-studio-mcp/config.yaml` copied from `config.yaml.example` with correct paths
+- `onedesk-mcp/config.yaml` copied from `config.yaml.example` with correct paths
 - **Image editing:** `setup_image_editing()` — IP-Adapter, SDXL + SD1.5 ControlNet, segmentation nodes
 - **Flux2 (`miracle_nsfw`):** qwen_3_8b + Klein VAE + UNet in DiffusionModels — see MODEL-FAMILIES.md
 - **I2V (`i2v_5b`):** wan2.2_ti2v_5B_fp16, wan2.2_vae, umt5_xxl_fp8_e4m3fn_scaled
@@ -42,7 +42,7 @@ Cloud agents **cannot** reach the user's local ComfyUI unless the user runs Curs
 
 ## Code changes
 
-- Edit orchestration: `stability-studio-mcp/studio/edit_pipeline.py`, `engine.py` (`edit_image`)
+- Edit orchestration: `onedesk-mcp/studio/edit_pipeline.py`, `engine.py` (`edit_image`)
 - Segmentation: `studio/segmentation.py`
 - Checkpoint sniff: `studio/checkpoint_metadata.py`
 - Image edit assets: `studio/image_editing_assets.py`

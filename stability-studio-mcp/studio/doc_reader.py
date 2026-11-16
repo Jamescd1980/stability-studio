@@ -14,11 +14,11 @@ DOC_INDEX: dict[str, dict[str, str]] = {
     "prompting": {
         "title": "House prompting Do/Don't + lexicon (gold standard)",
         "path": "docs/PROMPTING.md",
-        "root": "studio_agent",
+        "root": "mcp",
     },
     "lessons-wan-i2v": {
         "title": "Wan 2.2 I2V keepers (MoE, LoRA bundles, Saloon)",
-        "path": "stability-studio-mcp/LESSONS-WAN-I2V.md",
+        "path": "onedesk-mcp/LESSONS-WAN-I2V.md",
         "root": "studio_agent",
     },
     "lessons-nsfw-stills": {
@@ -101,7 +101,7 @@ DOC_INDEX: dict[str, dict[str, str]] = {
 ROOTS: dict[str, Path] = {
     "studio_agent": Path(r"D:\studio-agent"),
     "theaterjobs": Path(r"D:\Bad boy\TheaterJobs"),
-    "mcp": Path(r"D:\studio-agent\stability-studio-mcp"),
+    "mcp": Path(r"D:\studio-agent\onedesk-mcp"),
     "cursor_rules": Path(r"D:\studio-agent") / ".cursor" / "rules",
 }
 

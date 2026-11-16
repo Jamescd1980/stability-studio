@@ -198,7 +198,7 @@ def install_face_detail_dependencies(cfg: dict[str, Any], comfy_url: str) -> dic
         **report,
         "install_results": installs,
         "next_steps": [
-            "Restart ComfyUI from Stability Matrix if install_results is non-empty.",
+            "Restart ComfyUI (e.g. from Stability Matrix if that is how you run it) if install_results is non-empty.",
             "Call download_face_detail_assets() for face_yolov8m.pt and sam_vit_b_01ec64.pth.",
             "Re-run check_face_detail_dependencies, then generate_image(..., face_detail=true).",
         ],

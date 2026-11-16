@@ -360,7 +360,7 @@ def install_workflow_dependencies(
         "install_results": installs,
         "custom_nodes_dir": str(custom_nodes),
         "next_steps": [
-            "Restart ComfyUI from Stability Matrix (required for new nodes to load).",
+            "Restart ComfyUI (e.g. from Stability Matrix if that is how you run it) (required for new nodes to load).",
             "Call check_comfyui_dependencies again to verify.",
             "Then call generate_video.",
         ],

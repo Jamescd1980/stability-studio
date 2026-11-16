@@ -48,8 +48,12 @@ def _safe_resolve(cfg: dict[str, Any], path: str | Path) -> Path:
             return candidate
         except ValueError:
             continue
+    # OneDesk stills live under Images/Originals, Refined, or Keepers on this PC.
+    parts = {p.lower() for p in candidate.parts}
+    if candidate.is_file() and "images" in parts and parts & {"originals", "refined", "keepers"}:
+        return candidate
     raise ValueError(
-        f"Path not under delivery or Desktop\\New Images: {candidate}"
+        f"Path not under delivery, Desktop\\New Images, or an Images stage folder: {candidate}"
     )
 
 

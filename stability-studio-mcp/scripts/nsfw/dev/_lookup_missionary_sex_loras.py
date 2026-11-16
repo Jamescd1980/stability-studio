@@ -11,7 +11,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[3]
 cfg = yaml.safe_load((ROOT / "config.yaml").read_text(encoding="utf-8"))
 key = cfg["civitai"]["api_key"]
-H = {"Authorization": f"Bearer {key}", "User-Agent": "stability-studio"}
+H = {"Authorization": f"Bearer {key}", "User-Agent": "onedesk-mcp"}
 
 QUERIES = [
     "Missionary Sex WAN 2.2",

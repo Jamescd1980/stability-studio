@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Download curated NSFW still-image LoRAs (Illustrious / Pony) into Stability Matrix Lora/."""
+"""Download curated NSFW still-image LoRAs (Illustrious / Pony) into configured Lora/ folders (Stability Matrix layout supported)."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from studio.nsfw_image_loras import (
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Download NSFW image LoRAs into Stability Matrix Lora/")
+    parser = argparse.ArgumentParser(description="Download NSFW image LoRAs into configured Lora/ folders (Stability Matrix layout supported)")
     parser.add_argument("--ids", default="", help="Comma-separated ids (ntr_mix_style, hentai_manga_pony, …)")
     parser.add_argument(
         "--bundle",

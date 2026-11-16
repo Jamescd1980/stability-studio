@@ -16,7 +16,7 @@ Replace placeholders in templates before use:
 
 | File | Use |
 |------|-----|
-| `config.yaml.template` | Copy → `stability-studio-mcp/config.yaml` on **laptop** |
+| `config.yaml.template` | Copy → `onedesk-mcp/config.yaml` on **laptop** |
 | `jan-mcp-stability-studio.json.template` | Merge into Jan `mcp_config.json` |
 | `jan-assistant-instructions.md` | Paste into Studio Copilot instructions |
 

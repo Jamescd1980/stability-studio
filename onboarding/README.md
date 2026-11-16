@@ -27,7 +27,7 @@ An **MCP workflow** — not a one-click app. The assistant uses MCP tools to dri
 | `ONBOARDING.md` | Conversational playbook for agents |
 | `CHECKLIST.yaml` | Tiers, tools, VRAM rules, install order |
 | `TROUBLESHOOTING.md` | Common failures in plain language |
-| `config.yaml.template` | Config starter — copy to `stability-studio-mcp/config.yaml` |
+| `config.yaml.template` | Config starter — copy to `onedesk-mcp/config.yaml` |
 | `PROJECT.template/` | Empty project folder layout for storyboards |
 | `examples/rin/` | Finished Rin storyboard reference |
 

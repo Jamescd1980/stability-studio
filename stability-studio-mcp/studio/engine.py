@@ -12,6 +12,7 @@ from studio.hardware_profile import (
     ANATOMY_NEGATIVE_HINT,
     ANATOMY_POSITIVE_HINT,
     ANATOMY_POSITIVE_HINT_VIDEO,
+    merge_still_negative,
     apply_video_safety_caps,
     build_hardware_profile,
     clamp_image_params,
@@ -77,6 +78,31 @@ from studio.workflow_builder import (
 from studio.workflow_converter import ui_to_api
 
 
+def _coerce_lora_list(raw: Any) -> list[dict[str, Any]]:
+    """Agents sometimes pass LoRAs as a JSON string. Workflow builders need list[dict]."""
+    if raw is None:
+        return []
+    if isinstance(raw, str):
+        text = raw.strip()
+        if not text:
+            return []
+        try:
+            raw = json.loads(text)
+        except ValueError:
+            return []
+    if isinstance(raw, dict):
+        raw = [raw]
+    if not isinstance(raw, list):
+        return []
+    out: list[dict[str, Any]] = []
+    for item in raw:
+        if isinstance(item, dict):
+            out.append(dict(item))
+        elif isinstance(item, str) and item.strip():
+            out.append({"file": item.strip(), "weight": 0.8})
+    return out
+
+
 class GenerationEngine:
     def __init__(self, cfg: dict[str, Any], catalog: StyleCatalog) -> None:
         self.cfg = cfg
@@ -111,7 +137,14 @@ class GenerationEngine:
             raise ValueError("No checkpoint configured for this style")
         resolved_style, ckpt = resolve_style_for_rating(resolved_style, ckpt, rating)
         prefix = style_cfg.get("prompt_prefix", "")
-        base_neg = negative_prompt or style_cfg.get("negative_prompt", "")
+        arch = str(style_cfg.get("architecture") or "")
+        if arch in {"flux2", "flux2_klein"} or is_flux_checkpoint(str(ckpt or "")):
+            base_neg = (negative_prompt or style_cfg.get("negative_prompt") or "").strip()
+        else:
+            base_neg = merge_still_negative(
+                str(style_cfg.get("negative_prompt") or ""),
+                str(negative_prompt or ""),
+            )
         full_prompt, neg = apply_content_policy(
             prompt=prompt,
             positive_prefix=prefix,
@@ -119,7 +152,8 @@ class GenerationEngine:
             content_rating=rating,
         )
         defaults = self.catalog.resolve_generation_defaults(resolved_style)
-        merged_loras = loras if loras is not None else style_cfg.get("loras", [])
+        raw_loras = loras if loras is not None else style_cfg.get("loras", [])
+        merged_loras = _coerce_lora_list(raw_loras)
         return {
             "rating": rating,
             "style_cfg": style_cfg,
@@ -230,17 +264,17 @@ class GenerationEngine:
         status = self.backend_status()
         if preferred == "comfyui":
             if not status["comfyui"]:
-                raise RuntimeError("ComfyUI is not running. Launch it from Stability Matrix.")
+                raise RuntimeError("ComfyUI is not running. Start ComfyUI (e.g. from Stability Matrix if that is how you run it).")
             return "comfyui"
         if preferred == "invoke":
             if not status["invokeai"]:
-                raise RuntimeError("InvokeAI is not running. Launch it from Stability Matrix.")
+                raise RuntimeError("InvokeAI is not running. Start ComfyUI (e.g. from Stability Matrix if that is how you run it).")
             return "invoke"
         if status["comfyui"]:
             return "comfyui"
         if status["invokeai"]:
             return "invoke"
-        raise RuntimeError("Neither ComfyUI nor InvokeAI is running. Start one from Stability Matrix.")
+        raise RuntimeError("Neither ComfyUI nor InvokeAI is running. Start ComfyUI or InvokeAI (Stability Matrix is one option).")
 
     def _apply_face_detail_if_requested(
         self,

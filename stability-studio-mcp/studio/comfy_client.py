@@ -67,7 +67,7 @@ class ComfyUIClient:
             except requests.RequestException as exc:
                 raise RuntimeError(
                     f"ComfyUI connection lost while waiting for prompt {prompt_id}. "
-                    "Restart ComfyUI from Stability Matrix and check for GPU OOM in the console."
+                    "Restart ComfyUI (e.g. from Stability Matrix if that is how you run it) and check for GPU OOM in the console."
                 ) from exc
             if prompt_id in hist:
                 entry = hist[prompt_id]

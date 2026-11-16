@@ -1,17 +1,17 @@
-# Agent guide — Stability Studio
+# Agent guide — OneDesk MCP
 
 Instructions for AI agents (Cursor, cloud agents, Open Interpreter) working in this repository.
 
 ## What this project is
 
-**Stability Studio MCP** — a Python MCP server that routes natural-language style requests to **ComfyUI** (headless) using **Stability Matrix** models and saved workflow JSON. It is **not** a one-stop shop; it is meant for **AI-assisted setup** of complicated local tools. See **`onboarding/ONBOARDING.md`** for the guided path.
+**OneDesk MCP** — a Python MCP server that routes natural-language style requests to **ComfyUI** (headless) using **Stability Matrix** models and saved workflow JSON. It is **not** a one-stop shop; it is meant for **AI-assisted setup** of complicated local tools. See **`onboarding/ONBOARDING.md`** for the guided path.
 
 Supports:
 
 - **Images** — SD 1.5 / SDXL / Pony / Flux.2 Klein via `catalog.yaml` style presets and `model_families`
 - **Image editing** — **`edit_image`** (unified), i2i, inpaint, IP-Adapter, ControlNet — see [IMAGE-EDITING.md](IMAGE-EDITING.md)
-- **Video** — Wan T2V/I2V via ComfyUI; **14B NSFW/identity = `workflow_id=i2v`** (Wan 2.2 MoE HIGH+LOW). Draft/SFW = `i2v_5b`. See `stability-studio-mcp/LESSONS-WAN-I2V.md`.
-- **Pose from Blender** — optional second MCP (`blender`); Stability Studio bridge: `get_blender_workflow_playbook` / `register_blender_control_maps` — [BLENDER-MCP.md](BLENDER-MCP.md), [LESSONS-BLENDER-MCP.md](LESSONS-BLENDER-MCP.md)
+- **Video** — Wan T2V/I2V via ComfyUI; **14B NSFW/identity = `workflow_id=i2v`** (Wan 2.2 MoE HIGH+LOW). Draft/SFW = `i2v_5b`. See `onedesk-mcp/LESSONS-WAN-I2V.md`.
+- **Pose from Blender** — optional second MCP (`blender`); OneDesk MCP bridge: `get_blender_workflow_playbook` / `register_blender_control_maps` — [BLENDER-MCP.md](BLENDER-MCP.md), [LESSONS-BLENDER-MCP.md](LESSONS-BLENDER-MCP.md)
 - **LinuxBox CUDA 5090** — [HARDWARE.md](HARDWARE.md), [LESSONS-COMFYBOX-CUDA.md](LESSONS-COMFYBOX-CUDA.md)
 
 ## Four art food groups
@@ -31,7 +31,7 @@ Use `food_group=` on **`edit_image`** (or pick matching styles for T2I):
 
 ```
 studio-agent/
-  stability-studio-mcp/     # MCP server package
+  onedesk-mcp/     # MCP server package
     server.py               # Entry point
     config.yaml             # Local paths (gitignored — copy from config.yaml.example)
     catalog.yaml            # Styles, food groups, video workflows, model_families
@@ -98,7 +98,7 @@ Generation tools **only work when**:
 | **Media paths** | `list_media_paths` or `get_generation_context.media_paths` |
 | **Wan2GP assets** | `check_wan2gp_assets` / `download_wan2gp_assets` |
 
-Outputs land in `stability-studio-mcp/outputs/` (setup JSON + scripts). Configure `outputs.delivery` for project folders: `temp/`, `images/`, `assets/`, `clips/`, `audio/`, `logs/`, `final/` — see `PATHS.md`.
+Outputs land in `onedesk-mcp/outputs/` (setup JSON + scripts). Configure `outputs.delivery` for project folders: `temp/`, `images/`, `assets/`, `clips/`, `audio/`, `logs/`, `final/` — see `PATHS.md`.
 
 ## Image editing (agents)
 

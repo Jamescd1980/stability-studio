@@ -1,8 +1,11 @@
-# Stability Studio MCP
+# OneDesk MCP
 
-Python MCP server for style-aware local image and video generation via **ComfyUI** (and optionally Stability Matrix for model layout).
+Python MCP server for style-aware local image and video generation via **ComfyUI** / Forge / Wan.  
+**Stability Matrix** remains an optional model/layout backend — not the product name.
 
-> **Rename:** When published for One Desk, this repo becomes **one-desk-mcp**. The folder on this PC can stay put until that publish. One Desk points at this path in Settings → MCP path.
+> **Brand:** FastMCP server id is `onedesk-mcp` (formerly `stability-studio`).  
+> Cursor / Jan / Open Interpreter: use MCP key `onedesk-mcp` pointing at this folder (or the nested `One Desk\mcp` ship copy).  
+> Old key `stability-studio` still works if you keep the same `server.py` path until you update client configs.
 
 ## Install
 

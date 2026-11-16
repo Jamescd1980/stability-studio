@@ -16,7 +16,7 @@ _PATTERNS: list[tuple[re.Pattern[str], str, str]] = [
     (
         re.compile(r"connection lost|Connection refused|Failed to establish", re.I),
         "comfyui_connection",
-        "ComfyUI disconnected mid-run. Restart ComfyUI from Stability Matrix, ensure no parallel "
+        "ComfyUI disconnected mid-run. Restart ComfyUI (e.g. from Stability Matrix if that is how you run it), ensure no parallel "
         "video/audio jobs on 16 GB, then retry.",
     ),
     (

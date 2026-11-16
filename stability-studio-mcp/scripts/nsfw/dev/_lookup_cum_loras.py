@@ -11,7 +11,7 @@ m = re.search(r'api_key:\s*"([^"]+)"', text) or re.search(r"api_key:\s*'([^']+)'
 if not m:
     m = re.search(r"api_key:\s*(\S+)", text)
 key = m.group(1).strip().strip('"').strip("'")
-H = {"Authorization": f"Bearer {key}", "User-Agent": "stability-studio"}
+H = {"Authorization": f"Bearer {key}", "User-Agent": "onedesk-mcp"}
 
 
 def get(url: str) -> dict:

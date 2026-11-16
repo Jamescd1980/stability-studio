@@ -110,7 +110,7 @@ stability-studio__get_generation_context
    )
 ```
 
-Omit `workflow_id` for I2V — the server picks **`i2v_5b`** automatically. Outputs: `<PROJECT_ROOT>/stability-studio-mcp/outputs/`.
+Omit `workflow_id` for I2V — the server picks **`i2v_5b`** automatically. Outputs: `<PROJECT_ROOT>/onedesk-mcp/outputs/`.
 
 **Video V2V extend (continue from last frame):**
 ```

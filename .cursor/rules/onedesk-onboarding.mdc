@@ -1,9 +1,9 @@
 ---
-description: Guide new users through Stability Studio setup via onboarding pack
+description: Guide new users through OneDesk MCP setup via onboarding pack
 alwaysApply: true
 ---
 
-# Stability Studio — guided onboarding
+# OneDesk MCP — guided onboarding
 
 This MCP is **not** a one-click installer. It helps **less technical users** use ComfyUI through an AI assistant.
 

@@ -6,7 +6,7 @@ Ollama has **no plugin/extension API** for attaching tools to a model. Tools are
 
 | Layer | Role |
 |-------|------|
-| **Stability Studio MCP** | Real tools: `read_studio_doc`, `list_studio_docs`, `search_studio_docs`, `lookup_character_identity`, generate_*, Wan checklist, … |
+| **OneDesk MCP** | Real tools: `read_studio_doc`, `list_studio_docs`, `search_studio_docs`, `lookup_character_identity`, generate_*, Wan checklist, … |
 | **Open Interpreter + Nari skill** | Tool-calling client; MCP wired in `configure_open_interpreter.py` |
 | **Cursor** | Same MCP namespace |
 | **`oi_do.py`** | Shell fallback when chat has no tools: `docs` / `read` / `search` / `who eris` |

@@ -391,6 +391,7 @@ def region_face_inpaint(
     seed: int = -1,
     padding: int = 64,
     out_path: str | Path | None = None,
+    filename_prefix: str = "face",
 ) -> dict[str, Any]:
     """Forge img2img with ellipse face mask + inpaint_full_res (tight zoom)."""
     err = _ensure_forge(cfg)
@@ -419,7 +420,8 @@ def region_face_inpaint(
     root = Path(cfg.get("_package_root") or ".") / "outputs" / "forge_face"
     root.mkdir(parents=True, exist_ok=True)
     stamp = int(time.time())
-    out = Path(out_path) if out_path else root / f"face_{stamp}.png"
+    prefix = filename_prefix if filename_prefix in {"face", "region"} else "face"
+    out = Path(out_path) if out_path else root / f"{prefix}_{stamp}.png"
     out.parent.mkdir(parents=True, exist_ok=True)
     mask_path = out.with_name(out.stem + "_mask.png")
     frame_path = out.with_name(out.stem + "_frame.png")
@@ -451,9 +453,12 @@ def region_face_inpaint(
         "inpaint_full_res_padding": int(padding),
         "batch_size": 1,
     }
-    r = requests.post(f"{url}/sdapi/v1/img2img", json=payload, timeout=timeout)
-    r.raise_for_status()
-    data = r.json()
+    from studio.forge_backend import post_forge_img2img
+
+    posted = post_forge_img2img(url, payload, max_seconds=min(float(timeout), 180))
+    if not posted.get("ok"):
+        return posted
+    data = posted.get("data") or {}
     images = data.get("images") or []
     if not images:
         return {"ok": False, "error": "Forge returned no images", "info": data.get("info")}
@@ -711,20 +716,8 @@ def refine_face_forge(
         prompt = f"{prompt}, keep exact eye color from source"
     if "hair" not in pl:
         prompt = f"{prompt}, keep exact hair color from source"
-    if not any(
-        w in pl
-        for w in (
-            "tattoo",
-            "marking",
-            "markings",
-            "freckle",
-            "scar",
-            "glyph",
-            "face paint",
-            "facial mark",
-        )
-    ):
-        prompt = f"{prompt}, keep exact face tattoos and markings from source (or none if none)"
+    # Do not add the words "face tattoos" or "markings". This checkpoint draws them.
+    # A marking stays in the prompt only when the caller already named that marking.
     if "expression" not in pl and not any(
         w in pl for w in ("mouth", "smile", "smirk", "gasp", "tongue", "blush", "open", "closed")
     ):
@@ -733,7 +726,8 @@ def refine_face_forge(
     attempts: list[dict[str, Any]] = []
     current_denoise = float(spec["denoise"])
     current_pad_frac = float(spec.get("pad_frac") or 0.08)
-    last_box: list[int] | None = list(box) if box and len(box) == 4 else None
+    provided_box = bool(box and len(box) == 4)
+    last_box: list[int] | None = [int(v) for v in box] if provided_box else None
 
     for attempt in range(1, max(1, int(max_attempts)) + 1):
         if last_box is None:
@@ -743,16 +737,17 @@ def refine_face_forge(
             last_box = list(det["box"])
             detect_meta = det
         else:
-            detect_meta = {"ok": True, "box": last_box, "method": "provided"}
+            detect_meta = {"ok": True, "box": last_box, "method": "provided" if provided_box else "detect"}
 
-        # On retry: tighten pad and drop denoise slightly
+        # On retry: drop denoise slightly. A box the user drew is never replaced by a face detect.
         if attempt > 1:
             current_denoise = max(0.06, current_denoise - 0.03)
-            current_pad_frac = max(0.04, current_pad_frac - 0.02)
-            det2 = detect_face_box(src, face_index=face_index, pad_frac=current_pad_frac)
-            if det2.get("ok"):
-                last_box = list(det2["box"])
-                detect_meta = det2
+            if not provided_box:
+                current_pad_frac = max(0.04, current_pad_frac - 0.02)
+                det2 = detect_face_box(src, face_index=face_index, pad_frac=current_pad_frac)
+                if det2.get("ok"):
+                    last_box = list(det2["box"])
+                    detect_meta = det2
 
         gen = region_face_inpaint(
             cfg,

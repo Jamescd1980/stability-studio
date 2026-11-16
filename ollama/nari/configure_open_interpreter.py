@@ -53,27 +53,27 @@ name = "Ollama (Coder / Orla)"
 requires_openai_auth = false
 wire_api = "chat"
 
-[mcp_servers.stability-studio]
+[mcp_servers.onedesk-mcp]
 command = "python"
-args = ["D:/studio-agent/stability-studio-mcp/server.py"]
+args = ["D:/studio-agent/onedesk-mcp/server.py"]
 default_tools_approval_mode = "approve"
 enabled = true
 startup_timeout_sec = 20
 tool_timeout_sec = 1200
 
-[mcp_servers.stability-studio.tools.generate_image]
+[mcp_servers.onedesk-mcp.tools.generate_image]
 approval_mode = "prompt"
 
-[mcp_servers.stability-studio.tools.generate_video]
+[mcp_servers.onedesk-mcp.tools.generate_video]
 approval_mode = "prompt"
 
-[mcp_servers.stability-studio.tools.recycle_delivery_media]
+[mcp_servers.onedesk-mcp.tools.recycle_delivery_media]
 approval_mode = "prompt"
 
-[mcp_servers.stability-studio.tools.check_gpu_backend]
+[mcp_servers.onedesk-mcp.tools.check_gpu_backend]
 approval_mode = "approve"
 
-[mcp_servers.stability-studio.tools.unload_nari_for_gpu]
+[mcp_servers.onedesk-mcp.tools.unload_nari_for_gpu]
 approval_mode = "approve"
 """
 
@@ -88,9 +88,9 @@ name = "Ollama (Nari / ComfyBox)"
 requires_openai_auth = false
 wire_api = "chat"
 
-[mcp_servers.stability-studio]
+[mcp_servers.onedesk-mcp]
 command = "python"
-args = ["D:/studio-agent/stability-studio-mcp/server.py"]
+args = ["D:/studio-agent/onedesk-mcp/server.py"]
 default_tools_approval_mode = "approve"
 enabled = true
 startup_timeout_sec = 20

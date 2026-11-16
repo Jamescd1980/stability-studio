@@ -253,7 +253,7 @@ def setup_image_editing(
         "readiness": readiness,
         "restart_comfyui_required": bool(restart),
         "next_steps": [
-            "Restart ComfyUI from Stability Matrix if any custom nodes were installed.",
+            "Restart ComfyUI (e.g. from Stability Matrix if that is how you run it) if any custom nodes were installed.",
             "Restart stability-studio MCP if tool list changed.",
             "Use edit_image(image_path, instruction, food_group=...) for guided edits.",
             "Food groups: anime (ilustmix), fantasy (merged_dreams), cyberpunk (n4mik4), photoreal (juggernaut).",

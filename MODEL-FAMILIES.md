@@ -1,6 +1,6 @@
 # Model families — agent setup guide
 
-This document explains **what each model architecture needs**, how ComfyUI workflows differ, and which sampler/settings to use. The **machine-readable source of truth** is `stability-studio-mcp/catalog.yaml` → `model_families` and per-style `architecture` fields. Agents should call **`get_generation_context`** first; it returns `model_families`, `style_readiness`, and per-style defaults.
+This document explains **what each model architecture needs**, how ComfyUI workflows differ, and which sampler/settings to use. The **machine-readable source of truth** is `onedesk-mcp/catalog.yaml` → `model_families` and per-style `architecture` fields. Agents should call **`get_generation_context`** first; it returns `model_families`, `style_readiness`, and per-style defaults.
 
 ---
 
@@ -36,7 +36,7 @@ This document explains **what each model architecture needs**, how ComfyUI workf
 Some styles need a checkpoint that is not on disk. Catalog entry includes `download:` metadata.
 
 1. Create a Civitai API key: https://civitai.com/user/account  
-2. Add to `stability-studio-mcp/config.yaml`:
+2. Add to `onedesk-mcp/config.yaml`:
    ```yaml
    civitai:
      api_key: "YOUR_KEY"
@@ -246,12 +246,12 @@ Per-style overrides (checkpoint, prompts, steps) remain in each style block unde
 
 | Concern | File |
 |---------|------|
-| Family definitions + style defaults | `stability-studio-mcp/catalog.yaml` |
-| SDXL workflow builder | `stability-studio-mcp/studio/workflow_builder.py` → `build_txt2img_workflow` |
+| Family definitions + style defaults | `onedesk-mcp/catalog.yaml` |
+| SDXL workflow builder | `onedesk-mcp/studio/workflow_builder.py` → `build_txt2img_workflow` |
 | Flux2 workflow builder | `workflow_builder.py` → `build_flux2_klein_txt2img_workflow` |
-| Routing by architecture | `stability-studio-mcp/studio/engine.py` |
-| Image asset checks / downloads | `stability-studio-mcp/studio/style_assets.py` |
-| Video asset checks / downloads | `stability-studio-mcp/studio/wan_assets.py`, `studio/hunyuan_assets.py` |
-| Video UI JSON conversion | `stability-studio-mcp/studio/workflow_converter.py` |
+| Routing by architecture | `onedesk-mcp/studio/engine.py` |
+| Image asset checks / downloads | `onedesk-mcp/studio/style_assets.py` |
+| Video asset checks / downloads | `onedesk-mcp/studio/wan_assets.py`, `studio/hunyuan_assets.py` |
+| Video UI JSON conversion | `onedesk-mcp/studio/workflow_converter.py` |
 
 When adding a new model family: extend `model_families` in `catalog.yaml`, add workflow routing in `engine.py`, and add asset manifest entries in `style_assets.py` if companion downloads are needed.

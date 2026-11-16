@@ -15,7 +15,7 @@ Use **local GPU generation only** (no cloud image/video APIs). Before creating o
 | Type | Primary folder | Notes |
 |------|----------------|-------|
 | **Delivery (project folder)** | `<YOUR_OUTPUTS_DELIVERY>` | Set `outputs.delivery` in `config.yaml` — MOSS audio + copies from MCP |
-| **Images (MCP agent)** | `<PROJECT_ROOT>/stability-studio-mcp/outputs/` | PNG/JPG from `generate_image`, `edit_image` |
+| **Images (MCP agent)** | `<PROJECT_ROOT>/onedesk-mcp/outputs/` | PNG/JPG from `generate_image`, `edit_image` |
 | **Images (ComfyUI UI)** | `<COMFYUI_ROOT>/output/` | Manual ComfyUI saves |
 | **ComfyUI inputs** | `<COMFYUI_ROOT>/input/` | Upload / Load Image sources |
 | **Audio (MOSS raw)** | `<COMFYUI_ROOT>/output/audio/` | MP3 from ComfyUI SaveAudio |

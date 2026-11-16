@@ -4,7 +4,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-ROOT = Path(r"D:\studio-agent\stability-studio-mcp")
+ROOT = Path(r"D:\studio-agent\onedesk-mcp")
 SERVER = ROOT / "server.py"
 src = SERVER.read_text(encoding="utf-8")
 

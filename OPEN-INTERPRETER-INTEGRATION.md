@@ -1,8 +1,8 @@
-# Stability Studio MCP × Open Interpreter
+# OneDesk MCP × Open Interpreter
 
 **Handoff document — June 9, 2026 (updated)**
 
-Reference integration: **Open Interpreter** + **local LLM (LM Studio / Ollama)** + **Stability Studio MCP** → **ComfyUI** (headless, via Stability Matrix).
+Reference integration: **Open Interpreter** + **local LLM (LM Studio / Ollama)** + **OneDesk MCP** → **ComfyUI** (headless, via Stability Matrix).
 
 **Project root:** `<PROJECT_ROOT>/` (clone or copy this repo anywhere)
 
@@ -32,7 +32,7 @@ On this machine, Open Interpreter is wired to **Orla** via Ollama’s OpenAI-com
 - Example snippet: `config-examples/open-interpreter-orla.toml`
 - Fully quit and relaunch Open Interpreter after changing profiles
 
-Image **generation** still uses Stability Studio MCP → ComfyUI. The VLM only **reads** images.
+Image **generation** still uses OneDesk MCP → ComfyUI. The VLM only **reads** images.
 
 ---
 
@@ -42,22 +42,22 @@ Image **generation** still uses Stability Studio MCP → ComfyUI. The VLM only *
 |-----------|------|
 | Open Interpreter | Chat UI, tool calling, file workflow |
 | Local LLM server | Tool-capable model (LM Studio, Ollama, etc.) |
-| Stability Studio MCP | Style routing, workflow build/convert, ComfyUI API |
+| OneDesk MCP | Style routing, workflow build/convert, ComfyUI API |
 | ComfyUI | Headless generation (`<COMFYUI_URL>`) |
 | Stability Matrix | Models, workflows, package manager |
 
-The MCP server maps plain-language styles (`anime`, `juggernaut`, `photorealistic`, …) to local checkpoints, builds SDXL txt2img workflows, or loads saved Wan T2V/I2V workflow JSON from Stability Matrix, queues on ComfyUI, and saves outputs to `<PROJECT_ROOT>/stability-studio-mcp/outputs/`.
+The MCP server maps plain-language styles (`anime`, `juggernaut`, `photorealistic`, …) to local checkpoints, builds SDXL txt2img workflows, or loads saved Wan T2V/I2V workflow JSON from Stability Matrix, queues on ComfyUI, and saves outputs to `<PROJECT_ROOT>/onedesk-mcp/outputs/`.
 
 ### Status (June 9, 2026)
 
 | Feature | Status |
 |---------|--------|
 | Image generation (`generate_image`) | **Working** — WAI Illustrious / catalog styles via ComfyUI |
-| MCP registration in OI | **Working** — `stability-studio` reaches `ready` |
+| MCP registration in OI | **Working** — `onedesk-mcp` reaches `ready` |
 | Video `t2v` (Wan 2.1) | **Working** — needs `umt5-xxl-enc-bf16`, `wan2.1_t2v_1.3B`, `VHS_USE_IMAGEIO_FFMPEG=1` (§6) |
 | Video **`i2v_5b`** (default I2V) | **Working** — Wan 2.2 TI2V-5B native; `image_path` required; ~2–6 min @ 704×1024 on 16 GB |
 | Video `i2v` (14B legacy) | **Working but not recommended** — dual 14B + blockswap; use explicit `workflow_id=i2v` only |
-| Local model + `interpreter-app` | **Unsupported** — use `stability-studio__*` tools directly (see skill below) |
+| Local model + `interpreter-app` | **Unsupported** — use `onedesk-mcp__*` tools directly (see skill below) |
 
 ---
 
@@ -67,7 +67,7 @@ The MCP server maps plain-language styles (`anime`, `juggernaut`, `photorealisti
 flowchart LR
     User[User] --> OI[Open Interpreter]
     OI --> LLM[Local LLM]
-    OI --> MCP[Stability Studio MCP]
+    OI --> MCP[OneDesk MCP]
     MCP --> Catalog[catalog.yaml]
     MCP --> Comfy[ComfyUI]
     Comfy --> SM[Stability Matrix]
@@ -81,13 +81,13 @@ flowchart LR
 ### 1. Install Python dependencies
 
 ```powershell
-cd <PROJECT_ROOT>/stability-studio-mcp
+cd <PROJECT_ROOT>/onedesk-mcp
 pip install -r requirements.txt
 ```
 
 ### 2. Configure machine paths
 
-Edit `<PROJECT_ROOT>/stability-studio-mcp/config.yaml`:
+Edit `<PROJECT_ROOT>/onedesk-mcp/config.yaml`:
 
 - `stability_matrix.root` → `<STABILITY_MATRIX_ROOT>`
 - `stability_matrix.models`, `workflows` → under that root
@@ -102,8 +102,8 @@ Append the block from `<PROJECT_ROOT>/config-examples/open-interpreter-mcp.toml`
 
 ### 4. Local-model skill (recommended)
 
-Copy `config-examples/stability-studio-skill.md` →  
-`<OI_CONFIG_DIR>/skills/stability-studio/SKILL.md`
+Copy `config-examples/onedesk-mcp-skill.md` →  
+`<OI_CONFIG_DIR>/skills/onedesk-mcp/SKILL.md`
 
 Prevents the agent from calling `interpreter-app` (hosted-only) when using a local LLM.
 
@@ -142,7 +142,7 @@ Replace `<COMFYUI_VENV>` with `<STABILITY_MATRIX_ROOT>/Data/Packages/ComfyUI/ven
 <STABILITY_MATRIX_ROOT>/Data/Packages/ComfyUI/venv/Scripts/python.exe -c "from imageio_ffmpeg import get_ffmpeg_exe; print(get_ffmpeg_exe())"
 ```
 
-**Verify after restart:** run `generate_video(mode="i2v", image_path="...", ...)`. Wan nodes should execute; `VHS_VideoCombine` should write MP4 under ComfyUI `output/` (MCP copies to `stability-studio-mcp/outputs/`).
+**Verify after restart:** run `generate_video(mode="i2v", image_path="...", ...)`. Wan nodes should execute; `VHS_VideoCombine` should write MP4 under ComfyUI `output/` (MCP copies to `onedesk-mcp/outputs/`).
 
 **Persistent env (recommended):** set `VHS_USE_IMAGEIO_FFMPEG=1` before ComfyUI starts. Options:
 
@@ -169,24 +169,24 @@ Replace `<COMFYUI_VENV>` with `<STABILITY_MATRIX_ROOT>/Data/Packages/ComfyUI/ven
 | `generate_image` | T2I via style preset |
 | `generate_video` | T2V / I2V via saved workflow JSON; **`image_path` required for I2V** |
 
-In Open Interpreter, tools appear as `stability-studio__<tool_name>`.
+In Open Interpreter, tools appear as `onedesk-mcp__<tool_name>`.
 
 ### Example flows
 
 **Image:**
 ```
-stability-studio__get_generation_context
-→ stability-studio__generate_image(prompt="...", style="anime")
-→ { checkpoint, style, saved_files: ["<PROJECT_ROOT>/stability-studio-mcp/outputs/....png"] }
+onedesk-mcp__get_generation_context
+→ onedesk-mcp__generate_image(prompt="...", style="anime")
+→ { checkpoint, style, saved_files: ["<PROJECT_ROOT>/onedesk-mcp/outputs/....png"] }
 ```
 
 **Video I2V (recommended — default `i2v_5b`):**
 ```
-stability-studio__get_generation_context
-→ stability-studio__check_backends
-→ stability-studio__check_wan_assets(workflow_id="i2v_5b")
-→ stability-studio__download_wan_assets(workflow_id="i2v_5b", include_large=true)   # first time only
-→ stability-studio__generate_video(
+onedesk-mcp__get_generation_context
+→ onedesk-mcp__check_backends
+→ onedesk-mcp__check_wan_assets(workflow_id="i2v_5b")
+→ onedesk-mcp__download_wan_assets(workflow_id="i2v_5b", include_large=true)   # first time only
+→ onedesk-mcp__generate_video(
      mode="i2v",
      image_path="D:/path/to/source.png",
      prompt="...",
@@ -200,10 +200,10 @@ Omit `workflow_id` for I2V — the server defaults to **`i2v_5b`**. Resolution i
 
 **Video T2V:**
 ```
-stability-studio__get_generation_context   # check wan_umt5_ready
-→ stability-studio__check_backends
-→ stability-studio__check_comfyui_dependencies(workflow_id="t2v")
-→ stability-studio__generate_video(prompt="...", mode="t2v", workflow_id="t2v")
+onedesk-mcp__get_generation_context   # check wan_umt5_ready
+→ onedesk-mcp__check_backends
+→ onedesk-mcp__check_comfyui_dependencies(workflow_id="t2v")
+→ onedesk-mcp__generate_video(prompt="...", mode="t2v", workflow_id="t2v")
 ```
 
 ### Wan asset requirements
@@ -266,7 +266,7 @@ Call **`get_generation_context`** and stay within **`generation_limits`** unless
 4. **ComfyUI dependencies** — `check_comfyui_dependencies`, `install_comfyui_dependencies`.
 5. **T5 encoder remap** — `_remap_wan_t5_encoder()` forces umt5-xxl; family-aware matching avoids qwen false positives.
 6. **`get_generation_context`** — exposes `wan_umt5_ready`, `wan_umt5_download`.
-7. **OI integration** — MCP block, `stability-studio` skill, config examples.
+7. **OI integration** — MCP block, `onedesk-mcp` skill, config examples.
 
 ### June 9, 2026 — Wan video model remapper
 
@@ -302,7 +302,7 @@ expected input … to have 36 channels, but got 16 channels
 
 ### June 9, 2026 — OI docs / config refresh
 
-- Updated `config-examples/stability-studio-skill.md`, `open-interpreter-mcp.toml` (`tool_timeout_sec=1200`, Wan asset tools).
+- Updated `config-examples/onedesk-mcp-skill.md`, `open-interpreter-mcp.toml` (`tool_timeout_sec=1200`, Wan asset tools).
 - This document aligned with validated `i2v_5b` path.
 
 ---
@@ -313,8 +313,8 @@ Validated stack for a **single chat interface** driving local image and video ge
 
 | Layer | What worked | Notes |
 |-------|-------------|-------|
-| **Agent UI** | Open Interpreter + MCP tools | Tools appear as `stability-studio__*`; restart OI after config/code changes |
-| **Local LLM** | LM Studio, tool-capable VL model (e.g. Qwen3-VL-4B) | Install `stability-studio` skill so the model does **not** call `interpreter-app` |
+| **Agent UI** | Open Interpreter + MCP tools | Tools appear as `onedesk-mcp__*`; restart OI after config/code changes |
+| **Local LLM** | LM Studio, tool-capable VL model (e.g. Qwen3-VL-4B) | Install `onedesk-mcp` skill so the model does **not** call `interpreter-app` |
 | **Image backend** | ComfyUI headless + `catalog.yaml` styles | `get_generation_context` → `generate_image(style="anime")` |
 | **Video I2V** | **`i2v_5b`** + `image_path` | ~2–6 min @ 704×1024 on RTX 5060 Ti 16 GB; omit `workflow_id` |
 | **Video T2V** | `workflow_id=t2v` | Wan 2.1 1.3B — **81 frames max** @ 16 fps on 16 GB (validated 2026-06-11) |
@@ -327,24 +327,24 @@ Validated stack for a **single chat interface** driving local image and video ge
 
 **Recommended agent flow (images):**
 ```
-stability-studio__get_generation_context
-→ stability-studio__generate_image(prompt="...", style="anime")
+onedesk-mcp__get_generation_context
+→ onedesk-mcp__generate_image(prompt="...", style="anime")
 ```
 
 **Recommended agent flow (I2V):**
 ```
-stability-studio__get_generation_context
-→ stability-studio__check_backends
-→ stability-studio__check_wan_assets(workflow_id="i2v_5b")
-→ stability-studio__generate_video(mode="i2v", image_path="...", prompt="...", num_frames=65, frame_rate=16)
+onedesk-mcp__get_generation_context
+→ onedesk-mcp__check_backends
+→ onedesk-mcp__check_wan_assets(workflow_id="i2v_5b")
+→ onedesk-mcp__generate_video(mode="i2v", image_path="...", prompt="...", num_frames=65, frame_rate=16)
 ```
 
 **Recommended agent flow (T2V):**
 ```
-stability-studio__get_generation_context
-→ stability-studio__check_backends
-→ stability-studio__check_comfyui_dependencies(workflow_id="t2v")
-→ stability-studio__generate_video(prompt="...", workflow_id="t2v", mode="t2v")
+onedesk-mcp__get_generation_context
+→ onedesk-mcp__check_backends
+→ onedesk-mcp__check_comfyui_dependencies(workflow_id="t2v")
+→ onedesk-mcp__generate_video(prompt="...", workflow_id="t2v", mode="t2v")
 ```
 
 ---
@@ -353,7 +353,7 @@ stability-studio__get_generation_context
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| `interpreter-app` not available | Local model tried hosted-only meta-tool | Use `stability-studio__get_generation_context` directly; install skill |
+| `interpreter-app` not available | Local model tried hosted-only meta-tool | Use `onedesk-mcp__get_generation_context` directly; install skill |
 | `unsupported call: interpreter-app` | Same as above | MCP is connected; not a server bug |
 | `ComfyUI queue failed (400)` | Bad widget mapping from UI workflow | Restart OI after MCP update |
 | **`Cannot copy out of meta tensor`** on `CLIPTextEncode` | `umt5-xxl-enc-bf16` used with native `CLIPLoader` | Install **`umt5_xxl_fp8_e4m3fn_scaled`**; restart ComfyUI |
@@ -383,15 +383,15 @@ stability-studio__get_generation_context
   .gitignore
   .cursor/
     mcp.json
-    rules/stability-studio-mcp.mdc
+    rules/onedesk-mcp.mdc
   install.ps1
   setup-cursor.ps1
   setup-open-interpreter.ps1
   config-examples/
     open-interpreter-mcp.toml         ← full OI MCP block
-    stability-studio-skill.md         ← copy to OI skills/
+    onedesk-mcp-skill.md         ← copy to OI skills/
     cursor-mcp.json
-  stability-studio-mcp/
+  onedesk-mcp/
     server.py
     config.yaml                       ← machine paths (gitignored)
     config.yaml.example
@@ -456,9 +456,9 @@ Same MCP server works in Cursor via `config-examples/cursor-mcp.json`. Replace `
 
 Before `generate_video_hero`:
 
-1. `stability-studio__check_gpu_backend` — ComfyUI must be stopped on 16 GB
-2. `stability-studio__check_wan2gp_runtime`
-3. `stability-studio__generate_video_hero` with `image_path`, `video_length=49`, `resolution="832x480"`
+1. `onedesk-mcp__check_gpu_backend` — ComfyUI must be stopped on 16 GB
+2. `onedesk-mcp__check_wan2gp_runtime`
+3. `onedesk-mcp__generate_video_hero` with `image_path`, `video_length=49`, `resolution="832x480"`
 
 Never run ComfyUI `generate_video` and Wan2GP hero in parallel on ≤16 GB VRAM.
 
@@ -495,7 +495,7 @@ See [STORYBOARD-QUICKSTART.md](STORYBOARD-QUICKSTART.md).
 
 1. **One headless backend (ComfyUI) beats many UIs in the MCP.** Images and Wan video both queue on the same API.
 2. **The MCP’s job is translation, not replacement.** Saved Stability Matrix workflow JSON + `catalog.yaml` + converter/remaps bridge agent intent to ComfyUI node graphs.
-3. **Local LLMs need explicit tool guidance.** OI injects MCP tools as `stability-studio__*`, but the default system prompt still pushes `interpreter-app`. The `stability-studio` skill is required for LM Studio profiles.
+3. **Local LLMs need explicit tool guidance.** OI injects MCP tools as `onedesk-mcp__*`, but the default system prompt still pushes `interpreter-app`. The `onedesk-mcp` skill is required for LM Studio profiles.
 
 ### Workflow conversion (video)
 

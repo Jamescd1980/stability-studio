@@ -8,7 +8,7 @@ Merge `jan-mcp-stability-studio.json.template` into Jan MCP config (`Settings â†
 "stability-studio": {
   "active": true,
   "command": "<PYTHON_EXE>",
-  "args": ["<PROJECT_ROOT>/stability-studio-mcp/server.py"],
+  "args": ["<PROJECT_ROOT>/onedesk-mcp/server.py"],
   "env": { "PYTHONUNBUFFERED": "1" },
   "type": "stdio"
 }
@@ -25,7 +25,7 @@ Merge `jan-mcp-stability-studio.json.template` into Jan MCP config (`Settings â†
 }
 ```
 
-Match `comfyui.timeout_seconds: 600` in laptop `stability-studio-mcp/config.yaml`.
+Match `comfyui.timeout_seconds: 600` in laptop `onedesk-mcp/config.yaml`.
 
 ## Assistant instructions
 

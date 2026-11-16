@@ -1,10 +1,10 @@
-# Stability Studio MCP × Cursor
+# OneDesk MCP × Cursor
 
 Connect this MCP server to **Cursor** (local agent or cloud agent editing this repo).
 
 ## Guided setup (less technical users)
 
-After install, tell the agent: **"Help me set up Stability Studio."**
+After install, tell the agent: **"Help me set up OneDesk MCP."**
 
 It should call **`get_onboarding_context`** and follow **`onboarding/ONBOARDING.md`** — tiered paths (images → draft video → storyboard), VRAM-based Wan2GP rules, and plain-language troubleshooting.
 
@@ -20,14 +20,14 @@ cd <PROJECT_ROOT>
 Or manually:
 
 ```powershell
-cd <PROJECT_ROOT>/stability-studio-mcp
+cd <PROJECT_ROOT>/onedesk-mcp
 pip install -r requirements.txt
 copy config.yaml.example config.yaml   # edit paths
 ```
 
 ### 2. Configure paths
 
-Edit `stability-studio-mcp/config.yaml` (copy from `config.yaml.example`):
+Edit `onedesk-mcp/config.yaml` (copy from `config.yaml.example`):
 
 - `stability_matrix.root` → your Stability Matrix install
 - `comfyui.url` → usually `http://127.0.0.1:8188`
@@ -41,7 +41,7 @@ Copy `.cursor/mcp.json.example` → `.cursor/mcp.json` (gitignored) with a works
 **Important:** `${workspaceFolder}` must be this repo root (`studio-agent/`), not a parent drive folder.
 
 - **File → Open Folder** → select the `studio-agent` directory, **or**
-- Open **`stability-studio.code-workspace`** from this repo (same effect)
+- Open **`onedesk-mcp.code-workspace`** from this repo (same effect)
 
 **Option B — user/global MCP**
 
@@ -52,7 +52,7 @@ Merge `config-examples/cursor-mcp.json` into Cursor **Settings → MCP**, replac
 1. Launch **ComfyUI** from Stability Matrix
 2. For video: set `VHS_USE_IMAGEIO_FFMPEG=1` (see `OPEN-INTERPRETER-INTEGRATION.md` §6)
 3. **Restart Cursor** or reload MCP after config changes
-4. Confirm **Settings → MCP** shows `stability-studio` enabled
+4. Confirm **Settings → MCP** shows `onedesk-mcp` enabled
 
 ### 5. Test in chat
 
@@ -123,7 +123,7 @@ Cloud agents can still read `AGENTS.md`, `.cursor/rules/`, and integration docs 
 
 ## Project rules
 
-`.cursor/rules/stability-studio-mcp.mdc` — reminds the agent to use MCP tools for generation and documents prerequisites.
+`.cursor/rules/onedesk-mcp.mdc` — reminds the agent to use MCP tools for generation and documents prerequisites.
 
 ---
 

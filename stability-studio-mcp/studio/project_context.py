@@ -47,7 +47,7 @@ def default_context(
         "updated": _now(),
         "project_name": project_name,
         "book_title": book_title,
-        "goal": "Book → VN chapter-by-chapter; local generation via Stability Studio MCP.",
+        "goal": "Book → VN chapter-by-chapter; local generation via OneDesk MCP.",
         "phase": "setup",
         "active_chapter": active_chapter,
         "active_sheet": f"storyboard/ch{active_chapter:02d}_storyboard.csv",

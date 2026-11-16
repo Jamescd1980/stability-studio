@@ -1,5 +1,9 @@
 # Lessons learned — Wan I2V (14B / NSFW)
 
+## OneDesk MCP brand (2026-11-16)
+
+This tree is **OneDesk MCP** (FastMCP id `onedesk-mcp`), formerly referred to as Stability Studio MCP. Stability Matrix remains an optional model/Comfy layout only. Prefer paths under `D:\studio-agent\onedesk-mcp`.
+
 Updated **2026-08-20** — V2V naming trap + Saloon SS02 SeedVR reject (original preferred). Prior: **2026-08-13** — Casting Couch Act 2 **004** double-dildo: Wan I2V needs a **mechanical explanation**, not an SDXL-short prompt. Prior: **2026-08-12** Casting Couch BJ autopsy (004 deepthroat twist fail) + BJ recipe review; catalog `oral_deepthroat` / Ultimate DeepThroat. Prior: **2026-08-11** Casting Couch Darkness **001 lick** keeper (house-best oral lick). Prior: **2026-08-05** LinuxBox RTX 5090 CUDA; **2026-08-04** Saloon SS04_002 drip I2V frozen×3; **2026-07-31** Wild Fern dual-face / fake EBSynth; **2026-07-25** SS04 cum; **2026-07-23** SS02; **2026-07-20** Stage2 tease.
 
 ## Blame split (so we fix the right layer)

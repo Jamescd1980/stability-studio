@@ -1,4 +1,4 @@
-﻿# Image LoRAs (NSFW / intimacy)
+# Image LoRAs (NSFW / intimacy)
 
 Optional Illustrious/Pony intimacy LoRAs for stills. Not required for draft T2I.
 
@@ -16,4 +16,4 @@ resolve_nsfw_scene_loras(scene="intimate")
 generate_image(style="ilustmix", prompt=..., loras=[...])
 ```
 
-See also `stability-studio-mcp/studio/nsfw_image_loras.py` and `catalog.yaml` NSFW LoRA entries.
+See also `onedesk-mcp/studio/nsfw_image_loras.py` and `catalog.yaml` NSFW LoRA entries.

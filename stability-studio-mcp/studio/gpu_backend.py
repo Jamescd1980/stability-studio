@@ -319,7 +319,7 @@ def inspect_gpu_backend(cfg: dict[str, Any], *, comfyui_running: bool | None = N
         "offline_agent_note": (
             "Call check_gpu_backend before generate_video / generate_video_hero / generate_audio. "
             "Do not run ComfyUI video and Wan2GP hero concurrently. "
-            "Never tell the user to stop Windows Stability Matrix for remote comfybox ComfyUI."
+            "Never tell the user to stop local Windows ComfyUI/Stability Matrix for remote comfybox ComfyUI."
         ),
     }
 

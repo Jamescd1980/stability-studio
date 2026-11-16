@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import json
 import subprocess
+import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -292,6 +293,103 @@ def _save_forge_images(
     return saved
 
 
+_forge_gate = threading.Lock()
+_forge_session: requests.Session | None = None
+_forge_abort = threading.Event()
+
+
+def abort_forge_pass() -> bool:
+    """Close the in-flight img2img socket so Stop does not leave a hung POST."""
+    _forge_abort.set()
+    sess = _forge_session
+    if sess is None:
+        return False
+    try:
+        sess.close()
+        return True
+    except Exception:
+        return False
+
+
+def post_forge_img2img(
+    url: str,
+    payload: dict[str, Any],
+    *,
+    idle_limit: float = 25,
+    max_seconds: float = 180,
+) -> dict[str, Any]:
+    """POST img2img, but stop if Forge never starts, the connection dies, or Stop is pressed.
+
+    A dead Forge socket used to sit until the 15-minute read timeout.
+    """
+    global _forge_session
+    if not _forge_gate.acquire(blocking=False):
+        return {"ok": False, "error": "A Forge pass is already running."}
+    _forge_abort.clear()
+    session = requests.Session()
+    _forge_session = session
+    box: dict[str, Any] = {}
+
+    def run() -> None:
+        try:
+            response = session.post(
+                f"{url}/sdapi/v1/img2img",
+                json=payload,
+                timeout=(10, max_seconds),
+            )
+            response.raise_for_status()
+            box["data"] = response.json()
+        except Exception as exc:
+            box["error"] = exc
+
+    worker = threading.Thread(target=run, daemon=True)
+    worker.start()
+    idle = 0.0
+    elapsed = 0.0
+    saw_job = False
+    try:
+        while worker.is_alive():
+            worker.join(3)
+            if not worker.is_alive():
+                break
+            elapsed += 3
+            try:
+                progress = requests.get(f"{url}/sdapi/v1/progress", timeout=5).json()
+            except Exception:
+                progress = {}
+            state = progress.get("state") or {}
+            job = str(state.get("job") or "")
+            step = int(state.get("sampling_step") or 0)
+            amount = float(progress.get("progress") or 0)
+            if _forge_abort.is_set():
+                session.close()
+                worker.join(2)
+                return {"ok": False, "error": "Stopped. The Forge pass was closed."}
+            if job or step > 0 or amount > 0:
+                saw_job = True
+                idle = 0
+            else:
+                idle += 3
+            if not saw_job and idle >= idle_limit:
+                session.close()
+                worker.join(2)
+                return {"ok": False, "error": "Forge did not start the pass. It was stopped."}
+            if elapsed >= max_seconds:
+                session.close()
+                worker.join(2)
+                return {"ok": False, "error": "Forge pass took too long and was stopped."}
+        if box.get("error"):
+            if _forge_abort.is_set():
+                return {"ok": False, "error": "Stopped. The Forge pass was closed."}
+            return {"ok": False, "error": str(box["error"])}
+        return {"ok": True, "data": box.get("data") or {}}
+    finally:
+        session.close()
+        if _forge_session is session:
+            _forge_session = None
+        _forge_gate.release()
+
+
 def _adetailer_payload(
     *,
     enabled: bool,
@@ -426,7 +524,7 @@ def refine_image_forge(
     cfg_scale: float = 5.5,
     seed: int = -1,
     sampler_name: str = "Euler a",
-    adetailer: bool = True,
+    adetailer: bool = False,
     ad_prompt: str = "",
     ad_negative: str = "",
     ad_model: str = "face_yolov8n.pt",
@@ -497,9 +595,10 @@ def refine_image_forge(
     if always:
         payload["alwayson_scripts"] = always
 
-    r = requests.post(f"{url}/sdapi/v1/img2img", json=payload, timeout=timeout)
-    r.raise_for_status()
-    data = r.json()
+    posted = post_forge_img2img(url, payload, max_seconds=min(float(timeout), 180))
+    if not posted.get("ok"):
+        return posted
+    data = posted.get("data") or {}
     images = data.get("images") or []
     saved = _save_forge_images(cfg, images, prefix="forge_refine")
     return {

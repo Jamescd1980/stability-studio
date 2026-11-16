@@ -82,10 +82,10 @@ def patch_desktop(cfg_path: Path, *, make_default: bool) -> None:
         print("Coder profile already present (proxy URL enforced)")
 
     if "[model_providers.ollama-coder]" not in text:
-        if "[mcp_servers.stability-studio]" in text:
+        if "[mcp_servers.onedesk-mcp]" in text:
             text = text.replace(
-                "[mcp_servers.stability-studio]",
-                PROVIDER_BLOCK + "\n[mcp_servers.stability-studio]",
+                "[mcp_servers.onedesk-mcp]",
+                PROVIDER_BLOCK + "\n[mcp_servers.onedesk-mcp]",
             )
         else:
             text += "\n" + PROVIDER_BLOCK

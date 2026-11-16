@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from studio.hardware_profile import BASIC_STILL_NEGATIVE
+
 from studio.catalog import StyleCatalog
 
 # Jan / Studio Copilot platform ids → catalog styles (see vlm studio-pack/persona/platforms.yaml)
@@ -11,33 +13,45 @@ PLATFORM_SPECS: dict[str, dict[str, Any]] = {
     "flux": {
         "label": "Flux / natural language",
         "default_style": "miracle_nsfw",
-        "style_ids": ["miracle_nsfw", "juggernaut", "merged_dreams"],
+        "style_ids": ["miracle_nsfw"],
         "architecture": "flux2_klein",
-        "length_hint": "75–150 words natural language",
+        "length_hint": "30–80 words. Subject, action, style, context. No negative prompt.",
         "format": "natural_language",
     },
     "sdxl": {
-        "label": "SDXL hybrid tags",
+        "label": "Photoreal SDXL",
         "default_style": "juggernaut",
-        "style_ids": ["juggernaut", "ilustmix", "n4mik4", "merged_dreams"],
+        "style_ids": ["juggernaut", "realisian", "realvis_xl"],
         "architecture": "sdxl",
-        "length_hint": "40–75 tokens; quality tags + compact scene",
+        "length_hint": "Subject first, then action, setting, light. Negatives yes. No Illustrious quality line.",
         "format": "comma_tags",
     },
     "pony": {
         "label": "Pony SDXL",
         "default_style": "pony",
-        "style_ids": ["pony"],
+        "style_ids": ["pony", "merged_dreams"],
         "architecture": "pony_sdxl",
         "length_hint": "score_9 line first, then comma phrases (not tag walls)",
         "format": "pony_scores",
     },
     "illustrious": {
         "label": "Illustrious / anime SDXL",
-        "default_style": "ilustmix",
-        "style_ids": ["ilustmix", "anime", "animagine_xl"],
+        "default_style": "unholy_desire",
+        "style_ids": [
+            "unholy_desire",
+            "thumbs_up",
+            "ilustmix",
+            "anime",
+            "animagine_xl",
+            "aom2",
+            "homochi",
+            "perfection_25d",
+            "noobai_vpred",
+            "waijfu",
+            "n4mik4",
+        ],
         "architecture": "sdxl_anime",
-        "length_hint": "danbooru-style tags; masterpiece/best quality prefix",
+        "length_hint": "Comma tags after the auto quality prefix. Negatives yes. Do not say camera.",
         "format": "danbooru_tags",
     },
     "wan_image": {
@@ -45,7 +59,7 @@ PLATFORM_SPECS: dict[str, dict[str, Any]] = {
         "default_style": "i2v_5b",
         "workflow_ids": ["i2v_5b", "i2v_5b_painter", "t2v"],
         "architecture": "wan_video",
-        "length_hint": "100–180 words; subject → environment → light → camera → mood",
+        "length_hint": "Short motion sentence. Do not re-describe the still face or eyes.",
         "format": "cinematography",
     },
     "wan_video": {
@@ -53,7 +67,7 @@ PLATFORM_SPECS: dict[str, dict[str, Any]] = {
         "default_style": "i2v_5b",
         "workflow_ids": ["i2v_5b", "i2v_5b_painter", "t2v"],
         "architecture": "wan_video",
-        "length_hint": "100–180 words; motion + scene; natural language",
+        "length_hint": "Short motion sentence. Do not re-describe the still face or eyes.",
         "format": "cinematography",
     },
     "qwen_edit": {
@@ -69,7 +83,10 @@ PLATFORM_SPECS: dict[str, dict[str, Any]] = {
 AGENT_RULES = [
     "Do's → positive prompt; Don'ts → negative prompt. Never mix.",
     "Lexicon: 'gold standard' / detail hero / recreate 003 = resolve_style_lane + LoRAs/settings — NEVER paste those words into Positive/Negative for Forge/Comfy.",
-    "AUTO-INJECT: generate_image(style=…) prepends that style's prompt_prefix and merges its default negative. Always read prompt_prefix from get_prompt_style and do NOT repeat those words in Positive.",
+    "AUTO-INJECT: generate_image(style=…) prepends that style's prompt_prefix and merges its default negative with the negative you pass. Always read prompt_prefix from get_prompt_style and do NOT repeat those words in Positive.",
+    "BASIC NEGATIVE (Illustrious, Pony, photoreal SDXL — not Flux): always keep bad hands, poorly drawn hands, extra fingers, missing fingers, fused fingers, deformed fingers, mutated hands, extra limbs, bad anatomy. Scene don'ts go after that block. Do not drop hands or fingers to keep the line short. generate_image puts the block back if you leave it out. Flux stays an empty negative.",
+    "Match the family. Illustrious (unholy_desire, thumbs_up, ilustmix): comma tags after the auto quality line, negatives yes, do not say camera. Pony: score_9 line first. Photoreal SDXL (juggernaut): subject first, negatives yes. Flux (miracle_nsfw only): sentences, subject then action then style then context, no negative, camera language is fine. Do not mix these.",
+    "Style tags are optional. Ask and explain in one sentence each; add only yeses: anime illustration (anime drawing), anime style (harder anime medium), anime++ (sharper anime faces, flatter color), bold outline (thicker ink), cel-shaded coloring (hard shadows; changes mouth and lighting). Eye LoRA triggers such as perfect eyes are not part of this ask.",
     "Call get_prompt_style(style=...) or get_prompt_style(platform=...) before writing Platform/Positive/Negative.",
     "Read doc id 'prompting' (docs/PROMPTING.md) for the full Do/Don't + lexicon table.",
     "Pass catalog style id to generate_image (ilustmix, pony, juggernaut, waijfu) — not checkpoint filenames.",
@@ -94,7 +111,8 @@ HOUSE_LEXICON: dict[str, str] = {
 
 PROMPT_DO_DONT = {
     "positive_is": "Do's — what should appear (subject, act, setting, light, View framing).",
-    "negative_is": "Don'ts — what must not appear (anatomy fails, PIP, unwanted styles/props).",
+    "negative_is": "Don'ts — the basic hand and finger block, then scene tags (PIP, unwanted styles/props).",
+    "basic_negative": BASIC_STILL_NEGATIVE,
     "never_in_either": [
         "gold standard",
         "gold_standard",
@@ -146,12 +164,17 @@ def _style_guide(catalog: StyleCatalog, style_id: str) -> dict[str, Any]:
         "platform": platform or arch,
         "architecture": arch,
         "family_label": family.get("label", arch),
-        "prompt_style": family.get("prompt_style", ""),
+        "prompt_style": (
+            PLATFORM_SPECS["illustrious"]["length_hint"]
+            if platform == "illustrious" and arch not in {"sdxl_anime"}
+            else family.get("prompt_style", "")
+        ),
         "food_group": food_group,
         "description": style.get("description", ""),
         "checkpoint": style.get("checkpoint"),
         "prompt_prefix": style.get("prompt_prefix", ""),
         "negative_prompt": style.get("negative_prompt", ""),
+        "basic_negative": "" if arch in {"flux2", "flux2_klein"} else BASIC_STILL_NEGATIVE,
         "prompt_examples": prompt_examples,
         "defaults": catalog.resolve_generation_defaults(sid),
         "generate_with": f"generate_image(style={sid!r}, prompt=..., negative_prompt=...)",

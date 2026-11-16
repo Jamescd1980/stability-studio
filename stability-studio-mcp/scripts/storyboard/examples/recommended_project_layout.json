@@ -1,6 +1,6 @@
 {
   "date": "2026-06-12",
-  "purpose": "Standard delivery-project folder layout for Stability Studio storyboards",
+  "purpose": "Standard delivery-project folder layout for OneDesk MCP storyboards",
   "config": {
     "outputs.delivery": "<project_root>",
     "outputs.layout": "optional overrides — see studio/project_layout.py"

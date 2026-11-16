@@ -20,7 +20,7 @@ from studio.wan_video_loras import (
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Download Wan video LoRAs into Stability Matrix Lora/")
+    parser = argparse.ArgumentParser(description="Download Wan video LoRAs into configured Lora/ folders (Stability Matrix layout supported)")
     parser.add_argument(
         "--ids",
         default="",

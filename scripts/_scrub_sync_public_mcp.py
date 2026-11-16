@@ -7,8 +7,8 @@ from pathlib import Path
 
 SRC = Path(r"D:\studio-agent")
 DST = Path(r"D:\studio-agent-public-mcp")
-MCP_SRC = SRC / "stability-studio-mcp"
-MCP_DST = DST / "stability-studio-mcp"
+MCP_SRC = SRC / "onedesk-mcp"
+MCP_DST = DST / "onedesk-mcp"
 
 COPY_MCP_FILES = [
     "server.py",

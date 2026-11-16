@@ -312,7 +312,7 @@ def install_controlnet_dependencies(cfg: dict[str, Any], comfy_url: str) -> dict
         **report,
         "install_results": installs,
         "next_steps": [
-            "Restart ComfyUI from Stability Matrix (required for DepthAnythingPreprocessor).",
+            "Restart ComfyUI (e.g. from Stability Matrix if that is how you run it) (required for DepthAnythingPreprocessor).",
             "Call check_controlnet_dependencies again to verify.",
             "Call download_controlnet_assets if models are still missing.",
             "Then use generate_image_controlnet with guide_image_path.",
@@ -335,7 +335,7 @@ def install_ip_adapter_dependencies(
         **report,
         "install_results": installs,
         "next_steps": [
-            "Restart ComfyUI from Stability Matrix (required for new nodes to load).",
+            "Restart ComfyUI (e.g. from Stability Matrix if that is how you run it) (required for new nodes to load).",
             "Call check_ip_adapter_dependencies again to verify.",
             "Call download_ip_adapter_assets if models are still missing.",
             "Then use inpaint_advanced with reference_image_path or flag_reference='ireland'.",

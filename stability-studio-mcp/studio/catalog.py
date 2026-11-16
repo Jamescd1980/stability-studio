@@ -46,6 +46,7 @@ class StyleCatalog:
             "path": str(self.catalog_path),
             "styles": len(self.styles),
             "character_loras": len(self.character_loras),
+            "outfit_loras": len(self.outfit_loras),
         }
 
     def save(self) -> None:
@@ -79,6 +80,10 @@ class StyleCatalog:
     @property
     def character_loras(self) -> dict[str, Any]:
         return self._data.get("character_loras", {})
+
+    @property
+    def outfit_loras(self) -> dict[str, Any]:
+        return self._data.get("outfit_loras", {})
 
     def resolve_family(self, family_id: str) -> dict[str, Any]:
         """Return merged family metadata (handles extends)."""
@@ -128,6 +133,7 @@ class StyleCatalog:
             out.append(
                 {
                     "id": key,
+                    "label": style.get("label") or "",
                     "description": style.get("description", ""),
                     "checkpoint": style.get("checkpoint"),
                     "architecture": arch,
@@ -302,6 +308,13 @@ class StyleCatalog:
                 "generate_image(style=waijfu, loras=..., prompt with trigger). "
                 "Eris Greyrat is baked into waijfu — lookup_character_identity('eris') (no LoRA file)."
             ),
+            "outfit_loras": self.outfit_loras or {},
+            "outfit_loras_doc": (
+                "Clothing LoRAs. When the ask matches an entry's when, "
+                "generate_image(style=preferred_style, loras=[{file, weight}], prompt includes trigger). "
+                "Armored dress: trigger armored_dress, file armored_dress_IL.safetensors, weight 1, style unholy_desire. "
+                "Add plate armor or scale armor, and Surcoat or Tabard, only for the pieces they named."
+            ),
             "styles": self.list_styles(),
             "default_style": self.cfg.get("default_style", "juggernaut"),
             "video_workflows": self.list_video_workflow_entries(),
@@ -317,7 +330,9 @@ class StyleCatalog:
                 "before_any_gpu": "check_gpu_backend",
                 "before_image": (
                     "get_generation_context → resolve_style_lane → "
-                    "resolve_character_loras (if cast) → generate_image on ComfyBox"
+                    "resolve_character_loras (if cast) → outfit_loras if the costume matches "
+                    "(armored dress: trigger armored_dress, file armored_dress_IL.safetensors, weight 1, style unholy_desire) "
+                    "→ generate_image on ComfyBox"
                 ),
                 "character_still": (
                     "resolve_character_loras(character=…) → "
@@ -445,6 +460,13 @@ class StyleCatalog:
                 "joo_hee|kanae_tawata|lee_bora|park_heejin). "
                 "Call resolve_character_loras(character=...) then generate_image(style=waijfu, loras=..., prompt with trigger)."
             ),
+            "outfit_loras": self.outfit_loras or {},
+            "outfit_loras_doc": (
+                "Clothing LoRAs. When the ask matches an entry's when, "
+                "generate_image(style=preferred_style, loras=[{file, weight}], prompt includes trigger). "
+                "Armored dress: trigger armored_dress, file armored_dress_IL.safetensors, weight 1, style unholy_desire. "
+                "Add plate armor or scale armor, and Surcoat or Tabard, only for the pieces they named."
+            ),
             "checkpoint_architecture_checks": arch_checks,
             "checkpoint_architecture_mismatches": arch_mismatches,
             "styles": self.list_styles(),
@@ -487,7 +509,9 @@ class StyleCatalog:
                 "before_any_gpu": "check_gpu_backend",
                 "before_image": (
                     "get_generation_context → resolve_style_lane → "
-                    "resolve_character_loras (if cast) → generate_image on ComfyBox"
+                    "resolve_character_loras (if cast) → outfit_loras if the costume matches "
+                    "(armored dress: trigger armored_dress, file armored_dress_IL.safetensors, weight 1, style unholy_desire) "
+                    "→ generate_image on ComfyBox"
                 ),
                 "character_still": (
                     "resolve_character_loras(character=fern|jinah_sung|cha_hae_in|…) -> "

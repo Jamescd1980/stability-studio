@@ -9,7 +9,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[3]
 cfg = yaml.safe_load((ROOT / "config.yaml").read_text(encoding="utf-8"))
-h = {"Authorization": "Bearer " + cfg["civitai"]["api_key"], "User-Agent": "stability-studio"}
+h = {"Authorization": "Bearer " + cfg["civitai"]["api_key"], "User-Agent": "onedesk-mcp"}
 out = []
 for mid in [1849369, 1331682, 1983608]:
     r = requests.get(f"https://civitai.com/api/v1/models/{mid}", headers=h, timeout=45)

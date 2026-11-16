@@ -1,4 +1,4 @@
-"""GPU-aware generation limits for Stability Studio MCP."""
+"""GPU-aware generation limits for OneDesk MCP."""
 
 from __future__ import annotations
 
@@ -10,6 +10,32 @@ ANATOMY_NEGATIVE_HINT = (
     "deformed face, bad anatomy, bad hands, extra fingers, missing fingers, "
     "mutated hands, distorted limbs, blurry, low quality"
 )
+
+# Always on Illustrious, Pony, and photoreal SDXL stills. Flux stays empty.
+BASIC_STILL_NEGATIVE = (
+    "bad hands, poorly drawn hands, extra fingers, missing fingers, fused fingers, "
+    "deformed fingers, mutated hands, extra limbs, bad anatomy"
+)
+
+
+def merge_still_negative(style_negative: str, caller_negative: str, required: str = BASIC_STILL_NEGATIVE) -> str:
+    """Keep the style negative, the caller's scene don'ts, and the basic hand block."""
+    style = (style_negative or "").strip().strip(",")
+    caller = (caller_negative or "").strip().strip(",")
+    if caller and style and style.lower() not in caller.lower():
+        body = f"{style}, {caller}"
+    else:
+        body = caller or style
+    missing: list[str] = []
+    low = body.lower()
+    for raw in (required or "").split(","):
+        tag = raw.strip()
+        if tag and tag.lower() not in low:
+            missing.append(tag)
+    if not missing:
+        return body
+    extra = ", ".join(missing)
+    return f"{body}, {extra}" if body else extra
 
 # Stills only — "detailed face / symmetrical eyes" on Wan I2V redraws eyes every
 # frame and melts lookback / rolled-eye / dual-face NSFW keepers.

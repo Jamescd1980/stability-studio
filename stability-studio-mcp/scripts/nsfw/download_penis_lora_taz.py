@@ -15,7 +15,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 cfg = yaml.safe_load((ROOT / "config.yaml").read_text(encoding="utf-8"))
 key = cfg["civitai"]["api_key"]
-headers = {"Authorization": f"Bearer {key}", "User-Agent": "stability-studio"}
+headers = {"Authorization": f"Bearer {key}", "User-Agent": "onedesk-mcp"}
 dest = Path(r"D:/StabilityMatrix-win-x64/Data/Models/Lora")
 dest.mkdir(parents=True, exist_ok=True)
 

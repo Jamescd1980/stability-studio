@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stability Studio MCP — style-aware local image/video generation for Stability Matrix."""
+"""OneDesk MCP — style-aware local image/video generation via ComfyUI (Stability Matrix and other layouts supported)."""
 
 from __future__ import annotations
 
@@ -141,6 +141,7 @@ from studio.forge_face_refine import (
     detect_face_box as _detect_face_box,
     face_denoise_guide as _face_denoise_guide,
     refine_face_forge as _refine_face_forge,
+    region_face_inpaint as _region_face_inpaint,
     review_face_forge as _review_face_forge,
 )
 from studio.kokoro_client import (
@@ -204,9 +205,10 @@ from studio.pose_control import (
 )
 
 mcp = FastMCP(
-    "stability-studio",
+    "onedesk-mcp",
     instructions=(
-        "Local image and video generation for Stability Matrix. "
+        "OneDesk MCP (formerly stability-studio): local image/video tools for One Desk, Cursor, Jan, and other MCP clients. "
+        "Drives ComfyUI / Forge / Wan (Stability Matrix and other model layouts supported). "
         "Call get_generation_context first (brief=true by default) — hardware_profile and generation_limits. "
         "Use brief=false only for full setup audits (slow). "
         "(GPU VRAM caps). Stay within generation_limits unless the user explicitly asks for more. "
@@ -275,7 +277,7 @@ mcp = FastMCP(
         "Face denoise: eyes_only 0.05–0.10, face_refine 0.12–0.18, never auto >0.25. "
         "Only send refine_face_forge results to the user when pass/send_to_user is true. "
         "Draft I2V: generate_video(mode=i2v, workflow_id=i2v_5b). "
-        "Wan2GP hero (generate_video_hero) ONLY if user explicitly says hero / Wan2GP / lip-sync — then stop remote ComfyUI via ssh gpu_backend.sh, not Windows Stability Matrix. "
+        "Wan2GP hero (generate_video_hero) ONLY if user explicitly says hero / Wan2GP / lip-sync — then stop remote ComfyUI via ssh gpu_backend.sh, not a local Windows ComfyUI/Stability Matrix instance if Comfy is remote. "
         "Never run ComfyUI video and Wan2GP UI together. "
         "Offline agents (Jan, Pi, LM Studio / Myra): check_gpu_backend is mandatory — conflicts return gpu_backend_conflict. "
         "Source stills: call list_source_images(query=...) before inventing image_path. "
@@ -297,7 +299,7 @@ _cfg = load_config()
 _catalog = StyleCatalog(catalog_path(_cfg), _cfg)
 _engine = GenerationEngine(_cfg, _catalog)
 print(
-    f"[stability-studio] ComfyUI {_cfg.get('comfyui', {}).get('url')} "
+    f"[onedesk-mcp] ComfyUI {_cfg.get('comfyui', {}).get('url')} "
     f"reachable={_engine.comfy.is_running()}",
     file=sys.stderr,
     flush=True,
@@ -514,7 +516,7 @@ def get_generation_context(brief: bool = True) -> str:
     ctx["offline_agents"] = {
         "jan": {
             "assistant": "Studio Copilot",
-            "mcp_server": "stability-studio",
+            "mcp_server": "onedesk-mcp",
             "forbid": ["web_search_for_generation"],
             "before_generate": ["get_generation_context", "check_gpu_backend (video/audio/hero)"],
             "styles": "Use catalog ids: fantasy_prime, homochi, ilustmix, anime, juggernaut, pony, n4mik4 — not raw filenames.",
@@ -617,7 +619,7 @@ def download_wan_assets(
     force: bool = False,
 ) -> str:
     """
-    Download missing Wan LoRAs/models from Hugging Face into Stability Matrix folders.
+    Download missing Wan LoRAs/models from Hugging Face into configured model folders (Stability Matrix layout supported).
 
     Args:
         workflow_id: i2v_5b (default I2V), t2v, i2v, i2v_wan21, etc.
@@ -659,7 +661,7 @@ def download_hunyuan_assets(
     force: bool = False,
 ) -> str:
     """
-    Download missing HunyuanVideo 1.5 models from Hugging Face into Stability Matrix folders.
+    Download missing HunyuanVideo 1.5 models from Hugging Face into configured model folders (Stability Matrix layout supported).
 
     Args:
         workflow_id: hunyuan_t2v (default), hunyuan_i2v, hunyuan_sr (optional 1080p SR).
@@ -841,7 +843,7 @@ def download_wan_video_loras(
     force: bool = False,
 ) -> str:
     """
-    Download optional Wan video LoRAs from Hugging Face into Stability Matrix Lora/.
+    Download optional Wan video LoRAs from Hugging Face into configured Lora/ folders (Stability Matrix layout supported).
 
     Args:
         lora_ids: Catalog id(s): comma-separated string or list. Empty = all (or bundle only if set).
@@ -859,7 +861,7 @@ def check_nsfw_image_loras(lora_ids: str | list[str] = "") -> str:
     """
     Check curated NSFW still-image LoRAs (Illustrious / Pony intimacy lanes).
 
-    Verifies local Stability Matrix Lora/ and remote ComfyUI when configured.
+    Verifies local Lora/ folders (Stability Matrix layout supported) and remote ComfyUI when configured.
     Use bundle ids with resolve via list_nsfw_image_loras or download_nsfw_image_loras.
 
     Args:
@@ -895,7 +897,7 @@ def download_nsfw_image_loras(
     force: bool = False,
 ) -> str:
     """
-    Download NSFW still-image LoRAs from Civitai into Stability Matrix Lora/.
+    Download NSFW still-image LoRAs from Civitai into configured Lora/ folders (Stability Matrix layout supported).
 
     Bundles: illustrious_intimacy | illustrious_romance | pony_explicit | fantasy_romance.
     On remote ComfyUI setups, copy files to the GPU box Lora/ folder if download path is local-only.
@@ -956,7 +958,7 @@ def install_painter_i2v_dependencies() -> str:
             "install_results": installs,
             "custom_nodes_dir": str(comfy_custom_nodes_dir(_cfg)),
             "next_steps": [
-                "Restart ComfyUI from Stability Matrix (required for PainterI2V to load).",
+                "Restart ComfyUI (e.g. from Stability Matrix if that is how you run it) (required for PainterI2V to load).",
             ],
         },
         indent=2,
@@ -1010,7 +1012,7 @@ def install_ip_adapter_dependencies(include_depth: bool = True) -> str:
     """
     Git-clone ComfyUI_IPAdapter_plus (and optional ControlNet aux) into ComfyUI custom_nodes.
 
-    Restart ComfyUI from Stability Matrix after install, then re-run check_ip_adapter_dependencies.
+    Restart ComfyUI (e.g. from Stability Matrix if that is how you run it) after install, then re-run check_ip_adapter_dependencies.
     """
     comfy_url = _comfy_url()
     report = _install_ip_adapter_dependencies(_cfg, comfy_url, include_depth=include_depth)
@@ -1026,7 +1028,7 @@ def setup_ip_adapter(
     """
     One-shot setup for inpaint_advanced: install custom nodes, download models, fetch Irish flag reference.
 
-    After this completes, restart ComfyUI from Stability Matrix if any nodes were installed.
+    After this completes, restart ComfyUI (e.g. from Stability Matrix if that is how you run it) if any nodes were installed.
   """
     comfy_url = _comfy_url()
     deps = _install_ip_adapter_dependencies(_cfg, comfy_url, include_depth=include_depth)
@@ -1046,7 +1048,7 @@ def setup_ip_adapter(
             "assets": assets,
             "dependencies_after": deps_after,
             "next_steps": [
-                "Restart ComfyUI from Stability Matrix if install_results is non-empty.",
+                "Restart ComfyUI (e.g. from Stability Matrix if that is how you run it) if install_results is non-empty.",
                 "Call edit_image / inpaint_advanced with an explicit mask_region or segment_prompt "
                 "(e.g. mask_region='right_building' only when editing that wall). "
                 "Face jobs: refine_face_forge or edit_image auto→i2i+face_detail.",
@@ -1064,14 +1066,38 @@ def list_styles() -> str:
 
 @mcp.tool()
 def list_checkpoints() -> str:
-    """List checkpoint files scanned from Stability Matrix."""
+    """List checkpoint files on this PC and on the live Comfy host."""
     models_dir = Path(_cfg["stability_matrix"]["models"])
-    return json.dumps(scan_checkpoints(models_dir), indent=2)
+    found = scan_checkpoints(models_dir)
+    names = {str(c.get("file") or "").lower() for c in found}
+    try:
+        from studio.comfy_remote_models import list_comfy_checkpoints
+
+        for raw in list_comfy_checkpoints(_cfg):
+            base = Path(str(raw)).name
+            key = base.lower()
+            if not key or key in names:
+                continue
+            if not key.endswith((".safetensors", ".ckpt")):
+                continue
+            names.add(key)
+            found.append(
+                {
+                    "file": base,
+                    "path": f"comfyui://{raw}",
+                    "name": Path(base).stem,
+                    "tags": [],
+                    "source": "comfyui",
+                }
+            )
+    except Exception:
+        pass
+    return json.dumps(found, indent=2)
 
 
 @mcp.tool()
 def list_loras() -> str:
-    """List LoRA files from Stability Matrix and extra folders."""
+    """List LoRA files from configured model roots and extra folders (Stability Matrix layout supported)."""
     models_dir = Path(_cfg["stability_matrix"]["models"])
     return json.dumps(scan_loras(models_dir, _cfg.get("extra_lora_paths")), indent=2)
 
@@ -1372,7 +1398,7 @@ def install_comfyui_dependencies(
     """
     Git-clone missing ComfyUI custom node packs for a video workflow.
 
-    After install you MUST restart ComfyUI from Stability Matrix, then re-run
+    After install you MUST restart ComfyUI (e.g. from Stability Matrix if that is how you run it), then re-run
     check_comfyui_dependencies before generate_video.
 
     Args:
@@ -1404,7 +1430,7 @@ def install_face_detail_dependencies() -> str:
     """
     Install ComfyUI-Impact-Pack + Impact-Subpack for FaceDetailer (ADetailer-style face pass).
 
-    Restart ComfyUI from Stability Matrix after install, then download_face_detail_assets.
+    Restart ComfyUI (e.g. from Stability Matrix if that is how you run it) after install, then download_face_detail_assets.
     """
     comfy_url = _comfy_url()
     return json.dumps(_install_face_detail_dependencies(_cfg, comfy_url), indent=2)
@@ -1453,7 +1479,7 @@ def generate_image(
         style: Catalog style id (ilustmix, pony, juggernaut, miracle_nsfw, …). Not checkpoint filenames — use pony not prefectPonyXL_v6. Empty = default.
         negative_prompt: Override default negative prompt.
         checkpoint: Override checkpoint filename.
-        loras: Optional list of LoRAs, e.g. [{"file": "Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors", "weight": 0.85}].
+        loras: Optional list of LoRAs, e.g. [{"file": "Eyes_for_Illustrious_Lora_Perfect_anime_eyes.safetensors", "weight": 0.85}]. Outfit LoRAs are in get_generation_context outfit_loras. Armored dress: file armored_dress_IL.safetensors, weight 1, trigger armored_dress in the prompt, style unholy_desire. Launch anime checkpoint is unholy_desire (Unholy Desire Mix v9): steps 16, CFG 2.5, DPM++ 2M Karras. Optional tokens unholy-aesthetic or unholy-detailing. Do not stack the SDXL Lightning LoRA.
         width, height, steps, cfg, seed: Optional overrides. Use plain integers only (e.g. width=832, height=1216). Never embed "8k" in width/height. 0 = use style default.
         sampler, scheduler: Optional overrides (empty = style/family defaults, e.g. ilustmix: euler_ancestral + normal).
         face_detail: Optional FaceDetailer second pass (ADetailer-style). None = style default (ilustmix: true).
@@ -1615,7 +1641,7 @@ def setup_image_editing(
     """
     One-shot image-editing setup: IP-Adapter, SDXL + SD1.5 ControlNet, segmentation nodes, flag refs.
 
-    Restart ComfyUI from Stability Matrix when restart_comfyui_required is true.
+    Restart ComfyUI (e.g. from Stability Matrix if that is how you run it) when restart_comfyui_required is true.
     """
     comfy_url = _comfy_url()
     return json.dumps(
@@ -1922,7 +1948,7 @@ def setup_controlnet(
     out["assets"] = _check_controlnet_assets(_cfg)
     out["dependencies_after"] = _check_controlnet_dependencies(_cfg, comfy_url)
     out["next_steps"] = [
-        "Restart ComfyUI from Stability Matrix if nodes were just installed.",
+        "Restart ComfyUI (e.g. from Stability Matrix if that is how you run it) if nodes were just installed.",
         "Then call generate_image_controlnet with guide_image_path.",
     ]
     return json.dumps(out, indent=2)
@@ -2836,11 +2862,11 @@ def refine_image_forge(
     prompt: str,
     negative_prompt: str = "",
     checkpoint: str = "",
-    denoising_strength: float = 0.35,
+    denoising_strength: float = 0.15,
     steps: int = 28,
     cfg: float = 5.5,
     seed: int = -1,
-    adetailer: bool = True,
+    adetailer: bool = False,
     ad_prompt: str = "",
     ad_negative: str = "",
     ad_model: str = "face_yolov8n.pt",
@@ -2850,7 +2876,7 @@ def refine_image_forge(
     Global img2img refine on Forge with optional ADetailer. Forge must be running.
 
     For identity-critical FACE work prefer refine_face_forge (tight box + Nari review).
-    Typical global denoise 0.28–0.45. Then switch_stills_backend(comfy) before generate_video.
+    Whole-image denoise default 0.15 (keep 0.05–0.20; never above 0.25). Then switch_stills_backend(comfy) before generate_video.
 
     For oral/insertion stills use eyes-only: ad_model=mediapipe_face_mesh_eyes_only
     and keep denoising_strength very low (≈0.05–0.10) so mouth/cock stay locked.
@@ -2968,8 +2994,7 @@ def refine_face_forge(
 
     Denoise presets (call face_denoise_guide for full table):
       eyes_only ~0.08, face_soft ~0.10, face_refine ~0.15, face_rescue ~0.20.
-      Auto/preset cap 0.25. Pass denoise= explicitly for strong rewrites up to 0.45
-      (e.g. 0.35 for marking removal / complete face rewrite).
+      Auto/preset cap 0.25. OneDesk sends the on-screen denoise. Do not invent a higher number.
 
     Only show saved_files to the user when pass/send_to_user is true.
     On fail: revert to original — do not stack high denoise blindly.
@@ -3004,6 +3029,40 @@ def refine_face_forge(
             seed=seed,
             review_model=review_model,
             skip_nari=skip_nari,
+        )
+    except Exception as exc:
+        return json.dumps({"ok": False, "error": humanize_error(exc)}, indent=2)
+    return json.dumps(result, indent=2)
+
+
+@mcp.tool()
+def refine_region_forge(
+    image_path: str,
+    prompt: str,
+    negative_prompt: str = "",
+    box_json: str = "",
+    denoise: float = 0.15,
+) -> str:
+    """One Forge pass inside a rectangle. No face review. For a hands box or any one region."""
+    try:
+        box = json.loads(box_json) if box_json.strip() else None
+    except json.JSONDecodeError:
+        return json.dumps({"ok": False, "error": "box_json must be JSON [x1,y1,x2,y2]"}, indent=2)
+    if not isinstance(box, list) or len(box) != 4:
+        return json.dumps({"ok": False, "error": "box_json must be JSON [x1,y1,x2,y2]"}, indent=2)
+    try:
+        strength = max(0.05, min(0.25, float(denoise)))
+    except (TypeError, ValueError):
+        strength = 0.15
+    try:
+        result = _region_face_inpaint(
+            _cfg,
+            image_path=image_path,
+            box=tuple(int(v) for v in box),
+            prompt=prompt,
+            negative_prompt=negative_prompt,
+            denoise=strength,
+            filename_prefix="region",
         )
     except Exception as exc:
         return json.dumps({"ok": False, "error": humanize_error(exc)}, indent=2)
@@ -3069,7 +3128,7 @@ def generate_video_hero(
     Wan2GP Enhanced Lightning hero I2V — ONLY when the user explicitly says hero / Wan2GP / lip-sync.
 
     NOT the 14B path. User said 14B → use generate_video(mode=i2v, workflow_id=i2v) on ComfyUI instead.
-    If ComfyUI is up you will get gpu_backend_conflict; do not tell them to stop Windows Stability Matrix
+    If ComfyUI is up you will get gpu_backend_conflict; do not tell them to stop local Windows ComfyUI/Stability Matrix
     for remote comfybox — keep ComfyUI and switch to generate_video.
 
     Requires: ComfyUI stopped (remote: ssh comfybox '~/bin/gpu_backend.sh stop'), Wan2GP Gradio UI stopped,
@@ -3699,6 +3758,21 @@ def generate_audio(
         err["ok"] = False
         return json.dumps(err, indent=2)
 
+
+# One Desk packaged mcp\: keep only room tools. Private Cursor loads stay full.
+try:
+    from onedesk_ship import ship_mode_enabled, trim_fastmcp_tools
+
+    if ship_mode_enabled(ROOT):
+        _removed = trim_fastmcp_tools(mcp)
+        print(
+            f"[onedesk-mcp] One Desk ship trim: {len(mcp._tool_manager._tools)} tools "
+            f"(removed {len(_removed)})",
+            file=sys.stderr,
+            flush=True,
+        )
+except Exception as _ship_exc:  # noqa: BLE001 — never block private MCP load
+    print(f"[onedesk-mcp] ship trim skipped: {_ship_exc}", file=sys.stderr, flush=True)
 
 MCP_TOOL_COUNT = len(mcp._tool_manager._tools)
 

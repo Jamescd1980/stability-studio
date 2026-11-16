@@ -1,7 +1,7 @@
-# Product roadmap — One Desk + Stability Studio MCP
+# Product roadmap — One Desk + OneDesk MCP
 
 **Status:** Living plan. Next target = **Phase 0** (finish what is in front of us).  
-**Updated:** 2026-09-29 (Owner + Build AI + Claude; §18 Build AI answers applied).
+**Updated:** 2026-10-05 (Owner + Build AI; Studio / Settings / Themes → **P0-S9**; Suggestions §19).
 
 ## Doc roles
 
@@ -62,6 +62,7 @@ Ideas may appear during renders, tests, or while an AI is mid-build. What sticks
 | P0-S6 AI post tools + recipes | Group existing MCP splice, ping-pong, mix, frame grab; **write `.recipe.json`** on agent/editor outputs | **Recipe writes verified** Batch 8 (2026-09-30); mix/frame grab later; P2 reads recipes |
 | P0-S7 Minimal Rin teaser clip | Bow + breeze + footsteps + JP hello on bow; honest README | **Kokoro** for VO (CPU); keep Rin example |
 | P0-S8 Folder names (optional late P0) | Align default folder names / MCP map with Suggestions §13.5 | Or slip to P1-S0; before public beta either way |
+| P0-S9 Studio monitor + Settings UX | Themes that apply; Models tab + secure keys; Studio Program/Checkpoint/Status/LoRAs/Seed; honest PC title; reorderable panels; no Myra-as-agent | Suggestions **§19**; Batches **14–16** (`P0-S9-B1`…`B3`) — **VERIFIED** 2026-10-05 (fan data waits on status_server deploy) |
 
 ### Explicitly out of Phase 0
 - Manual Video / Audio **Editing** pane (Suggestions §12 teaser / Phase 2).
@@ -93,12 +94,23 @@ Ideas may appear during renders, tests, or while an AI is mid-build. What sticks
 | P1-S0 Project folder names + MCP map | Suggestions §13.5 mapping; Keep/Finish/Send can wait |
 | P1-S1 Package & installers | Versioned One Desk + MCP; manual update + rollback |
 | P1-S2 Guided tour complete | Tiered setup; hardware soft-routing |
-| P1-S3 Docs & programs list | README clean-up; works-with / tailored-for; agent-readable list |
+| P1-S3 Docs & programs list | README clean-up; works-with / tailored-for; agent-readable list. Include the Comfy render / Forge refine note below |
 | P1-S4 Content & packs (**required**) | Adult toggle + program packs / layouts |
 | P1-S5 Notices & About | Third-party notices; version in app |
 | P1-S6 Beta harden | Crash/diagnostics pass; human test checklist |
 | P1-S7 Krita hand-off (minimal) | Docs + `open_in_krita` / `krita_status`; style write after §14 Q2–4 |
 | P1-S8 Undo journal & safety UX | Action journal, bulk-confirm, diagnostics export |
+
+### Beta docs note — why render in ComfyUI and refine in Forge (2026-10-19)
+
+Explain this in the launch docs, in plain language. A new person will ask why it is not all one program.
+
+- ComfyUI makes the still. A style is a Comfy graph: checkpoint, steps, CFG, sampler, and the LoRA list. Wan starts from that still, and the PNG keeps the workflow.
+- Forge retouches it. A face box, a marked area, or a whole-image pass at low denoise changes that region and leaves the rest. Comfy edits on this desk either barely move pixels or redraw the person.
+- The two programs share one GPU, so a refine switches from ComfyUI to Forge and back before video.
+- Forge text-to-image is a thinner call (one checkpoint, no style stack, no guide image). Do not tell a new user to render there.
+- Forge does not replay the Comfy LoRA stack or sampler. Say that plainly. The checkpoint file can be loaded for the pass; the rest of the stack stays on the Comfy still.
+- One program for both jobs waits on a real Comfy low-denoise hard-mask inpaint. That workflow is not built. Until it is, the docs describe the split as it is.
 
 ### Explicitly out of Phase 1
 - Manual Editing UI (tease in docs / “Coming next”).
@@ -155,9 +167,9 @@ Ideas may appear during renders, tests, or while an AI is mid-build. What sticks
 ## Near-term focus (what is in front of us)
 
 1. Finish **Phase 0** reliability and prove writing → still → Forge → Wan.  
-2. Land **P0-S2** resizable / collapsing chat when UI bandwidth allows.  
-3. Fold **recipe writes** into **P0-S6** as post tools are touched.  
-4. Keep Suggestions §12 as **teaser**; no Editing UI batches until Phase 2.  
+2. ~~Land **P0-S9** Studio / Settings / Themes (Batches 14→15→16)~~ — verified 2026-10-05; next: Owner eyeball + deploy `status_server.py` for fan/pump data.  
+3. Keep **P0-S2** chat pane proven (Batch 7 done); don’t regress widths map.  
+4. Keep Suggestions §12 as **teaser**; no Editing UI batches until Phase 2 (Batch 13 Video editor job remains **HOLD** until Owner says verify).  
 5. Rebuild **Rin bow + Kokoro audio** when ready for onboarding/marketing.  
 6. Promote new ideas only after they stick in `Claude_Suggestions.md`.
 
@@ -167,3 +179,9 @@ Ideas may appear during renders, tests, or while an AI is mid-build. What sticks
 
 Engineering history: One Desk repo [`CODE_FIX_HANDOFF.md`](CODE_FIX_HANDOFF.md).  
 New batches: **`Batch N — Px-Sy-Bz: title`**.
+
+| Planned | Id | Theme |
+|---------|-----|--------|
+| 14 | `P0-S9-B1` | Settings tabs + four themes + agent model labels + secure Grok UI + hide Myra |
+| 15 | `P0-S9-B2` | Studio Program / Checkpoint / Job / LoRAs / Status / Seed + machine title |
+| 16 | `P0-S9-B3` | Reorderable Heat/Load/Studio; GPU+CPU fan gauges; CPU model + nested IO when present |

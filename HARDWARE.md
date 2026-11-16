@@ -5,7 +5,7 @@ Agents should **always** call `get_generation_context` before `generate_image` o
 - **`hardware_profile`** — detected GPU, VRAM, `gpu_only`, `prefer_prompt_quality`
 - **`generation_limits`** — safe caps for resolution, steps, frames, and I2V settings
 
-Logic lives in `stability-studio-mcp/studio/hardware_profile.py`.
+Logic lives in `onedesk-mcp/studio/hardware_profile.py`.
 
 ## Division of labor (book names)
 
@@ -30,8 +30,8 @@ Modelfiles: `ollama/nari/`, `ollama/myra-gofor/`, `ollama/orla/`.
 
 ### MCP source of truth
 
-- **Windows** `D:\studio-agent\stability-studio-mcp` is the main MCP repo (Cursor/Jan).
-- **LinuxBox** `/mnt/game/studio-agent/stability-studio-mcp` is a **one-way mirror** for backup.
+- **Windows** `D:\studio-agent\onedesk-mcp` is the main MCP repo (Cursor/Jan).
+- **LinuxBox** `/mnt/game/studio-agent/onedesk-mcp` is a **one-way mirror** for backup.
 - Sync after catalog/code changes: `py -3 scripts/sync_mcp_to_comfybox.py` (writes `SYNCED_FROM_WINDOWS.txt`).
 - Do **not** edit catalog only on LinuxBox.
 - Voice cast: Myra uses local `handoff/myra-patches/cast/` lists (export via `scripts/general/export_cast_lists.py`); Nari expands scene after IDs are locked.
@@ -89,7 +89,7 @@ When `prefer_prompt_quality` is true:
 
 **`i2v` MoE wiring (MCP `studio.wan22_i2v_moe`):** HIGH UNET (+ HIGH LoRAs) → KSamplerAdv → LOW UNET (+ LOW LoRAs) → KSamplerAdv → decode. Default stacks LightX2V distill when installed; action LoRAs must be HIGH+LOW pairs (`female_orgasm`).
 
-Assets: `check_wan_assets(workflow_id="i2v")` / `download_wan_assets` + `scripts/general/download_wan22_lightning_loras.py`. Orgasm NSFW LoRAs already on ComfyBox. See `stability-studio-mcp/LESSONS-WAN-I2V.md`. NSFW kits live under `scripts/nsfw/`.
+Assets: `check_wan_assets(workflow_id="i2v")` / `download_wan_assets` + `scripts/general/download_wan22_lightning_loras.py`. Orgasm NSFW LoRAs already on ComfyBox. See `onedesk-mcp/LESSONS-WAN-I2V.md`. NSFW kits live under `scripts/nsfw/`.
 
 ## For agents
 

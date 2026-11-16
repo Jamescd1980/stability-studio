@@ -16,7 +16,7 @@ DEST.mkdir(parents=True, exist_ok=True)
 cfg = yaml.safe_load((ROOT / "config.yaml").read_text(encoding="utf-8"))
 HEADERS = {
     "Authorization": f"Bearer {cfg['civitai']['api_key']}",
-    "User-Agent": "stability-studio",
+    "User-Agent": "onedesk-mcp",
 }
 
 DOWNLOADS = [

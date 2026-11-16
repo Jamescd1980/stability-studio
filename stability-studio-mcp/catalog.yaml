@@ -13,7 +13,7 @@ model_families:
       - CLIPTextEncode
       - KSampler
       - VAEDecode
-    prompt_style: "Comma tags and negative prompts work well. Quality tags optional."
+    prompt_style: "Photoreal SDXL: subject first, then action, setting, light. Comma phrases or a short sentence. Negatives yes. Camera and lens language is fine. Do not use the Illustrious quality line."
     typical_defaults:
       steps: 28
       cfg: 6.0
@@ -32,7 +32,7 @@ model_families:
   sdxl_anime:
     extends: sdxl
     label: "SDXL anime / illustration"
-    prompt_style: "masterpiece, best quality prefixes; avoid photorealistic in negatives"
+    prompt_style: "Illustrious/anime: comma tags. Quality prefix is auto-injected, so do not retype it and do not put the subject before it. Order after the prefix: accepted style tags, lighting, character, pose, background. Negatives yes. Do not say camera. A weight like (tag:1.2) only when one tag must win."
     typical_defaults:
       sampler: euler_ancestral
       scheduler: normal
@@ -86,7 +86,7 @@ model_families:
       - CFGGuider
       - SamplerCustomAdvanced
       - VAEDecode
-    prompt_style: "Short natural language (40–120 words). Long SDXL-style negatives mostly ignored."
+    prompt_style: "Flux sentences, not tags. Subject, then action, then style, then context. Most important words first. 30–80 words. No negative prompt. Camera, lens, and lighting language belongs here. Do not use masterpiece/best quality tags."
     typical_defaults:
       steps: 20
       cfg: 3.5
@@ -297,7 +297,7 @@ style_lanes:
       aliases: [gold standard, detail hero, park heejin bar, recreate 003]
       default_style: waijfu
       look_profile: illustrious_detail_hero
-      prompt_tail: "highly detailed, intricate, sharp focus, absurdres, perfect eyes, eye_focus"
+      prompt_tail: ""
       negative_extra: >
         plastic skin, soft face, muddy shading, flat color, oversmoothed,
         anatomical artifact, deformed crotch
@@ -360,18 +360,6 @@ style_lanes:
 # Location / room LoRAs (Illustrious) — generative prior, not pixel lock.
 # Still use locked plate + mask fill + hardlock for VN-identical BG.
 location_loras:
-  casting_couch:
-    file: casting_couch_IL.safetensors
-    trigger: nbk_castingcouch
-    weight: 0.85
-    preferred_style: waijfu
-    locked_plate: "D:/ComfyBox Images and Videos/assets/blender/sets/casting_couch/plates/camWide_empty_wood.png"
-    note: >
-      Wood-slat casting couch room (EMPTY-ONLY train). Prompt trigger + weight 0.85–0.9 for empty BG.
-      Do not put characters in the location dataset. Owner report (Invoke): stacking with a character
-      deforms fingers/feet — keep off character keepers or ≤0.3 and Forge-clean digits. Prefer locked
-      plate + mask fill. Color-split on finals: warm oak walls vs cooler floor.
-      Dataset README under assets/Darkness/casting_couch_lora_dataset/.
   tj_rooms:
     file: tj_rooms_IL.safetensors
     trigger: tj_office
@@ -395,20 +383,30 @@ location_loras:
       House empty/blur BG LoRA (2026-08-11). Trained on OUR empty plates only.
       Captions never say window/bed/couch/office. Runtime only — do not bake.
       Prompt: emptyblur, blurry background, depth of field, simple background, plain wall.
-      Do not stack casting_couch_IL on BJ. Dataset: assets/house/emptyblur_lora_dataset/.
-  casting_couch_bj_pov:
-    file: casting_couch_bj_pov_IL.safetensors
-    trigger: nbk_ccbjpov
-    weight: 0.75
-    preferred_style: waijfu
-    locked_plate: "D:/ComfyBox Images and Videos/assets/blender/sets/casting_couch/plates/bj_cam_empty_plate_v6.png"
-    locked_plate_blur: "D:/ComfyBox Images and Videos/assets/blender/sets/casting_couch/plates/bj_cam_empty_plate_v6_blur.png"
+      Do not stack a room LoRA on BJ. Dataset: assets/house/emptyblur_lora_dataset/.
+
+# Outfit / clothing LoRAs (not character identity).
+# When the ask matches `when`, stack `file` at `weight` and put `trigger` in the positive.
+outfit_loras:
+  armored_dress:
+    file: armored_dress_IL.safetensors
+    trigger: armored_dress
+    weight: 1.0
+    base_model: Illustrious
+    preferred_style: unholy_desire
+    civitai: https://civitai.com/models/92654/armored-dress?modelVersionId=1890497
+    version_id: 1890497
+    when: armored dress, plate-armor gown, scale-armor gown, armored_dress
+    prompt_extra: >
+      Add plate armor or scale armor, and Surcoat or Tabard, only for the pieces they named.
     note: >
-      Phase-2 composition LoRA ONLY (pose/framing). Owner 2026-08-11: stacking
-      casting_couch_IL on BJ = couch soup + windows + beds. Room LoRA stays OFF
-      on character shots. Do not prompt couch / office / bedroom / window.
-      BG = pre-blurred v6 plate (i2i seed or composite). Pixels outside the
-      character must not invent furniture. Dataset: assets/Darkness/casting_couch_bj_pov_lora_dataset/.
+      Illustrious clothing LoRA. Trigger token is armored_dress (underscore).
+      Author samples use weight 1. Stack on unholy_desire. Do not treat it as a character LoRA.
+      Owner copy: D:/Extra Models/LoRa's/armored_dress_IL.safetensors
+      Comfy load path: Stability Matrix Data/Models/Lora/armored_dress_IL.safetensors
+      (ComfyBox mirror: /mnt/game/StabilityMatrix-win-x64/Data/Models/Lora/).
+      generate_image(style=unholy_desire, loras=[{file: armored_dress_IL.safetensors, weight: 1}],
+      prompt includes armored_dress).
 
 # Lighting Concept Sliders (Illustrious) — no trigger word; stack via loras=[...].
 # Prefer with waijfu / waijfu_house when nuke-sun / flat bright rooms appear.
@@ -429,8 +427,27 @@ lighting_sliders:
     note: "Dramatic lighting (also baked into waijfu_house_v1). Skip stacking when using waijfu_house."
 
 # Named look profiles — concrete LoRA stacks referenced by style_lanes.
+# armored_dress is an outfit stack, not a mood. No style lane points at it.
+# Use it only when they ask for an armored dress.
 # Target bar: D:\Test Images and Videos\_recreations\recreate_003_studio_agent_00009_.png
 look_profiles:
+  armored_dress:
+    label: Armored dress (Illustrious clothing LoRA)
+    food_group: anime
+    style: unholy_desire
+    notes: >
+      Not a mood and not a character. Stack only when they ask for an armored dress,
+      a plate-armor gown, a scale-armor gown, or armored_dress.
+      Trigger in the positive: armored_dress. Weight 1.
+      File: armored_dress_IL.safetensors.
+      Add plate armor or scale armor, and Surcoat or Tabard, only for the pieces they named.
+      generate_image(style=unholy_desire, loras=[{file: armored_dress_IL.safetensors, weight: 1}],
+      prompt includes armored_dress). Stack beside a character LoRA; do not replace it.
+      Civitai: https://civitai.com/models/92654/armored-dress?modelVersionId=1890497
+    loras:
+      - file: armored_dress_IL.safetensors
+        weight: 1.0
+    prompt_tail: armored_dress
   illustrious_detail_hero:
     label: Illustrious detail hero (recreate_003 bar)
     food_group: anime
@@ -447,7 +464,7 @@ look_profiles:
       - file: LensFlare_LightLeak_IL.safetensors
         weight: 0.35
         optional: true
-    prompt_tail: "highly detailed, intricate, sharp focus, absurdres, highres, perfect eyes, eye_focus"
+    prompt_tail: "perfect eyes, eye_focus"
     negative_extra: >
       plastic skin, soft face, blurry face, muddy shading, flat color, oversmoothed,
       extra flesh, flesh blob, anatomical artifact, deformed crotch, fused thighs,
@@ -524,9 +541,9 @@ look_profiles:
 art_food_groups:
   anime:
     label: Anime
-    default_style: ilustmix
-    styles: [anime, ilustmix, animagine_xl, aom2, waijfu, waijfu_house, homochi, perfection_25d, noobai_vpred, anime_v160]
-    description: "ilustmix default; WAI Illustrious v17, Animagine, AOM2, Homochi, Perfection 2.5D, NoobAI v-pred"
+    default_style: unholy_desire
+    styles: [unholy_desire, thumbs_up, divine_elegance, reedxxx, uranus_vir, ilustmix, animagine_xl, aom2, homochi, perfection_25d, noobai_vpred, anime, anime_v160, waijfu, waijfu_house, waijfu_house_v3, waijfu_house_v2, waijfu_house_v1, waijfu_house_v4]
+    description: "Every installed anime checkpoint. Unholy Desire stays the launch default."
   fantasy:
     label: Fantasy art
     default_style: merged_dreams
@@ -605,7 +622,7 @@ character_loras:
     trigger: nbk_darkness
     preferred_style: waijfu
     version: id_v1
-    aliases: [nbk_darkness, nb_darkness, darkness, Darkness/Darkness.safetensors, Darkness.safetensors]
+    aliases: [nbk_darkness, nb_darkness, darkness, Darkness/Darkness.safetensors]
     # Keepers: waijfu_alpha + this LoRA + "large breasts" ONLY for figure. Do not stack thick/wide/hourglass; do not put figure words in negative.
     caption_helpers: "1girl, blonde hair, long hair, blue eyes, large breasts"
     body_prompt_rule: "Figure tag: large breasts ONLY. No thick thighs / wide hips / hourglass / slim / skinny in positive or negative — LoRA carries the body."
@@ -884,13 +901,125 @@ set_mesh_assets:
         label: breast_hold
 
 styles:
+  unholy_desire:
+    architecture: sdxl_anime
+    family_label: illustrious
+    label: Unholy Desire
+    description: >
+      Unholy Desire Mix v9 — Sinister Aesthetic (Illustrious). Launch anime checkpoint.
+      Optional prompt tokens, use one: unholy-aesthetic or unholy-detailing.
+      Do not stack the SDXL Lightning LoRA. Illustrious outfit LoRAs such as armored_dress still stack.
+    aliases: [unholy, unholy_desire_mix, sinister, sinister_aesthetic, unholy_v9]
+    checkpoint: "unholyDesireMixSinister_v90.safetensors"
+    download:
+      source: civitai
+      civitai_model_id: "1307857"
+      civitai_version_id: "3313575"
+      civitai_page: "https://civitai.com/models/1307857/unholy-desire-mix-sinister-aesthetic-illustrious"
+      size_hint: "~6.5 GB"
+    loras: []
+    prompt_prefix: "masterpiece, best quality, amazing quality, very aesthetic, absurdres, ultra-detailed"
+    negative_prompt: "bad quality, worst quality, worst detail, sketch, censor, extra limbs, deformed fingers, bad anatomy, mutated body, lowres, low quality, blurry, text, ugly, watermark, bad hands, bad proportions, poorly drawn face, poorly drawn hand, missing finger, jpeg artifacts, signature, deformed, extra finger, cloned face, bad eyes"
+    defaults:
+      width: 1024
+      height: 1024
+      steps: 16
+      cfg: 2.5
+      sampler: "dpmpp_2m"
+      scheduler: "karras"
+    note: >
+      Author card (v7+): steps 16 or more, CFG 2.5 or more, sampler DPM++ 2M Karras.
+      8–10 steps can work; do not raise CFG toward 7 unless they ask.
+      Civitai model 1307857, version 3313575 (v9.0).
+
+  thumbs_up:
+    architecture: sdxl_anime
+    label: Thumbs Up
+    description: >
+      Thumbs Up Illustrious Tu-i2 v1.2. Anime shelf checkpoint.
+      Use style thumbs_up when they name Thumbs Up. Leave the launch style on unholy_desire otherwise.
+      Illustrious outfit LoRAs such as armored_dress still stack.
+    aliases: [thumbs_up_illustrious, tu_i2, thumbsup, thumbs-up]
+    checkpoint: "thumbsUpIllustrious_tuI2V12.safetensors"
+    download:
+      source: civitai
+      civitai_model_id: "1117319"
+      civitai_version_id: "1965443"
+      civitai_page: "https://civitai.com/models/1117319/thumbsup-illustrious"
+      size_hint: "~6.5 GB"
+    loras: []
+    prompt_prefix: "masterpiece, best quality, amazing quality, very aesthetic, absurdres, ultra-detailed"
+    negative_prompt: "bad quality, worst quality, worst detail, sketch, photorealistic"
+    defaults:
+      width: 1024
+      height: 1024
+      steps: 28
+      cfg: 6.0
+      sampler: "euler_ancestral"
+      scheduler: "normal"
+    note: >
+      Latest line on the page: Tu-i2 v1.2 (version 1965443).
+      The card does not set a special CFG or sampler, so this uses the Illustrious house defaults.
+      Civitai model 1117319.
+
+  divine_elegance:
+    architecture: sdxl_anime
+    label: Divine Elegance
+    description: "Divine Elegance Mix v1. Illustrious. On the anime list."
+    aliases: [divine, divine_elegance_mix]
+    checkpoint: "divineelegancemix_V10.safetensors"
+    loras: []
+    prompt_prefix: "masterpiece, best quality, amazing quality, very aesthetic, absurdres, ultra-detailed"
+    negative_prompt: "bad quality, worst quality, worst detail, sketch, photorealistic"
+    defaults:
+      width: 1024
+      height: 1024
+      steps: 28
+      cfg: 6.0
+      sampler: "euler_ancestral"
+      scheduler: "normal"
+
+  reedxxx:
+    architecture: sdxl_anime
+    label: Reed
+    description: "Reed XXX Illustrious v1.5. On the anime list."
+    aliases: [reed, reed_xxx]
+    checkpoint: "reedXXXIllustrious_v150.safetensors"
+    loras: []
+    prompt_prefix: "masterpiece, best quality, amazing quality, very aesthetic, absurdres, ultra-detailed"
+    negative_prompt: "bad quality, worst quality, worst detail, sketch, photorealistic"
+    defaults:
+      width: 1024
+      height: 1024
+      steps: 28
+      cfg: 6.0
+      sampler: "euler_ancestral"
+      scheduler: "normal"
+
+  uranus_vir:
+    architecture: sdxl_anime
+    label: Uranus Vir
+    description: "Uranus Vir XL male-focus Illustrious. On the anime list."
+    aliases: [uranus, uranus_vir_xl]
+    checkpoint: "uranusVirXLMaleFocus_v10Illustrious.safetensors"
+    loras: []
+    prompt_prefix: "masterpiece, best quality, amazing quality, very aesthetic, absurdres, ultra-detailed"
+    negative_prompt: "bad quality, worst quality, worst detail, sketch, photorealistic"
+    defaults:
+      width: 1024
+      height: 1024
+      steps: 28
+      cfg: 6.0
+      sampler: "euler_ancestral"
+      scheduler: "normal"
+
   anime:
     architecture: sdxl_anime
     description: "Anime / illustration — WAI Illustrious XL v17 (remote primary)"
     aliases: [illustrious, wai, anime_illustrious, illustration, wai_v170, illustrious_v170]
     checkpoint: "waiIllustriousSDXL_v170.safetensors"
     loras: []
-    prompt_prefix: "masterpiece, best quality, amazing quality, anime style"
+    prompt_prefix: "masterpiece, best quality, amazing quality, very aesthetic, absurdres, ultra-detailed"
     negative_prompt: "bad quality, worst quality, worst detail, sketch, photorealistic"
     defaults:
       width: 1024
@@ -907,7 +1036,7 @@ styles:
     aliases: [wai_v16, illustrious_v16, anime_v16]
     checkpoint: "waiIllustriousSDXL_v160.safetensors"
     loras: []
-    prompt_prefix: "masterpiece, best quality, amazing quality, anime style"
+    prompt_prefix: "masterpiece, best quality, amazing quality, very aesthetic, absurdres, ultra-detailed"
     negative_prompt: "bad quality, worst quality, worst detail, sketch, photorealistic"
     defaults:
       width: 1024
@@ -940,7 +1069,7 @@ styles:
         trigger: "perfect eyes"
         size_hint: "~218 MB"
         note: "Include trigger perfect eyes in prompt; weight 0.65-0.85"
-    prompt_prefix: "masterpiece, best quality, amazing quality, very aesthetic, anime illustration, detailed eyes, perfect eyes"
+    prompt_prefix: "masterpiece, best quality, amazing quality, very aesthetic, absurdres, ultra-detailed, detailed eyes, perfect eyes"
     negative_prompt: "lowres, bad anatomy, bad hands, bad eyes, asymmetric eyes, text, watermark, blurry, photorealistic"
     defaults:
       width: 1024
@@ -967,7 +1096,7 @@ styles:
       civitai_page: "https://civitai.com/models/4437?modelVersionId=5021"
       size_hint: "~2 GB"
     loras: []
-    prompt_prefix: "masterpiece, best quality, anime illustration"
+    prompt_prefix: "masterpiece, best quality, amazing quality, very aesthetic, absurdres, ultra-detailed"
     negative_prompt: "(worst quality, low quality:1.4), (depth of field, blurry:1.2), text, watermark, signature"
     defaults:
       width: 512
@@ -986,7 +1115,7 @@ styles:
     loras:
       - name: NSFWFilterXL_animagine.safetensors
         weight: 0.45
-    prompt_prefix: "masterpiece, best quality, very aesthetic, anime style"
+    prompt_prefix: "masterpiece, best quality, amazing quality, very aesthetic, absurdres, ultra-detailed"
     negative_prompt: "lowres, bad anatomy, bad hands, text, watermark, blurry, photorealistic, worst quality"
     defaults:
       width: 1024
@@ -1021,7 +1150,7 @@ styles:
     prompt_prefix: "score_9, score_8_up, score_7_up, high quality, detailed"
     negative_prompt: "score_6, score_5, score_4, lowres, bad anatomy, text, watermark, blurry"
     prompt_examples:
-      anime: "score_9, score_8_up, source_anime, 1girl, detailed eyes, cherry blossom park, soft lighting, anime illustration"
+      anime: "score_9, score_8_up, source_anime, 1girl, detailed eyes, cherry blossom park, soft lighting"
       explicit: "score_9, score_8_up, source_anime, rating_explicit, (natural language scene description)"
     defaults:
       width: 1024
@@ -1192,6 +1321,7 @@ styles:
 
   waijfu:
     architecture: sdxl_anime
+    family_label: illustrious
     description: >
       WAI JFU Alpha — Illustrious-family anime merge. Many popular anime characters
       are baked into the checkpoint (prompt by name; no character LoRA required).
@@ -1215,7 +1345,7 @@ styles:
         notes: >
           Illustrious/waijfu merge recognizes many other well-known anime characters by
           name + distinctive tags. Prefer dedicated LoRA when catalog has one.
-    prompt_prefix: "masterpiece, best quality, amazing quality, anime illustration"
+    prompt_prefix: "masterpiece, best quality, amazing quality, very aesthetic, absurdres, ultra-detailed"
     negative_prompt: "bad quality, worst quality, worst detail, sketch, photorealistic"
     defaults:
       width: 1024
@@ -1234,7 +1364,7 @@ styles:
     aliases: [house_waijfu, wai_house]
     checkpoint: "waijfu_house_v3.safetensors"
     loras: []
-    prompt_prefix: "masterpiece, best quality, amazing quality, anime illustration"
+    prompt_prefix: "masterpiece, best quality, amazing quality, very aesthetic, absurdres, ultra-detailed"
     negative_prompt: "bad quality, worst quality, worst detail, sketch, photorealistic, picture in picture, inset, panel, comic panel, panels, collage, border, frame, stickers, pop art, manga, multi panel, split screen, window, windows, skylight, bright window, daylight, sunlight, sunbeam, trees, outside view, overexposed, blown highlights, floor lamp clutter"
     defaults:
       width: 1024
@@ -1250,7 +1380,7 @@ styles:
     aliases: []
     checkpoint: "waijfu_house_v4.safetensors"
     loras: []
-    prompt_prefix: "masterpiece, best quality, amazing quality, anime illustration"
+    prompt_prefix: "masterpiece, best quality, amazing quality, very aesthetic, absurdres, ultra-detailed"
     negative_prompt: "bad quality, worst quality, worst detail, sketch, photorealistic"
     defaults:
       width: 1024
@@ -1266,7 +1396,7 @@ styles:
     aliases: [house_waijfu_v3]
     checkpoint: "waijfu_house_v3.safetensors"
     loras: []
-    prompt_prefix: "masterpiece, best quality, amazing quality, anime illustration"
+    prompt_prefix: "masterpiece, best quality, amazing quality, very aesthetic, absurdres, ultra-detailed"
     negative_prompt: "bad quality, worst quality, worst detail, sketch, photorealistic, picture in picture, inset, panel, comic panel, panels, collage, border, frame, stickers, pop art, manga, multi panel, split screen, window, skylight, overexposed, blown highlights, daylight, sunlight, trees"
     defaults:
       width: 1024
@@ -1282,7 +1412,7 @@ styles:
     aliases: [house_waijfu_v2]
     checkpoint: "waijfu_house_v2.safetensors"
     loras: []
-    prompt_prefix: "masterpiece, best quality, amazing quality, anime illustration"
+    prompt_prefix: "masterpiece, best quality, amazing quality, very aesthetic, absurdres, ultra-detailed"
     negative_prompt: "bad quality, worst quality, worst detail, sketch, photorealistic, picture in picture, panels, collage, window, skylight, overexposed, blown highlights, daylight, sunlight, trees"
     defaults:
       width: 1024
@@ -1298,7 +1428,7 @@ styles:
     aliases: [house_waijfu_v1]
     checkpoint: "waijfu_house_v1.safetensors"
     loras: []
-    prompt_prefix: "masterpiece, best quality, amazing quality, anime illustration"
+    prompt_prefix: "masterpiece, best quality, amazing quality, very aesthetic, absurdres, ultra-detailed"
     negative_prompt: "bad quality, worst quality, worst detail, sketch, photorealistic, window, skylight, overexposed, blown highlights, daylight, sunlight"
     defaults:
       width: 1024

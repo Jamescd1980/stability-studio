@@ -21,7 +21,7 @@ File: `/mnt/game/ollama/gguf/Huihui-Qwen3.8-27B-abliterated-Q4_K.gguf` → `olla
 
 ## Tools (MCP — not Ollama plugins)
 
-Ollama cannot load plugins. Nari gets tools via **Stability Studio MCP** (Cursor / Open Interpreter) or `oi_do.py`:
+Ollama cannot load plugins. Nari gets tools via **OneDesk MCP** (Cursor / Open Interpreter) or `oi_do.py`:
 
 ```bash
 py -3 D:\studio-agent\ollama\nari\oi_do.py docs

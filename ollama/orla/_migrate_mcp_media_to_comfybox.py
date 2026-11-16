@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Move media out of stability-studio-mcp/outputs into ComfyBox Images/Video.
+"""Move media out of onedesk-mcp/outputs into ComfyBox Images/Video.
 
 JSON/logs stay under studio-agent. Safe to re-run (skips identical files).
 """
@@ -8,7 +8,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-MCP_OUT = Path(r"D:\studio-agent\stability-studio-mcp\outputs")
+MCP_OUT = Path(r"D:\studio-agent\onedesk-mcp\outputs")
 IMAGES = Path(r"D:\ComfyBox Images and Videos\Images")
 VIDEO = Path(r"D:\ComfyBox Images and Videos\Video")
 IMAGE_EXT = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"}

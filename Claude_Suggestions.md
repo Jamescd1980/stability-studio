@@ -1,4 +1,4 @@
-# Suggestions — One Desk + Stability Studio MCP (planning)
+# Suggestions — One Desk + OneDesk MCP (planning)
 
 Planning and idea refinement for **private** development and an eventual public release. Not a ship schedule — see `Product_roadmap.md`.
 
@@ -1020,4 +1020,51 @@ Append-only is the rule, so these are listed, not fixed. Build AI: confirm each 
 - **§12.10 guide:** Target clip is bow + breeze + footsteps + JP hello (Kokoro); English three-liner / missing lunge are historical gaps.
 - **§12.12:** Nudge in whole frames (default 4 @ 16 fps); Shift = 1 frame.
 - **§7.1 / P0-S2:** Store chat widths as a mode-id map so Editing can be added later.
+
+---
+
+## 19. Studio monitor, Settings tabs, and Themes (Owner + Build AI, 2026-10-05)
+
+**Status:** Agreed design — promoted to `Product_roadmap.md` as **P0-S9**; engineering batches planned in `CODE_FIX_HANDOFF.md` (**14–16**). **No code yet** at write time.
+
+**Context:** Owner reviewed the top Studio / agent chrome and Settings. Goal: honest labels, real themes, secure keys, and a readable “what is running” stack — without another middle-manager agent (Orla retired as a peer brain; Myra is status UI, not a chat agent).
+
+### 19.1 Decisions (locked)
+
+| Topic | Decision |
+|-------|----------|
+| Agent label | Custom name if set; else **model id** (e.g. `nari:latest`). Never invent a persona. |
+| Myra | **Not** listed as an agent. |
+| Settings tabs | Streamline **General** (themes that actually apply) and **Models** (Ollama + Grok + key). Keep Jobs / Guided / Setup; don’t dump everything into one scroll. |
+| Themes | Ship **four presets** first (Windows-inspired): `dark` (default), `light`, `contrast`, `desert`. No custom theme editor yet. Use existing CSS vars. |
+| API keys | Prefer **DPAPI** store (Batch 2 path); UI paste → save → clear field; show “Key saved” / last-4 only; never log or return full key. |
+| Machine title | Under Studio: **custom label** → else **Local** (loopback / this PC) → else **render PC network hostname**. Not hard-coded “ComfyBox - Online.” Online/offline stays a separate status chip. |
+| HOST → **Program** | ComfyUI / Forge / Wan / Kokoro / etc. (what program is using the GPU stack). |
+| STYLE → **Checkpoint** | Known checkpoint name primary; style lane id secondary/tooltip. |
+| JOB | Show **Image / Audio / Video / Document** (mode family), not brain nickname. |
+| QUEUE → **Status** | Job state: `Idle` / `Generating` / `Ready` / `Failed`. Failed = detection/API error for this readout. |
+| Fan in Studio | **Remove.** Fans belong on gauges. Studio shows **LoRAs** instead (`—` if unknown). |
+| LoRAs / Seed | Last-known from tool results and/or agent updates on load/unload; `—` if unknown. |
+| Seed (Studio footer) | Resolved seed from last gen; clear to `—` after Status stays Idle ~60s with no gen; video with no seed → `—`; never leave raw `-1` once resolved. |
+| Dual PC | Hostname is the **render PC** when Comfy runs there, not always the Desk PC. |
+| Panel order | Heat, GPU load, Studio (and related) **reorderable**; persist order. |
+| Gauges | Separate **GPU fan** and **CPU fan**; show **CPU model**; CPU gauge may nest **IO pump** when the status feed has real data — else `—` / hide inner ring. |
+
+### 19.2 Studio stack (top → bottom)
+
+Program → what Job (Image/Audio/Video…) → Checkpoint → LoRAs → **Status** → **Seed** (footer).
+
+### 19.3 Engineering batches (see roadmap / handoff)
+
+| Batch | Roadmap id | Scope |
+|-------|------------|--------|
+| 14 | `P0-S9-B1` | Settings General/Models polish; four themes; agent label = model; hide Myra; secure Grok key UX |
+| 15 | `P0-S9-B2` | Studio card copy + Status / LoRAs / Seed + machine title |
+| 16 | `P0-S9-B3` | Reorderable panels; fan gauges; CPU model + nested IO when present |
+
+### 19.4 Out of scope here
+
+Custom theme editor; live Comfy `object_info` LoRA polling (tool-result / agent path only); Editing UI; folder layout §13; buying a second ComfyBox GPU; bringing Orla back as a peer manager.
+
+— Owner (intent) + Build AI (Composer), 2026-10-05
 

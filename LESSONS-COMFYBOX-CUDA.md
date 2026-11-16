@@ -46,7 +46,7 @@ Backups from migration: `/mnt/game/backups/cuda-migration-*` (on box only — do
 - [HARDWARE.md](HARDWARE.md) — labor split, 32 GB tiers
 - [MODEL-FAMILIES.md](MODEL-FAMILIES.md) — Hunyuan 1.5 rows
 - [LESSONS-BLENDER-MCP.md](LESSONS-BLENDER-MCP.md) — Blender on same GPU
-- [stability-studio-mcp/LESSONS-WAN-I2V.md](stability-studio-mcp/LESSONS-WAN-I2V.md) — MoE keeper rules
+- [onedesk-mcp/LESSONS-WAN-I2V.md](onedesk-mcp/LESSONS-WAN-I2V.md) — MoE keeper rules
 
 ### Idle GPU vs local Invoke (2026-09-22)
 

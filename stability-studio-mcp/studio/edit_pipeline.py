@@ -13,7 +13,7 @@ ART_FOOD_GROUPS: dict[str, dict[str, Any]] = {
         "default_style": "ilustmix",
         "styles": ["anime", "ilustmix", "animagine_xl", "aom2"],
         "edit_style_sdxl": "ilustmix",
-        "prompt_hint": "masterpiece, best quality, anime illustration",
+        "prompt_hint": "masterpiece, best quality, amazing quality, very aesthetic, absurdres, ultra-detailed",
     },
     "fantasy": {
         "label": "Fantasy art",

@@ -8,15 +8,20 @@ import sys
 import time
 from pathlib import Path
 
-SRC = Path(r"D:\studio-agent\stability-studio-mcp")
+# Preferred path (junction → live tree during transition if folder rename is locked).
+SRC = Path(r"D:\studio-agent\onedesk-mcp")
+if not (SRC / "server.py").is_file():
+    SRC = Path(r"D:\studio-agent\stability-studio-mcp")
 HOST = "comfybox"
-DEST = "/mnt/game/studio-agent/stability-studio-mcp"
+DEST = "/mnt/game/studio-agent/onedesk-mcp"
 ITEMS = [
     "studio",
     "workflows",
     "scripts",
     "catalog.yaml",
     "server.py",
+    "onedesk_ship.py",
+    "host_onedesk.py",
     "requirements.txt",
     "README.md",
     "LESSONS-WAN-I2V.md",
@@ -70,7 +75,7 @@ def main() -> int:
         print(f"sync failed tar={rc_tar} ssh={rc_ssh}", file=sys.stderr)
         return 1
     note = (
-        "Windows is the source of truth for stability-studio-mcp.\n"
+        "Windows is the source of truth for OneDesk MCP (onedesk-mcp).\n"
         f"Synced: {stamp}\n"
         f"Git SHA: {sha}\n"
         f"Host path: {SRC}\n"

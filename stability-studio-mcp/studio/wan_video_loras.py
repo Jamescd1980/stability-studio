@@ -13,7 +13,7 @@ from studio.wan_assets import FOLDER_MAP, _find_file, download_asset, model_dirs
 
 HF_REPO = "wangkanai/wan22-fp16-i2v-loras"
 
-# Curated I2V-friendly LoRAs (fp16, Wan 2.2). Download into Stability Matrix Lora/.
+# Curated I2V-friendly LoRAs (fp16, Wan 2.2). Download into configured Lora/ folders (Stability Matrix layout supported).
 # branch: high | low | both — used by wan22 MoE stacking (ignored on single-UNET 5B inject).
 WAN_VIDEO_LORAS: dict[str, dict[str, Any]] = {
     "lightning_i2v_high": {

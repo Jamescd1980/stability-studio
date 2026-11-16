@@ -19,7 +19,7 @@ from pathlib import Path
 
 COMFY = "http://192.168.50.57:8188"
 NARI_OLLAMA = "http://192.168.50.57:11434"
-MCP_ROOT = Path(r"D:\studio-agent\stability-studio-mcp")
+MCP_ROOT = Path(r"D:\studio-agent\onedesk-mcp")
 
 
 def _mcp_path() -> None:
@@ -51,7 +51,7 @@ def comfy_queue() -> int:
 
 
 def recycle(path: str) -> int:
-    scripts = Path(r"D:\studio-agent\stability-studio-mcp\scripts\general")
+    scripts = Path(r"D:\studio-agent\onedesk-mcp\scripts\general")
     sys.path.insert(0, str(scripts))
     from recycle_path import recycle as _recycle  # type: ignore
 

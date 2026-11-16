@@ -1,4 +1,4 @@
-"""Call Wan2GP MCP tools (streamable HTTP) from Stability Studio."""
+"""Call Wan2GP MCP tools (streamable HTTP) from OneDesk MCP."""
 
 from __future__ import annotations
 

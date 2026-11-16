@@ -11,7 +11,7 @@ Jan does **not** read or write project files by default. Your `mcp_config.json` 
 | **Project logs** | `stability-studio` → `get_project_context`, `log_image_prompt`, `list_image_prompt_log` |
 | **Read spreadsheet** | Not directly — use Cursor/OI, or enable filesystem MCP below |
 
-**Recommended:** Use **Stability Studio MCP** as Jan’s “file API” for the Bata project. It writes to paths under `outputs.delivery` without giving Jan access to your whole drive.
+**Recommended:** Use **OneDesk MCP** as Jan’s “file API” for the Bata project. It writes to paths under `outputs.delivery` without giving Jan access to your whole drive.
 
 ## Image prompt log (new)
 
@@ -42,7 +42,7 @@ Edit `D:\Jan\data\mcp_config.json` — set filesystem **active** and scope folde
     "-y",
     "@modelcontextprotocol/server-filesystem",
     "C:/Users/You/Projects/YourStoryboardProject",
-    "D:/studio-agent/stability-studio-mcp/outputs"
+    "D:/studio-agent/onedesk-mcp/outputs"
   ],
   "env": {}
 }

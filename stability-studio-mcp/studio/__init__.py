@@ -1,1 +1,1 @@
-"""Stability Studio MCP — local generation router for Stability Matrix."""
+"""OneDesk MCP — local generation router via ComfyUI (Stability Matrix and other layouts supported)."""

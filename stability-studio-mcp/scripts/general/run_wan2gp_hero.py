@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run one Wan2GP task via in-process API (subprocess entry for Stability Studio)."""
+"""Run one Wan2GP task via in-process API (subprocess entry for OneDesk MCP)."""
 
 from __future__ import annotations
 

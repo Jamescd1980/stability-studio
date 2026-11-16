@@ -31,7 +31,7 @@ source/   images/   images/chain/   assets/
 clips/    audio/    temp/           logs/    final/
 ```
 
-See `stability-studio-mcp/scripts/storyboard/examples/recommended_project_layout.json`.
+See `onedesk-mcp/scripts/storyboard/examples/recommended_project_layout.json`.
 
 ## Reproduce it (Tier 3 — needs GPU + time)
 

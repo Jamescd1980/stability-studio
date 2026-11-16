@@ -27,15 +27,15 @@ Do **one GPU job at a time**. Do not run SeedVR2 while ComfyBox is also hammerin
 
 | Piece | Path |
 |---|---|
-| RIFE-ncnn-vulkan (TNTwise 20250112) | `D:\studio-agent\stability-studio-mcp\tools\rife\` (junction) |
+| RIFE-ncnn-vulkan (TNTwise 20250112) | `D:\studio-agent\onedesk-mcp\tools\rife\` (junction) |
 | RIFE exe | `...\tools\rife\rife-ncnn-vulkan.exe` |
 | Default RIFE model | `rife-v4.26` (also `rife-anime`, `rife-v4.25`, …) |
-| SeedVR2 CLI repo | `D:\studio-agent\stability-studio-mcp\tools\seedvr2_videoupscaler\` |
+| SeedVR2 CLI repo | `D:\studio-agent\onedesk-mcp\tools\seedvr2_videoupscaler\` |
 | SeedVR2 venv | `...\seedvr2_videoupscaler\.venv\` (Py 3.10 + torch cu128) |
 | DiT weight (3B FP8) | `...\models\SEEDVR2\seedvr2_ema_3b_fp8_e4m3fn.safetensors` (~3.4 GB) |
 | VAE | `...\models\SEEDVR2\ema_vae_fp16.safetensors` (~501 MB) |
 | AnimeSharp fallback | `D:\StabilityMatrix-win-x64\Data\Models\RealESRGAN\2x-AnimeSharpV4_RCAN.safetensors` |
-| Legacy polish venv | `D:\studio-agent\stability-studio-mcp\.venv-post\` |
+| Legacy polish venv | `D:\studio-agent\onedesk-mcp\.venv-post\` |
 
 Config keys live under `local_post:` in `config.yaml`.
 
@@ -88,7 +88,7 @@ polish_wan_video(video_path=..., interpolate_method="minterpolate",
 ## How to call (CLI)
 
 ```powershell
-cd D:\studio-agent\stability-studio-mcp
+cd D:\studio-agent\onedesk-mcp
 
 # Status
 .\.venv-post\Scripts\python.exe scripts\general\local_post\polish_wan_best.py --check-only

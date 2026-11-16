@@ -1,4 +1,4 @@
-# Stability Studio
+# OneDesk MCP
 
 Local image and video generation for **Stability Matrix** + **ComfyUI**, exposed as an [MCP](https://modelcontextprotocol.io/) server for **Cursor**, **Open Interpreter**, and other agents.
 
@@ -29,11 +29,11 @@ cd stability-studio
 .\install.ps1
 ```
 
-Copy **workflow JSON** into Stability Matrix before video/MOSS: see [`stability-studio-mcp/workflows/README.md`](stability-studio-mcp/workflows/README.md) (or `bundled-workflows/`).
+Copy **workflow JSON** into Stability Matrix before video/MOSS: see [`onedesk-mcp/workflows/README.md`](onedesk-mcp/workflows/README.md) (or `bundled-workflows/`).
 
 1. Copy `.cursor/mcp.json.example` → `.cursor/mcp.json` if Cursor does not auto-detect Python  
 2. Open this folder in **Cursor** (or configure **Open Interpreter** — see docs below)  
-3. Tell the agent: **"Help me set up Stability Studio"** — it reads the **[onboarding pack](onboarding/README.md)**  
+3. Tell the agent: **"Help me set up OneDesk MCP"** — it reads the **[onboarding pack](onboarding/README.md)**  
 4. When ready: launch **ComfyUI** from Stability Matrix; complete Tier 1 (images) before video  
 
 | Audience | Start here |
@@ -81,7 +81,7 @@ Copy **workflow JSON** into Stability Matrix before video/MOSS: see [`stability-
 | [IP-ADAPTER-SETUP.md](IP-ADAPTER-SETUP.md) | IP-Adapter + ControlNet automated setup |
 | [WAN-ASSETS.md](WAN-ASSETS.md) | Wan model manifest and downloads |
 | [GITHUB.md](GITHUB.md) | Publish / zip checklist |
-| [stability-studio-mcp/README.md](stability-studio-mcp/README.md) | Package-level detail |
+| [onedesk-mcp/README.md](onedesk-mcp/README.md) | Package-level detail |
 
 ## Project structure
 
@@ -91,7 +91,7 @@ studio-agent/
   .cursor/rules/                # Agent rules for generation
   config-examples/              # OI TOML, Cursor JSON, OI skill
   bundled-workflows/            # Wan/MOSS JSON → copy to SM Data/Workflows/
-  stability-studio-mcp/
+  onedesk-mcp/
     server.py                   # MCP entry
     catalog.yaml                # Styles + video workflow ids
     config.yaml.example         # Path template (copy → config.yaml)
@@ -105,10 +105,10 @@ Linked hero sequences: walk → bow → lunge with MOSS dialogue and ffmpeg spli
 
 ```powershell
 # Plan manifest (no GPU)
-python stability-studio-mcp/scripts/storyboard/generate_storyboard.py plan --title rin --script-file beats.txt
+python onedesk-mcp/scripts/storyboard/generate_storyboard.py plan --title rin --script-file beats.txt
 
 # MCP: check_storyboard_readiness → generate_video_hero (×3) → generate_audio → splice
-python stability-studio-mcp/scripts/storyboard/generate_storyboard.py splice
+python onedesk-mcp/scripts/storyboard/generate_storyboard.py splice
 ```
 
 Full walkthrough: **[STORYBOARD-QUICKSTART.md](STORYBOARD-QUICKSTART.md)** · Release notes: **[RELEASE.md](RELEASE.md)**
